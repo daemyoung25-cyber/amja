@@ -1,0 +1,63 @@
+:root {
+  --ink: #f4efe4;
+  --ink-soft: rgba(244, 239, 228, .72);
+  --night: #1b1f33;
+  --glass: rgba(20, 22, 36, .32);
+  --glass-line: rgba(255, 255, 255, .16);
+  --accent: #e7b98a;
+  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night); color: var(--ink); font-family: var(--font); }
+body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font: inherit; color: inherit; }
+
+/* 입장 화면 */
+.enter {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 24px; text-align: center;
+  background: linear-gradient(180deg, #2f3460 0%, #6b5a7a 55%, #e3a27e 100%);
+  transition: opacity 1.2s ease;
+}
+.enter.leaving { opacity: 0; pointer-events: none; }
+.enter-mark { width: 52px; height: 26px; fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.enter h1 { margin: 6px 0 0; font-size: 28px; font-weight: 500; letter-spacing: 6px; padding-left: 6px; }
+.enter p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.enter button {
+  margin-top: 26px; min-height: 48px; padding: 0 28px; border-radius: 999px;
+  background: rgba(255, 255, 255, .14); border: 1px solid var(--glass-line); font-size: 15px; letter-spacing: 2px; cursor: pointer;
+}
+.enter button:focus-visible, .actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* HUD: 조용하게. 기대 있으면 사라진다. */
+.hud { position: fixed; inset: 0; pointer-events: none; transition: opacity 1.2s ease; }
+.hud.faded { opacity: 0; }
+.hud.faded .actions button { pointer-events: none; }
+.count {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: 16px; margin: 0;
+  font-size: 12px; color: var(--ink-soft); text-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+}
+.hint, .whisper {
+  position: absolute; left: 16px; right: 16px; margin: 0; text-align: center;
+  font-size: 13px; color: var(--ink-soft); text-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+  transition: opacity .8s ease;
+}
+.hint { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px); }
+.whisper { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 92px); opacity: 0; }
+.whisper.on { opacity: 1; }
+.actions {
+  position: absolute; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex; justify-content: center; gap: 10px; padding: 0 16px;
+}
+.actions button {
+  pointer-events: auto; min-width: 64px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+  background: var(--glass); border: 1px solid var(--glass-line); font-size: 14px; letter-spacing: 1px; cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .enter, .hud, .hint, .whisper { transition: none; }
+}
