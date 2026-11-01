@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -8,7 +8,7 @@ import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
 const STATUE_FACING = Math.PI;
-const BODHI_X = 0.86;              // 가운데 부처님에서 협시보살까지      // 스캔 모델은 +z가 정면이라 돌려서 문(-z) 쪽을 보게 한다
+const BUDDHA_H = 3.0, BODHI_H = 2.5, BODHI_X = 2.0;   // 삼존 높이와 가운데에서 협시보살까지      // 스캔 모델은 +z가 정면이라 돌려서 문(-z) 쪽을 보게 한다
 const KST_MS = 9 * 3600000;
 
 export function createWorld(THREE, scene) {
@@ -143,106 +143,112 @@ export function createWorld(THREE, scene) {
       leaf.position.set(x, h * (0.48 + k * 0.17), z);
     }
   };
-  pine(-11, 8.5, 5.5); pine(-9.5, 9.6, 4.2); pine(11.2, 8.8, 5);
+  pine(-11.2, 9, 5.5); pine(-11, 14.5, 4.6); pine(11.2, 10, 5); pine(11, 15.2, 4.2);
 
-  /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. */
+  /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. 크기는 layout.js의 WALLS를 따른다. */
   const hall = new THREE.Group();
-  const hallGround = [];
-  const paintedBands = [];                      // 눌러서 걸어갈 수 있는 법당 바닥과 방석 (카메라는 통과)
+  const hallGround = [];                      // 눌러서 걸어갈 수 있는 법당 바닥과 방석 (카메라는 통과)
+  const paintedBands = [];
   const hw = HALL.maxX - HALL.minX, hd = HALL.maxZ - HALL.minZ, hz = (HALL.minZ + HALL.maxZ) / 2;
-  const FY = 0.5, WALL_H = 2.8, WT = 0.15;
-  const W_FRONT = 6.2, W_BACK = 9.8, W_SIDE = 3.7, DOOR_W = 1.6, DOOR_H = 2.2;
+  const FY = FLOOR_Y, WALL_H = WALLS.height, WT = 0.2;
+  const W_FRONT = WALLS.front, W_BACK = WALLS.back, W_SIDE = WALLS.side, DOOR_W = WALLS.doorW, DOOR_H = WALLS.doorH;
+  const ROOM_W = W_SIDE * 2, ROOM_D = W_BACK - W_FRONT, ROOM_Z = (W_FRONT + W_BACK) / 2;
   const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); hall.add(b); return b; };
-  const dancheong = mat(0x2f6b55), danRed = mat(0x8e2f22), plaster = mat(0xefe6d4), gold = mat(0xd2a948);
+  const dancheong = mat(0x2f6b55), danRed = mat(0x8e2f22), danBlue = mat(0x3c5a8c), plaster = mat(0xefe6d4), gold = mat(0xd2a948);
   box(hw + 0.8, FY, hd + 0.6, mat(0x8a7f70), 0, FY / 2, hz);                 // 기단
-  box(2.4, 0.25, 0.4, mat(0x9b8f7e), 0, 0.125, HALL.door.z + 0.1);           // 디딤돌
-  // 꽃살문: 나무 바탕에 마름모 살, 초록 테두리
+  box(3.6, 0.25, 0.4, mat(0x9b8f7e), 0, 0.125, HALL.door.z + 0.1);           // 디딤돌
+  // 꽃살문: 나무 바탕에 마름모 살, 초록 테두리 (문짝 여러 칸으로 되풀이)
   const lattice = (() => {
-    const c = document.createElement("canvas"); c.width = 256; c.height = 192;
+    const c = document.createElement("canvas"); c.width = 256; c.height = 256;
     const g = c.getContext("2d");
-    g.fillStyle = "#7a4a2e"; g.fillRect(0, 0, 256, 192);
+    g.fillStyle = "#7a4a2e"; g.fillRect(0, 0, 256, 256);
     g.strokeStyle = "#b07a4c"; g.lineWidth = 3;
-    for (let i = -192; i < 256; i += 18) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 192, 192); g.moveTo(i + 192, 0); g.lineTo(i, 192); g.stroke(); }
-    g.strokeStyle = "#2f6b55"; g.lineWidth = 10;
-    for (let x = 0; x <= 256; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 192); g.stroke(); }
-    g.strokeRect(0, 0, 256, 192);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    for (let i = -256; i < 256; i += 18) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 256, 256); g.moveTo(i + 256, 0); g.lineTo(i, 256); g.stroke(); }
+    g.strokeStyle = "#2f6b55"; g.lineWidth = 12;
+    g.strokeRect(0, 0, 256, 256);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping; t.repeat.set(Math.round((W_SIDE - DOOR_W / 2) / 1.4), 1);
+    return t;
   })();
   const doorMat = new THREE.MeshLambertMaterial({ map: lattice });
   const sideW = W_SIDE - DOOR_W / 2;
   for (const sx of [-1, 1]) box(sideW, WALL_H, WT, doorMat, sx * (DOOR_W / 2 + sideW / 2), FY + WALL_H / 2, W_FRONT);
   box(DOOR_W, WALL_H - DOOR_H, WT, danRed, 0, FY + DOOR_H + (WALL_H - DOOR_H) / 2, W_FRONT);
-  for (const sx of [-1, 1]) box(0.12, DOOR_H, WT + 0.06, danRed, sx * DOOR_W / 2, FY + DOOR_H / 2, W_FRONT);
-  box(W_SIDE * 2, WALL_H, WT, plaster, 0, FY + WALL_H / 2, W_BACK);
-  for (const sx of [-1, 1]) box(WT, WALL_H, W_BACK - W_FRONT, plaster, sx * W_SIDE, FY + WALL_H / 2, (W_FRONT + W_BACK) / 2);
+  for (const sx of [-1, 1]) box(0.16, DOOR_H, WT + 0.08, danRed, sx * DOOR_W / 2, FY + DOOR_H / 2, W_FRONT);
+  box(ROOM_W, WALL_H, WT, plaster, 0, FY + WALL_H / 2, W_BACK);
+  for (const sx of [-1, 1]) box(WT, WALL_H, ROOM_D, plaster, sx * W_SIDE, FY + WALL_H / 2, ROOM_Z);
   // 처마 밑 단청 띠와 기둥 위 창방
-  box(W_SIDE * 2 + 0.3, 0.32, W_BACK - W_FRONT + 0.3, dancheong, 0, FY + WALL_H - 0.12, (W_FRONT + W_BACK) / 2);
-  const danBlue = mat(0x3c5a8c);
-  for (let i = 0; i < 9; i++) box(0.22, 0.14, 0.04, i % 2 ? danRed : danBlue, -3.2 + i * 0.8, FY + WALL_H - 0.12, W_FRONT - 0.17);
-  for (const x of [-3.4, -1.15, 1.15, 3.4]) {
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, WALL_H + 0.1, 8), danRed);
-    pillar.position.set(x, FY + WALL_H / 2, HALL.minZ + 0.3);
+  box(ROOM_W + 0.4, 0.5, ROOM_D + 0.4, dancheong, 0, FY + WALL_H - 0.2, ROOM_Z);
+  const blocks = Math.floor(ROOM_W / 0.8);
+  for (let i = 0; i < blocks; i++) box(0.3, 0.2, 0.04, i % 2 ? danRed : danBlue, -ROOM_W / 2 + 0.4 + i * 0.8, FY + WALL_H - 0.2, W_FRONT - 0.22);
+  const PILLARS = 6;
+  for (let i = 0; i < PILLARS; i++) {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, WALL_H + 0.1, 10), danRed);
+    pillar.position.set(-(hw / 2 - 0.6) + (i * (hw - 1.2)) / (PILLARS - 1), FY + WALL_H / 2, HALL.minZ + 0.35);
     hall.add(pillar);
   }
-  box(hw + 0.4, 0.26, 0.26, dancheong, 0, FY + WALL_H - 0.1, HALL.minZ + 0.3);
+  box(hw + 0.4, 0.36, 0.36, dancheong, 0, FY + WALL_H - 0.15, HALL.minZ + 0.35);
   const roofMat = mat(0x3b4048);
+  const ROOF_H = 3.4, EAVE = 2.2;
   const roofShape = new THREE.Shape();
-  roofShape.moveTo(-(hd / 2 + 1.5), 0); roofShape.quadraticCurveTo(-(hd / 2) + 0.4, 0.15, -0.6, 1.9);
-  roofShape.lineTo(0.6, 1.9); roofShape.quadraticCurveTo(hd / 2 - 0.4, 0.15, hd / 2 + 1.5, 0); roofShape.lineTo(-(hd / 2 + 1.5), 0);
-  const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(roofShape, { depth: hw + 2.4, bevelEnabled: false }), roofMat);
+  roofShape.moveTo(-(hd / 2 + EAVE), 0); roofShape.quadraticCurveTo(-(hd / 2) + 0.8, 0.3, -1.0, ROOF_H);
+  roofShape.lineTo(1.0, ROOF_H); roofShape.quadraticCurveTo(hd / 2 - 0.8, 0.3, hd / 2 + EAVE, 0); roofShape.lineTo(-(hd / 2 + EAVE), 0);
+  const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(roofShape, { depth: hw + EAVE * 2, bevelEnabled: false }), roofMat);
   roof.rotation.y = Math.PI / 2;
-  roof.position.set(-(hw + 2.4) / 2, FY + WALL_H - 0.05, hz);
+  roof.position.set(-(hw + EAVE * 2) / 2, FY + WALL_H + 0.05, hz);
   hall.add(roof);
-  for (const x of [-(hw / 2 + 1.1), hw / 2 + 1.1]) for (const z of [HALL.minZ - 0.9, HALL.maxZ + 0.9]) {
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 4), roofMat);
-    tip.position.set(x, FY + WALL_H + 0.15, z);
+  for (const x of [-(hw / 2 + EAVE - 0.4), hw / 2 + EAVE - 0.4]) for (const z of [HALL.minZ - EAVE + 0.4, HALL.maxZ + EAVE - 0.4]) {
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.2, 4), roofMat);
+    tip.position.set(x, FY + WALL_H + 0.4, z);
     tip.rotation.set(z < hz ? -0.7 : 0.7, 0, x < 0 ? 0.5 : -0.5);
     hall.add(tip);
   }
-  box(hw + 2.8, 0.22, 0.3, roofMat, 0, FY + WALL_H + 1.9, hz);
-  // 안: 마루, 초록 천장, 불단, 앉은 부처님, 탱화, 촛불, 방석
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W_SIDE * 2, W_BACK - W_FRONT), mat(0x9a6b45));
+  box(hw + EAVE * 2 + 0.4, 0.4, 0.5, roofMat, 0, FY + WALL_H + ROOF_H + 0.05, hz);
+  // 안: 마루, 우물반자 천장, 수미단, 삼존, 탱화, 촛불, 방석
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), mat(0x9a6b45));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, FY + 0.005, (W_FRONT + W_BACK) / 2);
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W_SIDE * 2, W_BACK - W_FRONT), new THREE.MeshLambertMaterial({ map: cofferTexture(THREE), side: THREE.DoubleSide }));
+  floor.position.set(0, FY + 0.005, ROOM_Z);
+  const coffer = cofferTexture(THREE, [Math.round(ROOM_W / 1.4), Math.round(ROOM_D / 1.4)]);
+  // 아래를 보는 면이라 빛을 덜 받으니, 무늬가 스스로 조금 밝게 보이게
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshLambertMaterial({ map: coffer, emissiveMap: coffer, emissive: 0x6a6a6a, side: THREE.DoubleSide }));
   ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.set(0, FY + WALL_H - 0.36, (W_FRONT + W_BACK) / 2);   // 처마 단청 상자 바닥(3.02)과 겹치면 폰에서 깜빡인다
+  ceiling.position.set(0, CEILING_Y, ROOM_Z);   // 처마 단청 상자 바닥보다 아래에 (겹치면 폰에서 깜빡인다)
   hall.add(floor, ceiling);
   hallGround.push(floor);
-  const altarTop = FY + 0.85;
+  const ALTAR_H = 1.0, ALTAR_W = 7.6, ALTAR_D = 1.3, altarTop = FY + ALTAR_H;
   // 수미단: 받침, 연꽃 칸을 그린 몸통, 색띠 두른 윗판 (앞면만 그림, 정면은 -z)
   const sumiRed = mat(0x7c2019), sumiFront = new THREE.MeshLambertMaterial({ map: sumidanTexture(THREE) });
-  const bandFront = new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, 3) });
+  sumiFront.map.wrapS = THREE.RepeatWrapping; sumiFront.map.repeat.set(2, 1);
+  const bandFront = new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, 6) });
   const faced = (front, side) => [side, side, side, side, side, front];
-  box(4.0, 0.15, 0.85, sumiRed, ALTAR.x, FY + 0.075, ALTAR.z);
-  box(3.8, 0.55, 0.72, faced(sumiFront, sumiRed), ALTAR.x, FY + 0.425, ALTAR.z);
-  box(4.0, 0.15, 0.82, faced(bandFront, gold), ALTAR.x, FY + 0.775, ALTAR.z);
-  // 후불탱화: 조선 불화 (클리블랜드 미술관 CC0), 붉은 바탕에 금테
-  const TH_W = 3.2, TH_H = TH_W * 940 / 1536, TH_Y = FY + WALL_H - 0.75 - TH_H / 2;   // 위쪽 단청 띠 아래로
+  box(ALTAR_W + 0.3, 0.2, ALTAR_D + 0.15, sumiRed, ALTAR.x, FY + 0.1, ALTAR.z);
+  box(ALTAR_W, 0.62, ALTAR_D, faced(sumiFront, sumiRed), ALTAR.x, FY + 0.2 + 0.31, ALTAR.z);
+  box(ALTAR_W + 0.3, 0.18, ALTAR_D + 0.1, faced(bandFront, gold), ALTAR.x, FY + 0.82 + 0.09, ALTAR.z);
+  // 벽 위쪽을 두르는 단청 띠 (안쪽 네 면)
+  const bandH = 0.6, bandY = CEILING_Y - bandH / 2 + 0.02;
+  for (const [w, x, z, ry, rep] of [[ROOM_W, 0, W_BACK - WT / 2 - 0.015, Math.PI, 8], [ROOM_W, 0, W_FRONT + WT / 2 + 0.015, 0, 8],
+    [ROOM_D, -W_SIDE + WT / 2 + 0.015, ROOM_Z, Math.PI / 2, 4], [ROOM_D, W_SIDE - WT / 2 - 0.015, ROOM_Z, -Math.PI / 2, 4]]) {
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, bandH), new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, rep) }));
+    band.rotation.y = ry; band.position.set(x, bandY, z);
+    hall.add(band);
+    paintedBands.push(band);
+  }
+  // 후불탱화: 조선 불화 (클리블랜드 미술관 CC0), 붉은 바탕에 금테. 단청 띠 바로 아래.
+  const TH_W = 6.2, TH_H = TH_W * 940 / 1536, TH_Y = bandY - bandH / 2 - 0.15 - TH_H / 2;
   const painting = new THREE.TextureLoader().load("textures/taenghwa.jpg");
   painting.colorSpace = THREE.SRGBColorSpace; painting.anisotropy = 4;
   const taenghwa = new THREE.Mesh(new THREE.PlaneGeometry(TH_W, TH_H), new THREE.MeshLambertMaterial({ map: painting }));
   taenghwa.rotation.y = Math.PI;
   taenghwa.position.set(0, TH_Y, W_BACK - WT / 2 - 0.02);
-  const thFrame = new THREE.Mesh(new THREE.PlaneGeometry(TH_W + 0.24, TH_H + 0.24), mat(0x7c2019));
+  const thFrame = new THREE.Mesh(new THREE.PlaneGeometry(TH_W + 0.36, TH_H + 0.36), mat(0x7c2019));
   thFrame.rotation.y = Math.PI;
   thFrame.position.set(0, TH_Y, W_BACK - WT / 2 - 0.01);
   hall.add(thFrame, taenghwa);
-  // 벽 위쪽을 두르는 단청 띠 (안쪽 네 면)
-  const bandY = FY + WALL_H - 0.47, bandH = 0.36, inner = new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, 4) });
-  const sideBand = new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, 2) });
-  for (const [w, x, z, ry, m] of [[W_SIDE * 2, 0, W_BACK - WT / 2 - 0.015, Math.PI, inner], [W_SIDE * 2, 0, W_FRONT + WT / 2 + 0.015, 0, inner],
-    [W_BACK - W_FRONT, -W_SIDE + WT / 2 + 0.015, (W_FRONT + W_BACK) / 2, Math.PI / 2, sideBand], [W_BACK - W_FRONT, W_SIDE - WT / 2 - 0.015, (W_FRONT + W_BACK) / 2, -Math.PI / 2, sideBand]]) {
-    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, bandH), m);
-    band.rotation.y = ry; band.position.set(x, bandY, z);
-    hall.add(band);
-    paintedBands.push(band);
-  }
-  const buddha = createBuddha(THREE);
+  const buddha = createBuddha(THREE, { scale: 0.72 * BUDDHA_H / 1.62 });
   buddha.position.set(ALTAR.x, altarTop + 0.03, ALTAR.z);
   hall.add(buddha);
   // 국가유산청 3D 에셋 금동제여래좌상(공공누리 1유형). 다 불러오면 코드로 만든 부처님과 자리를 바꾼다.
-  loadStatue(THREE, "models/buddha.glb", { height: 1.62 }).then((statue) => {
+  loadStatue(THREE, "models/buddha.glb", { height: BUDDHA_H }).then((statue) => {
     if (!statue) return;
     statue.object.position.set(ALTAR.x, altarTop, ALTAR.z);
     statue.object.rotation.y = STATUE_FACING;
@@ -250,12 +256,12 @@ export function createWorld(THREE, scene) {
     hall.add(statue.object);
   });
   // 양옆 협시보살: 국가유산청 3D 에셋 선림원지 금동보살입상(공공누리 1유형).
-  loadStatue(THREE, "models/bodhisattva.glb", { height: 1.3, doubleSided: true }).then((statue) => {
+  loadStatue(THREE, "models/bodhisattva.glb", { height: BODHI_H, doubleSided: true }).then((statue) => {
     if (!statue) return;
     for (const sx of [-1, 1]) {
       // 불러온 원본은 그대로 두고 복제본만 쓴다 (원본을 직접 놓으면 뒷모습이 보였다)
       const o = statue.object.clone();
-      o.position.set(ALTAR.x + sx * BODHI_X, altarTop, ALTAR.z + 0.05);
+      o.position.set(ALTAR.x + sx * BODHI_X, altarTop, ALTAR.z + 0.1);
       o.rotation.y = STATUE_FACING;
       if (sx > 0) o.scale.x = -1;                // 오른쪽은 거울로 뒤집어 두 분이 마주 보게
       hall.add(o);
@@ -263,22 +269,22 @@ export function createWorld(THREE, scene) {
   });
   const flames = [];
   for (const sx of [-1, 1]) {
-    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.26, 6), mat(0xf4efe4));
-    candle.position.set(sx * 0.5, altarTop + 0.16, ALTAR.z - 0.32);
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 6), new THREE.MeshBasicMaterial({ color: 0xffc35a }));
-    flame.position.set(candle.position.x, altarTop + 0.34, candle.position.z);
+    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), mat(0xf4efe4));
+    candle.position.set(sx * 1.05, altarTop + 0.25, ALTAR.z - 0.5);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.15, 6), new THREE.MeshBasicMaterial({ color: 0xffc35a }));
+    flame.position.set(candle.position.x, altarTop + 0.58, candle.position.z);
     hall.add(candle, flame);
     flames.push(flame);
   }
   const cushionMat = mat(0x8c2f3a);
   for (const c of CUSHIONS) {
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.62), cushionMat);
+    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.66), cushionMat);
     cushion.position.set(c.x, FY + 0.04, c.z);
     hall.add(cushion);
     hallGround.push(cushion);
   }
-  const candleLight = new THREE.PointLight(0xffb46b, 3, 7, 1.6);
-  candleLight.position.set(0, FY + 1.8, 8.2);
+  const candleLight = new THREE.PointLight(0xffb46b, 6, 16, 1.4);
+  candleLight.position.set(0, FY + 3.0, ALTAR.z - 3);
   hall.add(candleLight);
   scene.add(hall);
   const noBlock = new Set([...hallGround, ceiling, ...flames, taenghwa, thFrame, ...paintedBands]);
@@ -313,7 +319,7 @@ export function createWorld(THREE, scene) {
   add(railHit, true);
 
   /* 연등: 마당 위로 줄 세 가닥, 연꽃 모양 등이 줄줄이. 해가 지면 불이 켜진 듯 밝아진다. */
-  const LANTERN_ROWS = [-1.6, 0.4, 2.4], POLE_X = 12.2, STRING_Y = 4.3, SAG = 0.55;
+  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = 12.2, STRING_Y = 4.4, SAG = 0.5, LANTERN_GAP = 0.85;
   const LANTERN_COLORS = [0xf28fb0, 0xf5a35c, 0xf3dd7a, 0x9fd38a, 0xe0574a, 0xf7f1e3];
   const stringY = (x) => STRING_Y - SAG * (1 - (x / POLE_X) ** 2);
   // 꽃잎 끝이 위로 들린 연꽃 모양
@@ -333,7 +339,7 @@ export function createWorld(THREE, scene) {
     const pts = [];
     for (let i = 0; i <= 24; i++) { const x = -POLE_X + (2 * POLE_X * i) / 24; pts.push(new THREE.Vector3(x, stringY(x), z)); }
     add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2622 })));
-    for (let x = -11; x <= 11.01; x += 1.1) lanterns.push({ x, y: stringY(x) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
+    for (let x = -11.4 + (LANTERN_ROWS.indexOf(z) % 2) * LANTERN_GAP / 2; x <= 11.41; x += LANTERN_GAP) lanterns.push({ x, y: stringY(x) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
   }
   const lanternMesh = new THREE.InstancedMesh(lanternGeo, lanternMat, lanterns.length);
   lanterns.forEach((l, i) => lanternMesh.setColorAt(i, new THREE.Color(l.color)));
@@ -415,7 +421,7 @@ export function createWorld(THREE, scene) {
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
     scene.fog.color.setRGB(...s.horizon);
     lanternGlow.value = 0.45 + 0.55 * night;
-    candleLight.intensity = 2.5 + 3.5 * night;
+    candleLight.intensity = 5 + 7 * night;
   }
 
   function update(date, dt, camPos) {

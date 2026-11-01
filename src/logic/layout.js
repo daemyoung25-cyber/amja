@@ -1,18 +1,21 @@
 /* 암자 배치. 단위는 미터, z가 음수인 쪽이 바다(남쪽). yaw 0 = 바다를 바라봄. */
-export const COURTYARD = { minX: -12, maxX: 12, minZ: -6, maxZ: 10 };
+export const COURTYARD = { minX: -12, maxX: 12, minZ: -6, maxZ: 16.5 };
 export const RAIL_Z = -6;
 export const LEAN_Z = -5.4;
-export const HALL = { minX: -4, maxX: 4, minZ: 5.5, maxZ: 10, door: { x: 0, z: 5 } };
+export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
 export const STATUE = { x: 9, z: -4.5, baseR: 1.2 };
-export const CHIME = { x: 3.5, y: 3.2, z: 5.2 };
+export const CHIME = { x: 6.5, y: 4.9, z: 4.4 };
 // 법당 안: 걸을 수 있는 곳, 문 안팎, 불단, 방석
-export const INSIDE = { minX: -3.3, maxX: 3.3, minZ: 6.55, maxZ: 8.6 };
-export const DOOR_IN = { x: 0, z: 6.7 };
-export const ALTAR = { x: 0, z: 9.3 };
-export const CUSHIONS = [-1.8, 0, 1.8].flatMap((x) => [{ x, z: 7.5 }, { x, z: 8.35 }]);
+// 법당 벽: 앞·뒤 벽의 z, 옆벽의 |x|, 벽 높이, 가운데 문 크기
+export const WALLS = { front: 6.6, back: 15.0, side: 8.4, height: 4.8, doorW: 2.4, doorH: 3.4 };
+export const INSIDE = { minX: -8.0, maxX: 8.0, minZ: 6.95, maxZ: 12.6 };
+export const DOOR_IN = { x: 0, z: 7.1 };
+export const ALTAR = { x: 0, z: 13.9 };
+export const CUSHIONS = [-4, -2, 0, 2, 4].flatMap((x) => [{ x, z: 8.6 }, { x, z: 10.2 }, { x, z: 11.8 }]);
 export const FLOOR_Y = 0.5;
+export const CEILING_Y = FLOOR_Y + WALLS.height - 0.36;
 // 법당 안에 있을 때 카메라가 머무를 상자 (벽·천장 안쪽). 문으로 빠져나가면 문틀에 걸려 깜빡인다.
-export const ROOM = { minX: -3.45, maxX: 3.45, minZ: 6.45, maxZ: 9.55, maxY: 2.8 };
+export const ROOM = { minX: -8.1, maxX: 8.1, minZ: 6.95, maxZ: 14.7, maxY: CEILING_Y - 0.2 };
 
 const MARGIN = 0.3;
 const LEAN_X = 11.5;
@@ -26,7 +29,7 @@ const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
 
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
-const BASE = { minX: -4.4, maxX: 4.4, minZ: 5.2, maxZ: 10.3 }, STEP_Z = 4.9;
+const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
 export function floorY({ x, z }) {
   if (x < BASE.minX || x > BASE.maxX || z < STEP_Z || z > BASE.maxZ) return 0;
   return z >= BASE.minZ ? FLOOR_Y : FLOOR_Y * (z - STEP_Z) / (BASE.minZ - STEP_Z);

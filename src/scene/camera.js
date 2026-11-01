@@ -1,6 +1,6 @@
 /* 3인칭 카메라. 기본은 캐릭터 뒤에서 바다(-z) 쪽을 본다.
    한 손가락 끌기 = 둘러보기, 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
-const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 2.6, INDOOR_PITCH = 0.55, INDOOR_AHEAD = 2.4, INDOOR_FOV = 80;
+const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 3.2, INDOOR_PITCH = 0.45, INDOOR_AHEAD = 3.5, INDOOR_FOV = 75;
 const TAP_PX = 8, TAP_MS = 400;
 
 export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = {}) {
@@ -11,6 +11,8 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   let indoor = false, indoorBlend = 0, yawGoal = null;
   const baseFov = camera.fov;                          // 법당 안에선 넓게 봐야 삼존이 한눈에 든다   // 법당 안: 가까이, 낮게, 불단 쪽으로
   const focus = new THREE.Vector3(0, 1.1, 2), want = new THREE.Vector3(0, 1.1, 2);
+  const target = new THREE.Vector3();
+  let placed = false;
   let targetYaw = 0;
 
   const pts = new Map();
@@ -95,13 +97,15 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
     const len = dir.length();
     dir.divideScalar(len);
     ray.set(eye, dir); ray.far = len;
-    const hit = obstacles.length ? ray.intersectObjects(obstacles, false)[0] : null;
+    // 법당 안: 벽에 부딪혀 보는 대신 방 안 상자에 가둔다 (문틀에 걸렸다 풀렸다 하며 화면이 튀지 않게)
+    const inRoom = indoor && room;
+    const hit = !inRoom && obstacles.length ? ray.intersectObjects(obstacles, false)[0] : null;
     const k = hit ? Math.max(0.6, hit.distance - 0.35) / len : 1;
-    camera.position.set(eye.x + dir.x * len * k, Math.max(0.4, eye.y + dir.y * len * k), eye.z + dir.z * len * k);
-    if (indoor && room) {
-      const p = camera.position;
-      p.set(Math.min(room.maxX, Math.max(room.minX, p.x)), Math.min(room.maxY, p.y), Math.min(room.maxZ, Math.max(room.minZ, p.z)));
-    }
+    target.set(eye.x + dir.x * len * k, Math.max(0.4, eye.y + dir.y * len * k), eye.z + dir.z * len * k);
+    if (inRoom) target.set(Math.min(room.maxX, Math.max(room.minX, target.x)), Math.min(room.maxY, target.y), Math.min(room.maxZ, Math.max(room.minZ, target.z)));
+    // 갑자기 튀지 않게 조금씩 따라간다 (처음 한 번은 바로)
+    if (!placed) { camera.position.copy(target); placed = true; }
+    else camera.position.lerp(target, 1 - Math.exp(-dt * 10));
     // 기대 있을 땐 시선을 바다 쪽으로 조금 더 멀리
     const ahead = 4 * leanBlend + INDOOR_AHEAD * indoorBlend;
     camera.lookAt(focus.x - Math.sin(yaw) * ahead + Math.cos(yaw) * side, fy + 0.1 * leanBlend, focus.z - Math.cos(yaw) * ahead - Math.sin(yaw) * side);

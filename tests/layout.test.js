@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampToWalkable, resolveTap, floorY, insideHall, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN } from "../src/logic/layout.js";
+import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
@@ -55,7 +55,7 @@ function crosses(from, path, test) {
   return null;
 }
 const inStatue = (p) => dist(p, STATUE) < STATUE.baseR;
-const walkable = (p) => p.x >= -12 && p.x <= 12 && p.z >= -6 && p.z <= 10;
+const walkable = (p) => p.x >= COURTYARD.minX && p.x <= COURTYARD.maxX && p.z >= COURTYARD.minZ && p.z <= COURTYARD.maxZ;
 
 test("a straight path with nothing in the way is just the destination", () => {
   assert.deepEqual(routeAround({ x: -5, z: -2 }, { x: 2, z: -5.4 }), [{ x: 2, z: -5.4 }]);
@@ -70,7 +70,7 @@ test("walking along the railing past the statue goes round its landward side", (
 });
 
 test("crossing behind the hall goes round its front", () => {
-  const from = { x: -6, z: 8 }, to = { x: 6, z: 8 };
+  const from = { x: -10.6, z: 12 }, to = { x: 10.6, z: 12 };
   const path = routeAround(from, to);
   assert.deepEqual(path.at(-1), to);
   assert.equal(crosses(from, path, inHall), null, JSON.stringify(path));
