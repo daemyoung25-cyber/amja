@@ -8,3 +8,11 @@
 풍경 소리는 음원 없이 Web Audio로 합성한다.
 
 불경 음원은 임시다. 반야심경이 든 음원으로 바꿀 후보: [JongsouTemple - Seoul South Korea](https://freesound.org/people/RTB45/sounds/232411/) (RTB45, CC BY 4.0 — 쓰면 작성자 표시 필요).
+
+## 그림
+
+| 파일 | 원본 | 소장·작성자 | 라이선스 | 손본 것 |
+|---|---|---|---|---|
+| `textures/taenghwa.jpg` | [The Assembly of Tejaprabha Buddha](https://clevelandart.org/art/1998.120), 조선 | Cleveland Museum of Art | CC0 | 1536px로 줄임 |
+
+수미단, 단청 띠, 우물반자 무늬는 `src/scene/dancheong.js`에서 캔버스로 직접 그린다.
