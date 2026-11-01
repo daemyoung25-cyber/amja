@@ -1,7 +1,7 @@
 /* 3인칭 카메라. 기본은 캐릭터 뒤에서 바다(-z) 쪽을 본다.
    한 손가락 끌기 = 둘러보기, 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
 const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 3.2, INDOOR_PITCH = 0.45, INDOOR_AHEAD = 3.5, INDOOR_FOV = 75;
-const TAP_PX = 8, TAP_MS = 400;
+const TAP_PX = 12, TAP_MS = 700;   // 손가락 떨림과 짧은 누름을 넉넉히
 
 export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = {}) {
   const ray = new THREE.Raycaster();
@@ -21,7 +21,7 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   dom.addEventListener("pointerdown", (e) => {
     dom.setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 1) { downAt = performance.now(); moved = 0; }
+    if (pts.size === 1) { downAt = e.timeStamp; moved = 0; }   // 처리 시각이 아니라 실제로 누른 시각 (화면이 바쁘면 처리가 늦다)
     if (pts.size === 2) { pinch0 = spread(); dist0 = dist; moved = TAP_PX + 1; }
   });
   dom.addEventListener("pointermove", (e) => {
@@ -42,7 +42,7 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   });
   const end = (e) => {
     const had = pts.delete(e.pointerId);
-    if (had && pts.size === 0 && moved <= TAP_PX && performance.now() - downAt < TAP_MS && e.type === "pointerup") onTap?.(e.clientX, e.clientY);
+    if (had && pts.size === 0 && moved <= TAP_PX && e.timeStamp - downAt < TAP_MS && e.type === "pointerup") onTap?.(e.clientX, e.clientY);
   };
   dom.addEventListener("pointerup", end);
   dom.addEventListener("pointercancel", end);

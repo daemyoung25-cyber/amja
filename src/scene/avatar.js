@@ -104,12 +104,25 @@ export function createAvatar(THREE, { color }) {
     stand: [[-0.24, 0.05, -0.02], [0.24, 0.05, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
-    sit: [[-0.07, -0.02, -0.2], [0.07, -0.02, -0.2]],
+    sit: [[-0.09, -0.04, -0.24], [0.09, -0.04, -0.24]],     // 무릎 위에 포갠 손
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
   function setPose(p) { if (p !== pose) { pose = p; poseT = 0; } }
   function setSeated(on) { seated = on; }
+
+  // 앉으면 보이는 포갠 다리: 넓적한 무릎과 정강이 (서 있을 땐 0으로 줄여 숨긴다)
+  const legs = new THREE.Group();
+  const lap = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), skirtMat);
+  lap.scale.set(0.34, 0.1, 0.24); lap.position.set(0, 0.09, -0.08);
+  legs.add(lap);
+  for (const sx of [-1, 1]) {
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), skirtMat);
+    knee.scale.set(1.15, 0.75, 1); knee.position.set(sx * 0.27, 0.09, -0.15);
+    legs.add(knee);
+  }
+  legs.scale.setScalar(0.001);
+  root.add(legs);
 
   function update(dt) {
     t += dt; poseT += dt;
@@ -128,8 +141,11 @@ export function createAvatar(THREE, { color }) {
     body.rotation.x = lerp(body.rotation.x, tilt, k);
     upper.rotation.x = lerp(upper.rotation.x, upperTilt, k);
     sitK = lerp(sitK, seated ? 1 : 0, k);
-    body.position.y = bob - 0.27 * sitK;
-    skirt.scale.set(1 + 0.6 * sitK, 1 - 0.4 * sitK, 1 + 0.5 * sitK);
+    // 앉은 자세: 몸통을 다리 위로 내리고(머리 높이 약 2/3), 치마 대신 포갠 다리가 드러난다
+    body.position.y = bob - 0.4 * sitK;
+    skirt.scale.setScalar(Math.max(0.001, 1 - sitK));
+    legs.scale.setScalar(Math.max(0.001, sitK));
+    shadow.scale.setScalar(1 + 0.35 * sitK);
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
   }
