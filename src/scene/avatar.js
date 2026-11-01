@@ -31,7 +31,24 @@ function robeTexture(THREE) {
   robeTex.colorSpace = THREE.SRGBColorSpace;
   return robeTex;
 }
-const POSE_LEN = { hapjang: 2.5, bow: 4 };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2 };
+
+/* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
+   → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
+const BOW_KEYS = [
+  [0.0, 0, 0, 0, "hapjang"], [0.8, 0, 0, -0.05, "hapjang"], [1.6, 0, 0, -0.5, "hapjang"], [2.4, 0, 0, -0.05, "hapjang"],
+  [3.4, 1, 0.38, -0.1, "knees"], [4.2, 1, 0.38, -0.95, "floor"], [5.0, 1, 0.46, -1.4, "prone"], [5.6, 1, 0.46, -1.4, "prone"],
+  [6.3, 1, 0.46, -1.4, "lift"], [7.0, 1, 0.46, -1.4, "prone"], [7.8, 1, 0.38, -0.95, "floor"], [8.6, 1, 0.38, -0.1, "knees"],
+  [9.6, 0, 0, -0.05, "hapjang"], [10.4, 0, 0, -0.5, "hapjang"], [11.2, 0, 0, 0, "hapjang"],
+];
+function bowAt(sec) {
+  let i = 0;
+  while (i < BOW_KEYS.length - 2 && BOW_KEYS[i + 1][0] <= sec) i++;
+  const a = BOW_KEYS[i], b = BOW_KEYS[i + 1];
+  const f = Math.min(1, Math.max(0, (sec - a[0]) / (b[0] - a[0]))), e = f * f * (3 - 2 * f);
+  const mix = (x, y) => x + (y - x) * e;
+  return { kneel: mix(a[1], b[1]), drop: mix(a[2], b[2]), tilt: mix(a[3], b[3]), from: a[4], to: b[4], e };
+}
 
 export function createAvatar(THREE, { color }) {
   const m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, transparent: true });
@@ -99,12 +116,16 @@ export function createAvatar(THREE, { color }) {
   root.add(shadow);
 
   let pose = "stand", poseT = 0, t = Math.random() * 10;
-  let seated = false, sitK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
+  let seated = false, sitK = 0, kneelK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
   const hands = {
     stand: [[-0.24, 0.05, -0.02], [0.24, 0.05, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
     sit: [[-0.09, -0.04, -0.24], [0.09, -0.04, -0.24]],     // 무릎 위에 포갠 손
+    knees: [[-0.2, -0.05, -0.12], [0.2, -0.05, -0.12]],      // 꿇어앉아 손은 허벅지 옆
+    floor: [[-0.2, -0.18, -0.42], [0.2, -0.18, -0.42]],      // 두 손을 앞바닥에
+    prone: [[-0.22, 0.34, -0.22], [0.22, 0.34, -0.22]],      // 이마 옆 바닥에 손바닥
+    lift: [[-0.2, 0.4, -0.06], [0.2, 0.4, -0.06]],           // 손바닥을 위로 귀까지
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -133,18 +154,24 @@ export function createAvatar(THREE, { color }) {
     else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "lean") { tilt = -0.12; upperTilt = -0.28; target = hands.lean; bob = Math.sin(t * 1.2) * 0.006; }
     else if (pose === "hapjang") { target = hands.hapjang; upperTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
-    else if (pose === "bow") {
-      target = hands.hapjang;
-      const p = Math.min(1, poseT / POSE_LEN.bow);
-      upperTilt = -1.05 * Math.sin(Math.PI * Math.min(1, p * 1.25));   // 천천히 숙였다가 일어난다
+    let kneel = 0, drop = 0;
+    if (pose === "bow") {
+      const b = bowAt(poseT);
+      upperTilt = b.tilt; kneel = b.kneel; drop = b.drop;
+      const A = hands[b.from], B = hands[b.to];
+      target = A.map((h, j) => h.map((v, n) => v + (B[j][n] - v) * b.e));
     }
     body.rotation.x = lerp(body.rotation.x, tilt, k);
     upper.rotation.x = lerp(upper.rotation.x, upperTilt, k);
     sitK = lerp(sitK, seated ? 1 : 0, k);
+    kneelK = lerp(kneelK, Math.max(kneel, seated ? 1 : 0), k * 1.5);
     // 앉은 자세: 몸통을 다리 위로 내리고(머리 높이 약 2/3), 치마 대신 포갠 다리가 드러난다
-    body.position.y = bob - 0.4 * sitK;
-    skirt.scale.setScalar(Math.max(0.001, 1 - sitK));
-    legs.scale.setScalar(Math.max(0.001, sitK));
+    // 절할 때: 무릎 꿇고(다리를 몸 밑으로 모아) 몸을 더 낮춘다
+    body.position.y = bob - Math.max(0.4 * sitK, lerp(0, drop, Math.min(1, kneelK * 1.2)));
+    skirt.scale.setScalar(Math.max(0.001, 1 - kneelK));
+    legs.scale.setScalar(Math.max(0.001, kneelK));
+    legs.scale.x = Math.max(0.001, kneelK * (0.7 + 0.3 * sitK));          // 꿇을 땐 좁게, 앉을 땐 넓게
+    legs.position.z = 0.12 * (1 - sitK) * kneelK;
     shadow.scale.setScalar(1 + 0.35 * sitK);
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
