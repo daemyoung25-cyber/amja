@@ -48,3 +48,8 @@ test("nobody can write someone else's presence", opts, async () => {
   const a = await signIn(), b = await signIn();
   assert.notEqual(await put(`presence/${a.uid}`, presence(), b.token), 200);
 });
+
+test("sitting on a cushion is an allowed pose", opts, async () => {
+  const me = await signIn();
+  assert.equal(await put(`presence/${me.uid}`, presence({ p: "sit" }), me.token), 200);
+});

@@ -35,14 +35,17 @@ export function createAvatar(THREE, { color }) {
   root.add(shadow);
 
   let pose = "stand", poseT = 0, t = Math.random() * 10;
+  let seated = false, sitK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
   const hands = {
     stand: [[-0.24, 0.05, -0.02], [0.24, 0.05, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
+    sit: [[-0.07, -0.02, -0.2], [0.07, -0.02, -0.2]],
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
   function setPose(p) { if (p !== pose) { pose = p; poseT = 0; } }
+  function setSeated(on) { seated = on; }
 
   function update(dt) {
     t += dt; poseT += dt;
@@ -50,6 +53,7 @@ export function createAvatar(THREE, { color }) {
     let tilt = 0, upperTilt = 0, bob = 0, target = hands.stand, swing = 0;
     if (pose === "walk") { bob = Math.abs(Math.sin(t * 8)) * 0.04; swing = Math.sin(t * 8) * 0.12; }
     else if (pose === "stand") { bob = Math.sin(t * 1.6) * 0.008; }
+    else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "lean") { tilt = -0.12; upperTilt = -0.28; target = hands.lean; bob = Math.sin(t * 1.2) * 0.006; }
     else if (pose === "hapjang") { target = hands.hapjang; upperTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
     else if (pose === "bow") {
@@ -59,7 +63,9 @@ export function createAvatar(THREE, { color }) {
     }
     body.rotation.x = lerp(body.rotation.x, tilt, k);
     upper.rotation.x = lerp(upper.rotation.x, upperTilt, k);
-    body.position.y = bob;
+    sitK = lerp(sitK, seated ? 1 : 0, k);
+    body.position.y = bob - 0.27 * sitK;
+    skirt.scale.set(1 + 0.6 * sitK, 1 - 0.4 * sitK, 1 + 0.5 * sitK);
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
   }
@@ -70,7 +76,7 @@ export function createAvatar(THREE, { color }) {
   }
 
   update(0);
-  return { root, setPose, update, setOpacity, get pose() { return pose; } };
+  return { root, setPose, setSeated, update, setOpacity, get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

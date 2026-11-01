@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampToWalkable, resolveTap, HALL, STATUE } from "../src/logic/layout.js";
+import { clampToWalkable, resolveTap, floorY, insideHall, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
@@ -9,10 +9,10 @@ test("clampToWalkable keeps points inside the courtyard", () => {
   assert.equal(clampToWalkable({ x: 30, z: 0 }).x, 12);
 });
 
-test("clampToWalkable pushes a point out of the hall to the nearest side", () => {
-  const p = clampToWalkable({ x: 0, z: 7 });
-  assert.ok(!inHall(p), JSON.stringify(p));
-  assert.ok(dist(p, { x: 0, z: 7 }) <= 2.6);
+test("clampToWalkable takes a point on the hall inside it, in front of the altar", () => {
+  const p = clampToWalkable({ x: 3.9, z: 9.9 });
+  assert.ok(insideHall(p), JSON.stringify(p));
+  assert.ok(p.z <= INSIDE.maxZ);
 });
 
 test("clampToWalkable pushes a point off the statue base", () => {
@@ -75,4 +75,50 @@ test("crossing behind the hall goes round its front", () => {
   assert.deepEqual(path.at(-1), to);
   assert.equal(crosses(from, path, inHall), null, JSON.stringify(path));
   assert.ok(path.every(walkable), JSON.stringify(path));
+});
+
+// 법당 벽: 바닥 받침 안쪽이면서 법당 안도 문간도 아닌 곳
+const inWall = (p) => inHall(p) && !insideHall(p) && !(Math.abs(p.x) < 0.6 && p.z < DOOR_IN.z + 0.01);
+
+test("walking from the courtyard into the hall goes through the door", () => {
+  const from = { x: -6, z: 0 }, to = { x: 2, z: 8 };
+  const path = routeAround(from, to);
+  assert.deepEqual(path.at(-1), to);
+  assert.equal(crosses(from, path, inWall), null, JSON.stringify(path));
+  assert.ok(path.some((p) => insideHall(p) && Math.abs(p.x) < 0.6), JSON.stringify(path));
+});
+
+test("walking from inside the hall to the railing goes out through the door", () => {
+  const from = { x: -2.5, z: 8.4 }, to = { x: 5, z: -5.4 };
+  const path = routeAround(from, to);
+  assert.deepEqual(path.at(-1), to);
+  assert.equal(crosses(from, path, inWall), null, JSON.stringify(path));
+  assert.equal(crosses(from, path, inStatue), null, JSON.stringify(path));
+});
+
+test("moving around inside the hall is a straight line", () => {
+  assert.deepEqual(routeAround({ x: -2, z: 7.2 }, { x: 2, z: 8.3 }), [{ x: 2, z: 8.3 }]);
+});
+
+test("tapping a cushion sits on it facing the altar", () => {
+  const c = CUSHIONS[0];
+  const r = resolveTap({ x: c.x + 0.2, z: c.z - 0.1 });
+  assert.equal(r.kind, "sit");
+  assert.deepEqual(r.to, { x: c.x, z: c.z });
+  assert.ok(Math.abs(r.yaw - Math.atan2(-(ALTAR.x - c.x), -(ALTAR.z - c.z))) < 1e-9);
+});
+
+test("the hall floor is half a metre up and the courtyard is level", () => {
+  assert.equal(floorY({ x: 0, z: 0 }), 0);
+  assert.equal(floorY({ x: 1, z: 8 }), 0.5);
+  const step = floorY({ x: 0, z: 5.05 });
+  assert.ok(step > 0 && step < 0.5, String(step));
+});
+
+test("a new tap while standing in the doorway steps straight in or out", () => {
+  const mid = { x: 0, z: 6 };
+  assert.deepEqual(routeAround(mid, { x: 1, z: 8 })[0], DOOR_IN);
+  const out = routeAround(mid, { x: -8, z: 0 });
+  assert.deepEqual(out[0], HALL.door);
+  assert.equal(crosses(mid, out, inWall), null, JSON.stringify(out));
 });

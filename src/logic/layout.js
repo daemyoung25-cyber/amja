@@ -5,6 +5,12 @@ export const LEAN_Z = -5.4;
 export const HALL = { minX: -4, maxX: 4, minZ: 5.5, maxZ: 10, door: { x: 0, z: 5 } };
 export const STATUE = { x: 9, z: -4.5, baseR: 1.2 };
 export const CHIME = { x: 3.5, y: 3.2, z: 5.2 };
+// 법당 안: 걸을 수 있는 곳, 문 안팎, 불단, 방석
+export const INSIDE = { minX: -3.3, maxX: 3.3, minZ: 6.55, maxZ: 8.6 };
+export const DOOR_IN = { x: 0, z: 6.7 };
+export const ALTAR = { x: 0, z: 9.3 };
+export const CUSHIONS = [-1.8, 0, 1.8].flatMap((x) => [{ x, z: 7.5 }, { x, z: 8.35 }]);
+export const FLOOR_Y = 0.5;
 
 const MARGIN = 0.3;
 const LEAN_X = 11.5;
@@ -13,18 +19,21 @@ const LEAN_TRIGGER_Z = -5.2;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const inCourtyard = (p) => clamp(p.x, COURTYARD.minX, COURTYARD.maxX) === p.x && clamp(p.z, COURTYARD.minZ, COURTYARD.maxZ) === p.z;
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
+export const insideHall = (p) => p.x >= INSIDE.minX && p.x <= INSIDE.maxX && p.z >= INSIDE.minZ && p.z <= INSIDE.maxZ;
+const SEAT_R = 0.5;
+const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
+
+// 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
+const BASE = { minX: -4.4, maxX: 4.4, minZ: 5.2, maxZ: 10.3 }, STEP_Z = 4.9;
+export function floorY({ x, z }) {
+  if (x < BASE.minX || x > BASE.maxX || z < STEP_Z || z > BASE.maxZ) return 0;
+  return z >= BASE.minZ ? FLOOR_Y : FLOOR_Y * (z - STEP_Z) / (BASE.minZ - STEP_Z);
+}
 
 export function clampToWalkable({ x, z }) {
   let p = { x: clamp(x, COURTYARD.minX, COURTYARD.maxX), z: clamp(z, COURTYARD.minZ, COURTYARD.maxZ) };
-  if (inHall(p)) {
-    const exits = [
-      { x: HALL.minX - MARGIN, z: p.z },
-      { x: HALL.maxX + MARGIN, z: p.z },
-      { x: p.x, z: HALL.minZ - MARGIN },
-      { x: p.x, z: HALL.maxZ + MARGIN },
-    ].filter(inCourtyard);
-    p = exits.reduce((a, b) => (Math.hypot(a.x - p.x, a.z - p.z) <= Math.hypot(b.x - p.x, b.z - p.z) ? a : b));
-  }
+  // 법당을 누르면 안으로 들어간다 (불단 앞까지)
+  if (inHall(p)) return { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
   const dx = p.x - STATUE.x, dz = p.z - STATUE.z, d = Math.hypot(dx, dz), r = STATUE.baseR + MARGIN;
   if (d < r) {
     const ux = d > 1e-6 ? dx / d : 0, uz = d > 1e-6 ? dz / d : 1;   // 정중앙이면 마당 쪽(+z)으로
@@ -32,6 +41,9 @@ export function clampToWalkable({ x, z }) {
   }
   return p;
 }
+
+export const seatAt = (p) => CUSHIONS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < 0.05) || null;
+export { faceAltar };
 
 export function nearestLeanSpot({ x }) {
   let lx = clamp(x, -LEAN_X, LEAN_X);
@@ -44,6 +56,8 @@ export function nearestLeanSpot({ x }) {
 }
 
 export function resolveTap(p) {
+  const seat = CUSHIONS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < SEAT_R);
+  if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceAltar(seat) };
   if (p.z < LEAN_TRIGGER_Z) {
     const s = nearestLeanSpot(p);
     return { kind: "lean", to: { x: s.x, z: s.z }, yaw: 0 };
@@ -66,7 +80,17 @@ function hits(a, b, blocked) {
 const pathLen = (a, pts) => pts.reduce((s, p, i) => s + len(i ? pts[i - 1] : a, p), 0);
 const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, blockedByStatue) && !hits(i ? pts[i - 1] : a, p, blockedByHall));
 
-export function routeAround(from, to, depth = 0) {
+export function routeAround(from, to) {
+  const a = insideHall(from), b = insideHall(to);
+  const inDoorway = Math.abs(from.x) < 0.7 && from.z > HALL.door.z && from.z < DOOR_IN.z;
+  if (inDoorway) return b ? [DOOR_IN, to] : [HALL.door, ...routeOutside(HALL.door, to)];
+  if (a && b) return [to];
+  if (a) return [DOOR_IN, HALL.door, ...routeOutside(HALL.door, to)];
+  if (b) return [...routeOutside(from, HALL.door), DOOR_IN, to];
+  return routeOutside(from, to);
+}
+
+function routeOutside(from, to, depth = 0) {
   if (depth > 3 || clear(from, [to])) return [to];
   const options = [];
   if (hits(from, to, blockedByHall)) {
@@ -88,5 +112,5 @@ export function routeAround(from, to, depth = 0) {
   const firsts = options.filter((pts) => okPoint(pts[0])).sort((a, b) => pathLen(from, a) - pathLen(from, b));
   if (!firsts.length) return [to];
   const w = firsts[0][0];
-  return [...routeAround(from, w, depth + 1), ...routeAround(w, to, depth + 1)];
+  return [...routeOutside(from, w, depth + 1), ...routeOutside(w, to, depth + 1)];
 }

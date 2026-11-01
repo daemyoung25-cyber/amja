@@ -39,3 +39,9 @@ test("a switched-off layer is silent and the others are unchanged", () => {
   assert.equal(off.waves, on.waves);
   assert.equal(off.chime, on.chime);
 });
+
+test("inside the hall the chant is full and the waves are far off", () => {
+  const g = layerGains({ x: 0, z: 8 }, ALL);
+  near(g.chant, 0.6, 1e-9);
+  assert.ok(g.waves <= 0.3, String(g.waves));
+});

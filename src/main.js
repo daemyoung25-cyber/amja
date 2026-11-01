@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, resolveTap, routeAround } from "./logic/layout.js";
+import { STATUE, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar } from "./logic/layout.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -51,6 +51,7 @@ const state = {
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,
+  sitOnArrive: false,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -59,6 +60,7 @@ const state = {
 
 const rig = createCameraRig(THREE, camera, canvas, { onTap, obstacles: world.obstacles });
 const ray = new THREE.Raycaster();
+const headAt = new THREE.Vector3();
 const ndc = new THREE.Vector2();
 
 function onTap(cx, cy) {
@@ -75,16 +77,19 @@ function goTo(point) {
   const here = positionAt(state.move, now);
   // 이미 기대 있는 자리 근처의 바다를 눌렀으면 그대로 있는다 (버튼만 돌아온다)
   if (state.base === "lean" && r.kind === "lean" && Math.abs(r.to.x - here.x) < 0.6) return;
+  if (state.base === "sit" && r.kind === "sit" && seatAt(here) === seatAt(r.to)) return;
   const [first, ...rest] = routeAround(here, r.to);
   state.route = rest;
   state.move = startMove(here, first, now);
   state.leanOnArrive = r.kind === "lean";
+  state.sitOnArrive = r.kind === "sit";
   net.sendMove(state.move);
   setBase("walk");
 }
 
 function setBase(p) {
   if (state.base === "lean" && p !== "lean") { ui.setLeaning(false); rig.setLeaning(false); }
+  if (state.base === "sit" && p !== "sit") ui.setLeaning(false);
   state.base = p;
   if (performance.now() >= state.gestureUntil) { me.setPose(p); net.sendPose(p); }
 }
@@ -105,7 +110,7 @@ ui.onHapjang(() => {
 });
 ui.onBow(() => {
   const p = positionAt(state.move, net.now());
-  state.yaw = Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 불상을 향해 선다
+  state.yaw = insideHall(p) ? faceAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
   gesture("bow");
 });
 const SOUND_KEY = "amja-sound";
@@ -150,7 +155,12 @@ function frame(t) {
       lastTraceAt = now;
       net.writeTrace({ x: p.x, z: p.z, k: state.leanOnArrive ? "lean" : "step" });
     }
-    if (state.leanOnArrive) {
+    if (state.sitOnArrive) {
+      state.yaw = faceAltar(p);
+      setBase("sit");
+      rig.turnTo(state.yaw);
+      ui.setLeaning(true);              // 앉아 있는 동안 버튼은 물러난다
+    } else if (state.leanOnArrive) {
       state.yaw = 0;
       setBase("lean");
       ui.setLeaning(true);
@@ -159,15 +169,23 @@ function frame(t) {
   }
   if (state.gestureUntil && t >= state.gestureUntil) { state.gestureUntil = 0; me.setPose(state.base); net.sendPose(state.base); }
 
-  me.root.position.set(p.x, 0, p.z);
+  const seated = state.base === "sit";
+  const fy = floorY(p);
+  me.root.position.set(p.x, fy, p.z);
   me.root.rotation.y = state.yaw;
+  me.setSeated(seated);
   me.update(dt);
-  ui.setNearStatue(Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
+  const inside = insideHall(p);
+  ui.setNearStatue(inside || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
+  rig.setIndoor(inside, faceAltar(p));
 
   drawOthers(now, p, dt);
   audio.setListener(p);
-  rig.follow({ x: p.x, z: p.z, yaw: state.yaw });
+  rig.follow({ x: p.x, z: p.z, yaw: state.yaw, y: fy - (seated ? 0.3 : 0) });
   rig.update(dt);
+  // 카메라가 머리에 바짝 붙으면 내 모습을 옅게 해서 앞이 보이게 한다
+  const camGap = camera.position.distanceTo(headAt.set(p.x, fy + 1.1, p.z));
+  me.setOpacity(Math.min(1, Math.max(0.15, (camGap - 0.7) / 0.8)));
   world.update(new Date(clockNow()), dt, camera.position);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -188,9 +206,12 @@ function drawOthers(now, mePos, dt) {
     o.gone = 0;
     o.avatar.setOpacity(1);
     const pos = positionAt(peer.m, now);
-    o.avatar.root.position.set(pos.x, 0, pos.z);
+    o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
+    const sat = pos.arrived && seatAt(pos) && ["sit", "hapjang", "bow"].includes(peer.p);
+    if (sat) o.yaw = faceAltar(pos);
+    o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.update(dt);
