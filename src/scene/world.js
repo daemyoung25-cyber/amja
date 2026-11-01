@@ -5,6 +5,7 @@ import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
 import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./dancheong.js";
 import { createGongpo } from "./gongpo.js";
+import { decorateHall } from "./hallDecor.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -290,6 +291,7 @@ export function createWorld(THREE, scene) {
     hall.add(candle, flame);
     flames.push(flame);
   }
+  decorateHall(THREE, hall, { FY, W_SIDE, W_FRONT, W_BACK, WT, CEILING_Y, ALTAR, altarTop, TH_W, TH_Y, TH_H, latticeMat: doorMat, sumidanMat: sumiFront, gold, flames });
   const cushionMat = mat(0x8c2f3a);
   for (const c of CUSHIONS) {
     const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.66), cushionMat);

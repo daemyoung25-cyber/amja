@@ -120,7 +120,7 @@ ui.onBow(() => {
 const SOUND_KEY = "amja-sound";
 // 층마다 크기 0..1. 예전에 켜고 끄기(true/false)로 저장한 값도 그대로 읽는다.
 const volumes = (() => {
-  const v = { waves: 1, chime: 1, chant: 1 };
+  const v = { waves: 1, chime: 1, chant: 1, evening: 1 };
   try {
     for (const [k, x] of Object.entries(JSON.parse(localStorage.getItem(SOUND_KEY) || "{}"))) {
       if (k in v) v[k] = typeof x === "boolean" ? (x ? 1 : 0) : Math.min(1, Math.max(0, Number(x) || 0));
@@ -128,7 +128,7 @@ const volumes = (() => {
   } catch {}
   return v;
 })();
-const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3" } });
+const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3", evening: "sounds/evening.mp3" } });
 for (const [k, v] of Object.entries(volumes)) audio.setVolume(k, v);
 ui.onOpenSettings(() => ui.openSettings({ volumes }));
 ui.onOpenCredits(() => ui.openCredits(CREDITS));

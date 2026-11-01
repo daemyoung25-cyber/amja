@@ -12,5 +12,7 @@ export function layerGains({ x, z }, on) {
   const chant = Math.max(CHANT_MAX * indoor, CHANT_MAX - (CHANT_MAX - CHANT_FAR) * smooth(3, 10.4, dDoor));
   const dChime = Math.hypot(x - CHIME.x, z - CHIME.z);
   const chime = 0.45 - 0.15 * smooth(1, 5, dChime);
-  return { waves: on.waves ? waves : 0, chime: on.chime ? chime : 0, chant: on.chant ? chant : 0 };
+  // 산사 저녁예불(범종·목어·새소리): 어디서나 잔잔히, 법당 안에선 조금 멀게
+  const evening = 0.7 - 0.3 * indoor;
+  return { waves: on.waves ? waves : 0, chime: on.chime ? chime : 0, chant: on.chant ? chant : 0, evening: on.evening ? evening : 0 };
 }

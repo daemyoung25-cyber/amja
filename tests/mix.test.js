@@ -45,3 +45,11 @@ test("inside the hall the chant is full and the waves are far off", () => {
   near(g.chant, 0.6, 1e-9);
   assert.ok(g.waves <= 0.3, String(g.waves));
 });
+
+test("the evening service plays everywhere, a little softer inside the hall", () => {
+  const out = layerGains({ x: 0, z: -2 }, { ...ALL, evening: true });
+  const inside = layerGains({ x: 0, z: 9 }, { ...ALL, evening: true });
+  assert.ok(out.evening > 0.4 && out.evening <= 1, String(out.evening));
+  assert.ok(inside.evening > 0 && inside.evening < out.evening, `${inside.evening} vs ${out.evening}`);
+  assert.equal(layerGains({ x: 0, z: -2 }, ALL).evening, 0);
+});

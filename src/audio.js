@@ -1,13 +1,13 @@
 /* 소리 세 층: 파도(녹음), 불경(녹음), 풍경(합성). 위치에 따라 크기가 0.8초에 걸쳐 바뀐다. */
 import { layerGains } from "./logic/mix.js";
 
-const LEVEL = { waves: 0.9, chant: 0.55, chime: 0.35 };   // 층별 기본 세기 (전체가 잔잔하게)
+const LEVEL = { waves: 0.9, chant: 0.55, chime: 0.35, evening: 0.35 };   // 층별 기본 세기 (전체가 잔잔하게)
 const RAMP = 0.27;                                         // setTargetAtTime 시간 상수 ≈ 0.8초에 95%
 
 export function createAudio({ urls }) {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   let ctx = null, master = null;
-  const layers = {}, volume = { waves: 1, chime: 1, chant: 1 };   // 사용자가 정한 크기 0..1
+  const layers = {}, volume = { waves: 1, chime: 1, chant: 1, evening: 1 };   // 사용자가 정한 크기 0..1
   let listener = { x: 0, z: 0 }, chimeTimer = 0;
 
   async function load(url) {
@@ -46,7 +46,7 @@ export function createAudio({ urls }) {
 
   function apply() {
     if (!ctx) return;
-    const on = { waves: volume.waves > 0, chime: volume.chime > 0, chant: volume.chant > 0 };
+    const on = Object.fromEntries(Object.keys(LEVEL).map((n) => [n, volume[n] > 0]));
     const g = layerGains(listener, on);
     for (const name of Object.keys(LEVEL)) layers[name].gain.setTargetAtTime(g[name] * LEVEL[name] * volume[name], ctx.currentTime, RAMP);
   }
@@ -64,8 +64,9 @@ export function createAudio({ urls }) {
     apply();
     scheduleChime();
     setTimeout(strike, 2500);
-    const [w, c] = await Promise.allSettled([load(urls.waves), load(urls.chant)]);
+    const [w, c, ev] = await Promise.allSettled([load(urls.waves), load(urls.chant), load(urls.evening)]);
     if (w.status === "fulfilled") startLoop("waves", w.value);
+    if (ev.status === "fulfilled") startLoop("evening", ev.value);
     if (c.status === "fulfilled") startLoop("chant", c.value);
   }
 
