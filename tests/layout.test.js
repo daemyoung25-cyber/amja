@@ -39,3 +39,40 @@ test("a lean spot next to the statue stays clear of its base", () => {
 test("tapping the courtyard walks there", () => {
   assert.deepEqual(resolveTap({ x: 0, z: 0 }), { kind: "walk", to: { x: 0, z: 0 } });
 });
+
+import { routeAround } from "../src/logic/layout.js";
+
+// 경로를 촘촘히 짚어 보며 장애물 안을 지나는지 본다
+function crosses(from, path, test) {
+  let a = from;
+  for (const b of path) {
+    for (let i = 0; i <= 100; i++) {
+      const p = { x: a.x + (b.x - a.x) * i / 100, z: a.z + (b.z - a.z) * i / 100 };
+      if (test(p)) return p;
+    }
+    a = b;
+  }
+  return null;
+}
+const inStatue = (p) => dist(p, STATUE) < STATUE.baseR;
+const walkable = (p) => p.x >= -12 && p.x <= 12 && p.z >= -6 && p.z <= 10;
+
+test("a straight path with nothing in the way is just the destination", () => {
+  assert.deepEqual(routeAround({ x: -5, z: -2 }, { x: 2, z: -5.4 }), [{ x: 2, z: -5.4 }]);
+});
+
+test("walking along the railing past the statue goes round its landward side", () => {
+  const from = { x: 6, z: -5.4 }, to = { x: 11, z: -5.4 };
+  const path = routeAround(from, to);
+  assert.deepEqual(path.at(-1), to);
+  assert.equal(crosses(from, path, inStatue), null);
+  assert.ok(path.every(walkable), JSON.stringify(path));
+});
+
+test("crossing behind the hall goes round its front", () => {
+  const from = { x: -6, z: 8 }, to = { x: 6, z: 8 };
+  const path = routeAround(from, to);
+  assert.deepEqual(path.at(-1), to);
+  assert.equal(crosses(from, path, inHall), null, JSON.stringify(path));
+  assert.ok(path.every(walkable), JSON.stringify(path));
+});

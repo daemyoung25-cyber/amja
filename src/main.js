@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, resolveTap } from "./logic/layout.js";
+import { STATUE, resolveTap, routeAround } from "./logic/layout.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -51,6 +51,7 @@ const state = {
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,
+  route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
   yaw: 0,
@@ -65,13 +66,18 @@ function onTap(cx, cy) {
   ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(world.groundMeshes, false)[0];
-  if (!hit) return;
-  const r = resolveTap({ x: hit.point.x, z: hit.point.z });
+  if (hit) goTo({ x: hit.point.x, z: hit.point.z });
+}
+
+function goTo(point) {
+  const r = resolveTap(point);
   const now = net.now();
   const here = positionAt(state.move, now);
   // 이미 기대 있는 자리 근처의 바다를 눌렀으면 그대로 있는다 (버튼만 돌아온다)
   if (state.base === "lean" && r.kind === "lean" && Math.abs(r.to.x - here.x) < 0.6) return;
-  state.move = startMove(here, r.to, now);
+  const [first, ...rest] = routeAround(here, r.to);
+  state.route = rest;
+  state.move = startMove(here, first, now);
   state.leanOnArrive = r.kind === "lean";
   net.sendMove(state.move);
   setBase("walk");
@@ -136,7 +142,10 @@ function frame(t) {
   const now = net.now();
   const p = positionAt(state.move, now);
   if (!p.arrived) state.yaw = p.yaw;
-  if (p.arrived && state.base === "walk") {
+  if (p.arrived && state.base === "walk" && state.route.length) {      // 다음 경유지로
+    state.move = startMove(p, state.route.shift(), now);
+    net.sendMove(state.move);
+  } else if (p.arrived && state.base === "walk") {
     if (net.mode === "shared" && shouldWriteTrace(lastTraceAt, now)) {
       lastTraceAt = now;
       net.writeTrace({ x: p.x, z: p.z, k: state.leanOnArrive ? "lean" : "step" });
@@ -222,4 +231,4 @@ ui.onEnter(async () => {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world };
