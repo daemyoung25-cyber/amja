@@ -56,6 +56,29 @@ button { font: inherit; color: inherit; }
   background: var(--glass); border: 1px solid var(--glass-line); font-size: 14px; letter-spacing: 1px; cursor: pointer;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
+/* 소리 설정: 아래에서 올라오는 얇은 시트 */
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; padding: 18px 20px max(20px, env(safe-area-inset-bottom));
+  background: rgba(22, 24, 38, .86); border-top: 1px solid var(--glass-line); border-radius: 18px 18px 0 0;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 14px;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.sheet h2 { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: 2px; }
+.sheet-head button { background: none; border: 0; color: var(--ink-soft); min-height: 44px; padding: 0 4px; cursor: pointer; }
+.row { display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.row input { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, .18); position: relative; cursor: pointer; transition: background .3s; }
+.row input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transition: transform .3s; }
+.row input:checked { background: #b8875d; }
+.row input:checked::after { transform: translateX(18px); }
+.row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.credits { margin-top: 12px; color: var(--ink-soft); font-size: 12px; }
+.credits summary { min-height: 36px; line-height: 36px; cursor: pointer; }
+.credits ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+.credits a { color: var(--ink-soft); }
+.resume {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px);
+  min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); font-size: 13px; cursor: pointer;
+}
 [hidden] { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {

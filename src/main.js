@@ -6,6 +6,8 @@ import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
 import { createCameraRig } from "./scene/camera.js";
 import { createUI } from "./ui.js";
+import { createAudio } from "./audio.js";
+import { CREDITS } from "./credits.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
 
@@ -79,7 +81,23 @@ ui.onBow(() => {
   state.yaw = Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 불상을 향해 선다
   gesture("bow");
 });
-ui.onOpenSettings(() => {});
+const SOUND_KEY = "amja-sound";
+const toggles = (() => {
+  try { return { waves: true, chime: true, chant: true, ...JSON.parse(localStorage.getItem(SOUND_KEY) || "{}") }; }
+  catch { return { waves: true, chime: true, chant: true }; }
+})();
+const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3" } });
+for (const [k, v] of Object.entries(toggles)) audio.setEnabled(k, v);
+ui.onOpenSettings(() => ui.openSettings({ toggles, credits: CREDITS }));
+ui.onToggle((layer, on) => {
+  toggles[layer] = on;
+  audio.setEnabled(layer, on);
+  try { localStorage.setItem(SOUND_KEY, JSON.stringify(toggles)); } catch {}
+});
+document.addEventListener("visibilitychange", async () => {
+  if (document.hidden) { audio.suspend(); return; }
+  if (!(await audio.resumeIfNeeded())) ui.showSoundResume(() => audio.resumeIfNeeded());
+});
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -112,6 +130,7 @@ function frame(t) {
   me.update(dt);
   ui.setNearStatue(Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
 
+  audio.setListener(p);
   rig.follow({ x: p.x, z: p.z, yaw: state.yaw });
   rig.update(dt);
   world.update(new Date(clockNow()), dt, camera.position);
@@ -119,8 +138,8 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
-ui.onEnter(() => ui.showHintOnce());
+ui.onEnter(() => { audio.start(); ui.showHintOnce(); });
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { state, camera, me, positionAt };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { state, camera, me, positionAt, audio };

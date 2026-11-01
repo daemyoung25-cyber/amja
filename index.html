@@ -32,6 +32,15 @@
   </div>
 </div>
 
+<section id="sheet" class="sheet" hidden aria-labelledby="sheet-title">
+  <div class="sheet-head"><h2 id="sheet-title">소리</h2><button id="sheet-close" type="button" aria-label="닫기">닫기</button></div>
+  <label class="row"><span>파도와 바람</span><input type="checkbox" data-layer="waves" checked></label>
+  <label class="row"><span>풍경</span><input type="checkbox" data-layer="chime" checked></label>
+  <label class="row"><span>불경</span><input type="checkbox" data-layer="chant" checked></label>
+  <details class="credits"><summary>음원 정보</summary><ul id="credits"></ul></details>
+</section>
+<button id="sound-resume" class="resume" type="button" hidden>눌러서 소리 다시 켜기</button>
+
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

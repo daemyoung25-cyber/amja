@@ -52,7 +52,36 @@ export function createUI({ placeName }) {
     whisperTimer = setTimeout(() => whisper.classList.remove("on"), ms);
   }
 
+  const sheet = $("sheet"), resume = $("sound-resume");
+  const toggleCbs = [];
+  $("sheet-close").addEventListener("click", () => (sheet.hidden = true));
+  for (const box of sheet.querySelectorAll("input[data-layer]")) {
+    box.addEventListener("change", () => toggleCbs.forEach((cb) => cb(box.dataset.layer, box.checked)));
+  }
+
+  function openSettings({ toggles, credits }) {
+    for (const box of sheet.querySelectorAll("input[data-layer]")) box.checked = !!toggles[box.dataset.layer];
+    const list = $("credits");
+    list.replaceChildren(...credits.map((c) => {
+      const li = document.createElement("li");
+      li.textContent = `${c.what} · `;
+      if (c.url) {
+        const a = document.createElement("a");
+        a.href = c.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = c.title;
+        li.append(a, ` · ${c.by} · ${c.license}`);
+      } else li.append(c.title);
+      return li;
+    }));
+    sheet.hidden = false;
+  }
+
+  function showSoundResume(cb) {
+    resume.hidden = false;
+    resume.onclick = () => { resume.hidden = true; cb(); };
+  }
+
   return {
+    openSettings, showSoundResume, onToggle: (cb) => toggleCbs.push(cb),
     onEnter, setCount, setNearStatue, setLeaning, pokeHud, showHintOnce, showWhisper,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
