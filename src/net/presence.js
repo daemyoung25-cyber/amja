@@ -1,0 +1,94 @@
+/* Firebase Realtime Database 접속. 설정이 없거나 8초 안에 연결이 안 되면 혼자 모드.
+   presence/{uid} = { c, m, p, pt, s, g? }  (데이터 구조는 database.rules.json 참고) */
+const SDK = "https://www.gstatic.com/firebasejs/11.10.0/";
+const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_COOLDOWN = 10000;
+
+export async function defaultLoadSdk() {
+  const [app, auth, db] = await Promise.all([
+    import(SDK + "firebase-app.js"), import(SDK + "firebase-auth.js"), import(SDK + "firebase-database.js"),
+  ]);
+  return { app, auth, db };
+}
+
+function solo() {
+  const noop = () => {};
+  return {
+    mode: "solo", uid: null, now: () => Date.now(),
+    onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
+  };
+}
+
+export async function createPresence({ config, loadSdk = defaultLoadSdk, me = { c: 0, m: null, p: "stand" } }) {
+  if (!config || !config.apiKey) return solo();
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), CONNECT_TIMEOUT); });
+  const shared = connect(config, loadSdk, me).catch((e) => { console.warn("같이 있기 연결 실패, 혼자 모드로", e); return null; });
+  const result = await Promise.race([shared, timeout]);
+  clearTimeout(timer);
+  if (!result) console.warn("같이 있기 연결이 늦어 혼자 모드로");
+  return result || solo();
+}
+
+async function connect(config, loadSdk, me) {
+  const { app, auth, db } = await loadSdk();
+  const fbApp = app.initializeApp(config, "amja");
+  const fbAuth = auth.getAuth(fbApp);
+  const database = db.getDatabase(fbApp);
+  if (config.emulator) {                       // 로컬 점검용 (?emu=1)
+    auth.connectAuthEmulator(fbAuth, "http://127.0.0.1:9099", { disableWarnings: true });
+    db.connectDatabaseEmulator(database, "127.0.0.1", 9000);
+  }
+  const cred = await auth.signInAnonymously(fbAuth);
+  const uid = cred.user.uid;
+  const mine = db.ref(database, `presence/${uid}`);
+
+  let offset = 0;
+  db.onValue(db.ref(database, ".info/serverTimeOffset"), (s) => { offset = s.val() || 0; });
+  const now = () => Date.now() + offset;
+
+  const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now() };
+  let present = false;
+  async function appear() {
+    await db.onDisconnect(mine).remove();
+    state.s = now();
+    await db.set(mine, state);
+    present = true;
+  }
+  const disappear = () => { present = false; return db.remove(mine); };
+  await appear();
+
+  const beat = setInterval(() => { if (present) { state.s = now(); db.update(mine, { s: state.s }); } }, HEARTBEAT);
+  const onVis = () => (document.hidden ? disappear() : appear());
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
+
+  const peerCbs = [], greetCbs = [], lastGreet = new Map();
+  const stopPeers = db.onValue(db.ref(database, "presence"), (snap) => {
+    const val = snap.val();
+    for (const cb of peerCbs) cb(val);
+    if (!val) return;
+    for (const [from, v] of Object.entries(val)) {
+      const g = v && v.g;
+      if (!g || g.to !== uid || typeof g.at !== "number" || now() - g.at > GREET_COOLDOWN) continue;
+      if ((lastGreet.get(from) || 0) >= g.at) continue;
+      if (g.at - (lastGreet.get(from) || 0) < GREET_COOLDOWN) { lastGreet.set(from, g.at); continue; }
+      lastGreet.set(from, g.at);
+      for (const cb of greetCbs) cb(from);
+    }
+  });
+
+  return {
+    mode: "shared", uid, now,
+    onPeers: (cb) => peerCbs.push(cb),
+    onGreeted: (cb) => greetCbs.push(cb),
+    sendMove(m) { state.m = m; state.s = now(); if (present) db.update(mine, { m, s: state.s }); },
+    sendPose(p) { state.p = p; state.pt = now(); if (present) db.update(mine, { p, pt: state.pt }); },
+    greet(to) { const g = { to, at: now() }; state.g = g; if (present) db.update(mine, { g }); },
+    close() {
+      clearInterval(beat);
+      stopPeers();
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+      disappear();
+    },
+    _db: { db, database },   // 흔적(Task 7)이 같은 연결을 쓴다
+  };
+}
