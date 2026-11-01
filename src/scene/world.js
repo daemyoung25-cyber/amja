@@ -1,11 +1,12 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
 import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./dancheong.js";
 import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
+import { createYard } from "./yard.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -306,6 +307,11 @@ export function createWorld(THREE, scene) {
   const noBlock = new Set([...hallGround, ceiling, ...flames, taenghwa, thFrame, ...paintedBands]);
   hall.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); if (!noBlock.has(o)) obstacles.push(o); } });
 
+  /* 대웅전 앞마당: 석등 한 쌍, 삼층석탑 한 쌍, 배례석 */
+  const yard = createYard(THREE, { lanterns: YARD.filter((o) => o.kind === "lantern"), pagodas: YARD.filter((o) => o.kind === "pagoda"), baerye: BAERYE });
+  scene.add(yard.group);
+  yard.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
   const bronze = mat(0x8a7346);
@@ -437,6 +443,7 @@ export function createWorld(THREE, scene) {
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
     scene.fog.color.setRGB(...s.horizon);
     lanternGlow.value = 0.45 + 0.55 * night;
+    yard.setNight(night);
     candleLight.intensity = 5 + 7 * night;
   }
 

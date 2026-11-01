@@ -4,6 +4,14 @@ export const RAIL_Z = -6;
 export const LEAN_Z = -5.4;
 export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
 export const STATUE = { x: 9, z: -4.5, baseR: 1.2 };
+// 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
+export const YARD = [
+  { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
+  { kind: "pagoda", x: -6.8, z: 3.0, r: 1.35 }, { kind: "pagoda", x: 6.8, z: 3.0, r: 1.35 },
+];
+export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
+// 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
+const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
 export const CHIME = { x: 6.5, y: 4.9, z: 4.4 };
 // 법당 안: 걸을 수 있는 곳, 문 안팎, 불단, 방석
 // 법당 벽: 앞·뒤 벽의 z, 옆벽의 |x|, 벽 높이, 가운데 문 크기
@@ -39,10 +47,12 @@ export function clampToWalkable({ x, z }) {
   let p = { x: clamp(x, COURTYARD.minX, COURTYARD.maxX), z: clamp(z, COURTYARD.minZ, COURTYARD.maxZ) };
   // 법당을 누르면 안으로 들어간다 (불단 앞까지)
   if (inHall(p)) return { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
-  const dx = p.x - STATUE.x, dz = p.z - STATUE.z, d = Math.hypot(dx, dz), r = STATUE.baseR + MARGIN;
-  if (d < r) {
-    const ux = d > 1e-6 ? dx / d : 0, uz = d > 1e-6 ? dz / d : 1;   // 정중앙이면 마당 쪽(+z)으로
-    p = { x: STATUE.x + ux * r, z: STATUE.z + uz * r };
+  for (const o of ROUND) {
+    const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), r = o.r + MARGIN;
+    if (d < r) {
+      const ux = d > 1e-6 ? dx / d : 0, uz = d > 1e-6 ? dz / d : (o.z < 0 ? 1 : -1);   // 정중앙이면 마당 가운데 쪽으로
+      p = { x: o.x + ux * r, z: o.z + uz * r };
+    }
   }
   return p;
 }
@@ -72,8 +82,9 @@ export function resolveTap(p) {
 
 /* 걸어가는 길: 불상 받침과 법당을 뚫지 않도록 돌아갈 지점을 끼워 넣는다.
    결과는 거쳐 갈 지점 목록이고 마지막이 목적지다. */
-const STATUE_CLEAR = STATUE.baseR + MARGIN, HALL_PAD = MARGIN;
-const blockedByStatue = (p) => Math.hypot(p.x - STATUE.x, p.z - STATUE.z) < STATUE_CLEAR;
+const HALL_PAD = MARGIN;
+const inRound = (p, o) => Math.hypot(p.x - o.x, p.z - o.z) < o.r + MARGIN;
+const blockedByStatue = (p) => ROUND.some((o) => inRound(p, o));       // 둥근 것 아무거나
 const blockedByHall = (p) => p.x > HALL.minX - HALL_PAD && p.x < HALL.maxX + HALL_PAD && p.z > HALL.minZ - HALL_PAD && p.z < HALL.maxZ + HALL_PAD;
 const okPoint = (p) => inCourtyard(p) && !blockedByStatue(p) && !blockedByHall(p);
 const len = (a, b) => Math.hypot(b.x - a.x, b.z - a.z);
@@ -102,14 +113,17 @@ function routeOutside(from, to, depth = 0) {
     const L = { x: HALL.minX - HALL_PAD - 0.4, z: HALL.minZ - HALL_PAD - 0.4 }, R = { x: HALL.maxX + HALL_PAD + 0.4, z: L.z };
     options.push([L, to], [R, to], [L, R, to], [R, L, to]);
   } else {
-    // 불상: 지나가는 선에서 가장 가까운 점 쪽과 그 반대쪽, 두 갈래 중 걸을 수 있는 쪽
+    // 둥근 것(불상 받침·석등·석탑): 길을 막는 것 가운데 가장 먼저 닿는 것을 양쪽으로 비켜 간다
     const dx = to.x - from.x, dz = to.z - from.z, L2 = dx * dx + dz * dz || 1;
-    const t = Math.min(1, Math.max(0, ((STATUE.x - from.x) * dx + (STATUE.z - from.z) * dz) / L2));
-    let nx = from.x + dx * t - STATUE.x, nz = from.z + dz * t - STATUE.z;
-    const nl = Math.hypot(nx, nz);
-    if (nl < 1e-6) { nx = -dz; nz = dx; } 
-    const k = (STATUE_CLEAR + 0.6) / (Math.hypot(nx, nz) || 1);
-    for (const s of [1, -1]) options.push([{ x: STATUE.x + s * nx * k, z: STATUE.z + s * nz * k }, to]);
+    const along = (o) => Math.min(1, Math.max(0, ((o.x - from.x) * dx + (o.z - from.z) * dz) / L2));
+    const o = ROUND.filter((c) => hits(from, to, (p) => inRound(p, c))).sort((a, b) => along(a) - along(b))[0];
+    if (o) {
+      const t = along(o);
+      let nx = from.x + dx * t - o.x, nz = from.z + dz * t - o.z;
+      if (Math.hypot(nx, nz) < 1e-6) { nx = -dz; nz = dx; }
+      const k = (o.r + MARGIN + 0.6) / (Math.hypot(nx, nz) || 1);
+      for (const s of [1, -1]) options.push([{ x: o.x + s * nx * k, z: o.z + s * nz * k }, to]);
+    }
   }
   const good = options.filter((pts) => pts.slice(0, -1).every(okPoint) && clear(from, pts));
   if (good.length) return good.sort((a, b) => pathLen(from, a) - pathLen(from, b))[0];

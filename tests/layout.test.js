@@ -122,3 +122,40 @@ test("a new tap while standing in the doorway steps straight in or out", () => {
   assert.deepEqual(out[0], HALL.door);
   assert.equal(crosses(mid, out, inWall), null, JSON.stringify(out));
 });
+
+import { YARD } from "../src/logic/layout.js";
+const inYardStone = (p) => YARD.some((o) => Math.hypot(p.x - o.x, p.z - o.z) < o.r);
+
+test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrored", () => {
+  for (const kind of ["lantern", "pagoda"]) {
+    const two = YARD.filter((o) => o.kind === kind);
+    assert.equal(two.length, 2, kind);
+    assert.equal(two[0].x, -two[1].x);
+    assert.equal(two[0].z, two[1].z);
+  }
+});
+
+test("walking straight across the front yard goes round the stones, not through them", () => {
+  const lantern = YARD.find((o) => o.kind === "lantern"), pagoda = YARD.find((o) => o.kind === "pagoda");
+  for (const o of [lantern, pagoda]) {
+    const from = { x: o.x - 3, z: o.z }, to = { x: o.x + 3, z: o.z };
+    const path = routeAround(from, to);
+    assert.deepEqual(path.at(-1), to);
+    assert.equal(crosses(from, path, inYardStone), null, `${o.kind}: ${JSON.stringify(path)}`);
+    assert.ok(path.every(walkable), JSON.stringify(path));
+  }
+});
+
+test("tapping on a stone lantern or pagoda stands beside it", () => {
+  for (const o of YARD) {
+    const r = resolveTap({ x: o.x, z: o.z });
+    assert.equal(r.kind, "walk");
+    assert.ok(!inYardStone(r.to), `${o.kind}: ${JSON.stringify(r.to)}`);
+  }
+});
+
+test("the path from the courtyard into the hall still goes through the door past the lanterns", () => {
+  const from = { x: 0, z: 0 }, to = { x: 0, z: 9 };
+  const path = routeAround(from, to);
+  assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
+});
