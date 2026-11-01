@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['c','m','p','s'])",
+        "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5" },
+        "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|hapjang|bow)$/)" },
+        "s": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "m": { ".validate": "newData.hasChildren(['fx','fz','tx','tz','t'])" },
+        "g": { ".validate": "newData.hasChildren(['to','at'])" }
+      }
+    },
+    "traces": {
+      ".read": "auth != null",
+      ".indexOn": ["at"],
+      "$id": {
+        ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 7200000)",
+        ".validate": "!newData.exists() || (newData.child('x').isNumber() && newData.child('z').isNumber() && newData.child('k').isString() && newData.child('k').val().matches(/^(step|lean)$/) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000)"
+      }
+    },
+    "visits": {
+      ".read": "auth != null",
+      ".indexOn": ["at"],
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || data.child('at').val() < now - 7200000)",
+        ".validate": "!newData.exists() || (newData.child('at').isNumber() && newData.child('at').val() <= now + 60000)"
+      }
+    }
+  }
+}
