@@ -11,6 +11,7 @@ import { CREDITS } from "./credits.js";
 import { createPresence } from "./net/presence.js";
 import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
 import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
+import { nameTag } from "./logic/name.js";
 import { FIREBASE } from "../firebase-config.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
@@ -211,6 +212,8 @@ function drawOthers(now, mePos, dt) {
     let o = others.get(peer.uid);
     if (!o) {
       o = { avatar: createAvatar(THREE, { color: AVATAR_COLORS[peer.c % AVATAR_COLORS.length] }), gone: 0 };
+      // 이미 계시던 분들 말고, 내가 들어온 뒤에 새로 오신 분만 알린다
+      if (performance.now() - joinedAt > 4000) ui.showWhisper(`${peer.n ? nameTag(peer.n) + "님이" : "누군가"} 들어오셨어요`, 3500);
       scene.add(o.avatar.root);
       others.set(peer.uid, o);
     }
@@ -225,6 +228,7 @@ function drawOthers(now, mePos, dt) {
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
+    o.avatar.setName(nameTag(peer.n));
     o.avatar.update(dt);
   }
   for (const [uid, o] of others) {
@@ -240,13 +244,16 @@ function drawOthers(now, mePos, dt) {
 function redrawTraces() { world.setTraces(visibleTraces(traceRecords, net.now())); }
 setInterval(redrawTraces, 60000);       // 1분마다 조금씩 옅어진다
 
-ui.onEnter(async () => {
+let myName = "", joinedAt = Infinity;
+ui.onEnter(async (name) => {
+  myName = name;
+  me.setName(nameTag(name));
   audio.start();
   ui.showHintOnce();
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;
-  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base }, onLate: adopt });
+  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base, n: myName }, onLate: adopt });
   if (p.mode === "shared") adopt(p);
 });
 
@@ -259,7 +266,11 @@ function adopt(p) {
   net.sendMove(state.move);
   net.sendPose(state.base);
   net.onPeers((val) => { snapshot = val; });
-  net.onGreeted(() => ui.showWhisper("누군가 합장으로 인사했어요"));
+  net.onGreeted((from) => {
+    const who = peers.find((x) => x.uid === from);
+    ui.showWhisper(`${who && who.n ? nameTag(who.n) + "님이" : "누군가"} 합장으로 인사했어요`);
+  });
+  joinedAt = performance.now();
   net.markVisit();
   net.onVisits((v) => { visits = v; });
   net.onTraces((recs) => { traceRecords = recs; redrawTraces(); });

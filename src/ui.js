@@ -1,3 +1,5 @@
+import { cleanName } from "./logic/name.js";
+
 /* 화면 위 글자와 버튼. 늘 보이는 버튼은 최대 3개, 기대 있으면 사라진다. */
 const $ = (id) => document.getElementById(id);
 const HINT_KEY = "amja-hinted";
@@ -11,14 +13,28 @@ export function createUI({ placeName }) {
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
 
+  // 들어가기: 이름(한글 1~8자)을 받아 넘긴다. 지난번 이름은 기억해 둔다.
+  const NAME_KEY = "amja-name";
+  const nameInput = $("enter-name"), nameError = $("enter-error");
+  try { nameInput.value = localStorage.getItem(NAME_KEY) || ""; } catch {}
   function onEnter(cb) {
-    $("enter-btn").addEventListener("click", () => {
+    let entered = false;
+    const go = () => {
+      if (entered) return;
+      const name = cleanName(nameInput.value);
+      if (!name) { nameError.hidden = false; nameInput.focus(); return; }
+      entered = true;
+      nameInput.blur();
+      try { localStorage.setItem(NAME_KEY, name); } catch {}
       const enter = $("enter");
       enter.classList.add("leaving");
       setTimeout(() => (enter.hidden = true), 1300);
       hud.hidden = false;
-      cb();
-    }, { once: true });
+      cb(name);
+    };
+    $("enter-btn").addEventListener("click", go);
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) go(); });
+    nameInput.addEventListener("input", () => (nameError.hidden = true));
   }
 
   function setCount(text) { count.hidden = !text; count.textContent = text || ""; }

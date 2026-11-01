@@ -38,3 +38,8 @@ test("nearestPeerWithin returns the closest uid inside the range, else null", ()
   assert.equal(nearestPeerWithin(peers, ME, NOW, 4), "b");
   assert.equal(nearestPeerWithin(peers, { x: 20, z: 0 }, NOW, 4), null);
 });
+
+test("a peer carries their name only when it is a valid Korean name", () => {
+  const r = peersFromSnapshot({ a: at(1, 0, { n: "연화" }), b: at(2, 0, { n: "<script>" }), c: at(3, 0) }, "me", NOW, ME);
+  assert.deepEqual(r.map((p) => p.n), ["연화", "", ""]);
+});

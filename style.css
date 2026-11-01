@@ -25,6 +25,20 @@ button { font: inherit; color: inherit; }
 .enter-mark { width: 52px; height: 26px; fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
 .enter h1 { margin: 6px 0 0; font-size: 28px; font-weight: 500; letter-spacing: 6px; padding-left: 6px; }
 .enter p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.enter-name {
+  margin-top: 22px; display: flex; align-items: center; gap: 8px; padding: 0 16px; min-height: 48px; border-radius: 999px;
+  background: rgba(255, 255, 255, .12); border: 1px solid var(--glass-line); font-size: 15px;
+}
+.enter-name span { color: var(--ink-soft); font-size: 14px; }
+.enter-name input {
+  width: 9.5em; min-height: 44px; border: 0; outline: 0; background: transparent; color: var(--ink);
+  font: inherit; font-size: 16px; text-align: center; letter-spacing: 1px;
+}
+.enter-name input { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+.enter-name input::placeholder { color: rgba(244, 239, 228, .45); }
+.enter-name:focus-within { border-color: var(--accent); }
+.enter .enter-error { color: #ffd7c2; font-size: 13px; margin-top: 8px; }
+.enter .enter-name + .enter-error + button, .enter .enter-name ~ button { margin-top: 18px; }
 .enter button {
   margin-top: 26px; min-height: 48px; padding: 0 28px; border-radius: 999px;
   background: rgba(255, 255, 255, .14); border: 1px solid var(--glass-line); font-size: 15px; letter-spacing: 2px; cursor: pointer;

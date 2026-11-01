@@ -8,6 +8,7 @@
         "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0" },
         "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|sit|hapjang|bow)$/)" },
         "pt": { ".validate": "newData.isNumber()" },
+        "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
         "s": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
         "m": {
           ".validate": "newData.hasChildren(['fx','fz','tx','tz','t'])",

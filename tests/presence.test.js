@@ -81,3 +81,12 @@ test("a late connection is handed to onLate instead of being dropped", async () 
   assert.ok(!log.remove.includes("presence/me"));
   late.close();
 });
+
+test("the chosen name is written with presence so others can see it", async () => {
+  const { sdk, log } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk, me: { c: 1, m: { fx: 0, fz: 0, tx: 0, tz: 0, t: 0 }, p: "stand", n: "연화" } });
+  await flush();
+  const w = log.set.filter((s) => s.path === "presence/me").at(-1);
+  assert.equal(w.v.n, "연화");
+  p.close();
+});

@@ -132,6 +132,28 @@ export function createAvatar(THREE, { color }) {
   function setPose(p) { if (p !== pose) { pose = p; poseT = 0; } }
   function setSeated(on) { seated = on; }
 
+  // 머리 위 이름표 ("연화보살"): 캔버스 글씨를 스프라이트로. 늘 화면을 본다.
+  let tag = null, tagText = "";
+  function setName(text) {
+    if (text === tagText) return;
+    tagText = text;
+    if (tag) { root.remove(tag); tag.material.map.dispose(); tag.material.dispose(); tag = null; }
+    if (!text) return;
+    const c = document.createElement("canvas"); c.width = 512; c.height = 128;
+    const g = c.getContext("2d");
+    g.font = '600 64px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    g.textAlign = "center"; g.textBaseline = "middle";
+    const w = Math.min(500, g.measureText(text).width + 56);
+    g.fillStyle = "rgba(20,22,36,0.55)";
+    g.beginPath(); g.roundRect((512 - w) / 2, 14, w, 100, 50); g.fill();
+    g.fillStyle = "#f8f3e8"; g.fillText(text, 256, 66);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    tag.scale.set(1.2, 0.3, 1);
+    tag.renderOrder = 10;
+    root.add(tag);
+  }
+
   // 앉으면 보이는 포갠 다리: 넓적한 무릎과 정강이 (서 있을 땐 0으로 줄여 숨긴다)
   const legs = new THREE.Group();
   const lap = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), skirtMat);
@@ -173,18 +195,20 @@ export function createAvatar(THREE, { color }) {
     legs.scale.x = Math.max(0.001, kneelK * (0.7 + 0.3 * sitK));          // 꿇을 땐 좁게, 앉을 땐 넓게
     legs.position.z = 0.12 * (1 - sitK) * kneelK;
     shadow.scale.setScalar(1 + 0.35 * sitK);
+    if (tag) tag.position.y = 1.55 + body.position.y;
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
   }
 
   function setOpacity(o) {
     for (const mat of materials) mat.opacity = o;
+    if (tag) tag.material.opacity = o;
     blush.opacity = 0.35 * o;
     shadow.material.opacity = 0.22 * o;
   }
 
   update(0);
-  return { root, setPose, setSeated, update, setOpacity, get pose() { return pose; } };
+  return { root, setPose, setSeated, setName, update, setOpacity, get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

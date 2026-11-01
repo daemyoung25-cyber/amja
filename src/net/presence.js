@@ -51,7 +51,7 @@ async function connect(config, loadSdk, me) {
   db.onValue(db.ref(database, ".info/serverTimeOffset"), (s) => { offset = s.val() || 0; });
   const now = () => Date.now() + offset;
 
-  const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now() };
+  const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now(), ...(me.n ? { n: me.n } : {}) };
   let present = false;
   async function appear() {
     await db.onDisconnect(mine).remove();
