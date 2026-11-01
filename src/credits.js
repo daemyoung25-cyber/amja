@@ -4,5 +4,6 @@ export const CREDITS = [
   { what: "독경", title: "Temple chanting interior (각원사)", by: "3bagbrew", url: "https://freesound.org/people/3bagbrew/sounds/345028/", license: "CC0" },
   { what: "풍경", title: "직접 합성한 소리", by: "", url: "", license: "" },
   { what: "불상", title: "서라벌 천년왕경 금동제여래좌상 3D 에셋", by: "국가유산청", url: "https://digital.khs.go.kr", license: "공공누리 제1유형" },
+  { what: "협시보살", title: "서라벌 천년왕경 선림원지 금동보살입상 3D 에셋", by: "국가유산청", url: "https://digital.khs.go.kr", license: "공공누리 제1유형" },
   { what: "후불탱화", title: "The Assembly of Tejaprabha Buddha (조선)", by: "Cleveland Museum of Art", url: "https://clevelandart.org/art/1998.120", license: "CC0" },
 ];

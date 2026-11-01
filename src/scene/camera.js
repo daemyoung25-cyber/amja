@@ -1,6 +1,6 @@
 /* 3인칭 카메라. 기본은 캐릭터 뒤에서 바다(-z) 쪽을 본다.
    한 손가락 끌기 = 둘러보기, 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
-const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 2.6, INDOOR_PITCH = 0.55, INDOOR_AHEAD = 2.4;
+const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 2.6, INDOOR_PITCH = 0.55, INDOOR_AHEAD = 2.4, INDOOR_FOV = 72;
 const TAP_PX = 8, TAP_MS = 400;
 
 export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = {}) {
@@ -8,7 +8,8 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   const dir = new THREE.Vector3();
   let yaw = 0, pitchUser = 0.3, dist = 6;                 // 사용자가 조절하는 값
   let leaning = false, leanBlend = 0;
-  let indoor = false, indoorBlend = 0, yawGoal = null;   // 법당 안: 가까이, 낮게, 불단 쪽으로
+  let indoor = false, indoorBlend = 0, yawGoal = null;
+  const baseFov = camera.fov;                          // 법당 안에선 넓게 봐야 삼존이 한눈에 든다   // 법당 안: 가까이, 낮게, 불단 쪽으로
   const focus = new THREE.Vector3(0, 1.1, 2), want = new THREE.Vector3(0, 1.1, 2);
   let targetYaw = 0;
 
@@ -69,6 +70,8 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   function update(dt) {
     leanBlend += ((leaning ? 1 : 0) - leanBlend) * (1 - Math.exp(-dt * 1.6));   // 약 2초에 걸쳐 옮겨 간다
     indoorBlend += ((indoor ? 1 : 0) - indoorBlend) * (1 - Math.exp(-dt * 2));
+    const fov = baseFov + (INDOOR_FOV - baseFov) * indoorBlend;
+    if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     if (yawGoal !== null) {
       const diff = Math.atan2(Math.sin(yawGoal - yaw), Math.cos(yawGoal - yaw));
       yaw += diff * (1 - Math.exp(-dt * 2.5));

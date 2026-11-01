@@ -7,7 +7,8 @@ import { sumidanTexture, dancheongBand, cofferTexture } from "./dancheong.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
-const STATUE_FACING = Math.PI;      // 스캔 모델은 +z가 정면이라 돌려서 문(-z) 쪽을 보게 한다
+const STATUE_FACING = Math.PI;
+const BODHI_X = 1.02;              // 가운데 부처님에서 협시보살까지      // 스캔 모델은 +z가 정면이라 돌려서 문(-z) 쪽을 보게 한다
 const KST_MS = 9 * 3600000;
 
 export function createWorld(THREE, scene) {
@@ -217,7 +218,7 @@ export function createWorld(THREE, scene) {
   box(3.8, 0.55, 0.72, faced(sumiFront, sumiRed), ALTAR.x, FY + 0.425, ALTAR.z);
   box(4.0, 0.15, 0.82, faced(bandFront, gold), ALTAR.x, FY + 0.775, ALTAR.z);
   // 후불탱화: 조선 불화 (클리블랜드 미술관 CC0), 붉은 바탕에 금테
-  const TH_W = 3.2, TH_H = TH_W * 940 / 1536, TH_Y = FY + WALL_H - 0.45 - TH_H / 2;
+  const TH_W = 3.2, TH_H = TH_W * 940 / 1536, TH_Y = FY + WALL_H - 0.75 - TH_H / 2;   // 위쪽 단청 띠 아래로
   const painting = new THREE.TextureLoader().load("textures/taenghwa.jpg");
   painting.colorSpace = THREE.SRGBColorSpace; painting.anisotropy = 4;
   const taenghwa = new THREE.Mesh(new THREE.PlaneGeometry(TH_W, TH_H), new THREE.MeshLambertMaterial({ map: painting }));
@@ -248,10 +249,22 @@ export function createWorld(THREE, scene) {
     hall.remove(buddha);
     hall.add(statue.object);
   });
+  // 양옆 협시보살: 국가유산청 3D 에셋 선림원지 금동보살입상(공공누리 1유형).
+  loadStatue(THREE, "models/bodhisattva.glb", { height: 1.38, doubleSided: true }).then((statue) => {
+    if (!statue) return;
+    for (const sx of [-1, 1]) {
+      // 불러온 원본은 그대로 두고 복제본만 쓴다 (원본을 직접 놓으면 뒷모습이 보였다)
+      const o = statue.object.clone();
+      o.position.set(ALTAR.x + sx * BODHI_X, altarTop, ALTAR.z + 0.05);
+      o.rotation.y = STATUE_FACING;
+      if (sx > 0) o.scale.x = -1;                // 오른쪽은 거울로 뒤집어 두 분이 마주 보게
+      hall.add(o);
+    }
+  });
   const flames = [];
   for (const sx of [-1, 1]) {
     const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.26, 6), mat(0xf4efe4));
-    candle.position.set(sx * 1.35, altarTop + 0.16, ALTAR.z - 0.2);
+    candle.position.set(sx * 0.6, altarTop + 0.16, ALTAR.z - 0.3);
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 6), new THREE.MeshBasicMaterial({ color: 0xffc35a }));
     flame.position.set(candle.position.x, altarTop + 0.34, candle.position.z);
     hall.add(candle, flame);

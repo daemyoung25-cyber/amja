@@ -14,6 +14,7 @@
 | 파일 | 원본 | 소장·작성자 | 라이선스 | 손본 것 |
 |---|---|---|---|---|
 | `models/buddha.glb` | 서라벌 천년왕경 금동제여래좌상 3D 에셋 ([국가유산 디지털 서비스](https://digital.khs.go.kr)) | 국가유산청 | 공공누리 제1유형 (출처 표시) | FBX를 GLB로, 텍스처 1024px webp, meshopt 압축 |
+| `models/bodhisattva.glb` | 서라벌 천년왕경 선림원지 금동보살입상 3D 에셋 ([국가유산 디지털 서비스](https://digital.khs.go.kr)) | 국가유산청 | 공공누리 제1유형 (출처 표시) | Low FBX를 GLB로, 텍스처 연결, 면 수 절반, 1024px webp, meshopt |
 | `textures/taenghwa.jpg` | [The Assembly of Tejaprabha Buddha](https://clevelandart.org/art/1998.120), 조선 | Cleveland Museum of Art | CC0 | 1536px로 줄임 |
 
 수미단, 단청 띠, 우물반자 무늬는 `src/scene/dancheong.js`에서 캔버스로 직접 그린다.
