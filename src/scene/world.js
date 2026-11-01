@@ -2,10 +2,12 @@
 import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
+import { loadStatue } from "./statue.js";
 import { sumidanTexture, dancheongBand, cofferTexture } from "./dancheong.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
+const STATUE_FACING = Math.PI;      // 스캔 모델은 +z가 정면이라 돌려서 문(-z) 쪽을 보게 한다
 const KST_MS = 9 * 3600000;
 
 export function createWorld(THREE, scene) {
@@ -238,6 +240,14 @@ export function createWorld(THREE, scene) {
   const buddha = createBuddha(THREE);
   buddha.position.set(ALTAR.x, altarTop + 0.03, ALTAR.z);
   hall.add(buddha);
+  // 국가유산청 3D 에셋 금동제여래좌상(공공누리 1유형). 다 불러오면 코드로 만든 부처님과 자리를 바꾼다.
+  loadStatue(THREE, "models/buddha.glb", { height: 1.62 }).then((statue) => {
+    if (!statue) return;
+    statue.object.position.set(ALTAR.x, altarTop, ALTAR.z);
+    statue.object.rotation.y = STATUE_FACING;
+    hall.remove(buddha);
+    hall.add(statue.object);
+  });
   const flames = [];
   for (const sx of [-1, 1]) {
     const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.26, 6), mat(0xf4efe4));

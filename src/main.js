@@ -23,6 +23,10 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
 
 const world = createWorld(THREE, scene);
+// 금빛 불상이 비춰 볼 주변: 방 안 조명을 흉내 낸 환경맵 (금속 재질에만 쓰인다)
+import("three/addons/environments/RoomEnvironment.js").then(({ RoomEnvironment }) => {
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+}).catch(() => {});
 
 // ?time=19:30 처럼 주면 그 한국 시각의 하늘을 미리 본다
 const timeParam = new URLSearchParams(location.search).get("time");
