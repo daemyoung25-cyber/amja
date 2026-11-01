@@ -107,6 +107,16 @@ button { font: inherit; color: inherit; }
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px);
   min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); font-size: 13px; cursor: pointer;
 }
+/* 알림: 누가 들어오거나 합장으로 인사하면 화면 위쪽에 잠깐 (버튼이 숨어 있어도 보인다) */
+.toasts { position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: 16px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; z-index: 5; }
+.toast {
+  display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 10px 18px; border-radius: 999px;
+  background: rgba(22, 24, 38, .72); border: 1px solid rgba(231, 185, 138, .55); color: var(--ink); font-size: 14px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 4px 18px rgba(0, 0, 0, .25);
+  opacity: 0; transform: translateY(-8px); transition: opacity .45s ease, transform .45s ease;
+}
+.toast.on { opacity: 1; transform: none; }
+.toast .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 [hidden] { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {

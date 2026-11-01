@@ -90,3 +90,16 @@ test("the chosen name is written with presence so others can see it", async () =
   assert.equal(w.v.n, "연화");
   p.close();
 });
+
+test("every 합장 greeting is delivered, even two within a few seconds, but never twice", async () => {
+  const { sdk, fire } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk, me: { c: 1, m: { fx: 0, fz: 0, tx: 0, tz: 0, t: 0 }, p: "stand" } });
+  const got = [];
+  p.onGreeted((from) => got.push(from));
+  const t = p.now();
+  fire("presence", { you: { g: { to: "me", at: t - 3000 } } });
+  fire("presence", { you: { g: { to: "me", at: t - 3000 } } });      // 같은 인사가 다시 들려도 한 번
+  fire("presence", { you: { g: { to: "me", at: t - 500 } } });       // 몇 초 뒤 또 합장
+  assert.deepEqual(got, ["you", "you"]);
+  p.close();
+});

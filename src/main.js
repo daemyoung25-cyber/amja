@@ -213,7 +213,7 @@ function drawOthers(now, mePos, dt) {
     if (!o) {
       o = { avatar: createAvatar(THREE, { color: AVATAR_COLORS[peer.c % AVATAR_COLORS.length] }), gone: 0 };
       // 이미 계시던 분들 말고, 내가 들어온 뒤에 새로 오신 분만 알린다
-      if (performance.now() - joinedAt > 4000) ui.showWhisper(`${peer.n ? nameTag(peer.n) + "님이" : "누군가"} 들어오셨어요`, 3500);
+      if (performance.now() - joinedAt > 4000) ui.notify(`${peer.n ? nameTag(peer.n) + "님이" : "누군가"} 들어오셨어요`);
       scene.add(o.avatar.root);
       others.set(peer.uid, o);
     }
@@ -268,9 +268,11 @@ function adopt(p) {
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);
-    ui.showWhisper(`${who && who.n ? nameTag(who.n) + "님이" : "누군가"} 합장으로 인사했어요`);
+    ui.notify(`${who && who.n ? nameTag(who.n) + "님이" : "누군가"} 합장으로 인사했어요 🙏`);
   });
   joinedAt = performance.now();
+  // 들어왔을 때 이미 계신 분이 있으면 한 번 알려 준다
+  setTimeout(() => { if (peers.length) ui.notify(`지금 ${peers.length}분이 함께 계세요`); }, 3500);
   net.markVisit();
   net.onVisits((v) => { visits = v; });
   net.onTraces((recs) => { traceRecords = recs; redrawTraces(); });

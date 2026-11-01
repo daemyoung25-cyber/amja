@@ -61,6 +61,19 @@ export function createUI({ placeName }) {
     setTimeout(() => { hint.style.opacity = "0"; setTimeout(() => (hint.hidden = true), 900); }, 6000);
   }
 
+  // 위쪽 알림: 여러 개면 쌓였다가 하나씩 사라진다 (최대 3개)
+  const toasts = $("toasts");
+  function notify(text, ms = 5000) {
+    const el = document.createElement("div");
+    el.className = "toast";
+    const dot = document.createElement("span"); dot.className = "dot";
+    el.append(dot, text);
+    toasts.append(el);
+    while (toasts.children.length > 3) toasts.firstChild.remove();
+    requestAnimationFrame(() => el.classList.add("on"));
+    setTimeout(() => { el.classList.remove("on"); setTimeout(() => el.remove(), 500); }, ms);
+  }
+
   function showWhisper(text, ms = 3000) {
     whisper.textContent = text;
     whisper.classList.add("on");
@@ -127,7 +140,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, setCount, setNearStatue, setLeaning, pokeHud, showHintOnce, showWhisper,
+    onEnter, setCount, setNearStatue, setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
     onOpenSettings: (cb) => btnSound.addEventListener("click", cb),

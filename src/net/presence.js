@@ -1,7 +1,7 @@
 /* Firebase Realtime Database 접속. 설정이 없거나 8초 안에 연결이 안 되면 혼자 모드.
    presence/{uid} = { c, m, p, pt, s, g? }  (데이터 구조는 database.rules.json 참고) */
 const SDK = "https://www.gstatic.com/firebasejs/11.10.0/";
-const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_COOLDOWN = 10000;
+const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_FRESH = 10000;   // 이보다 오래된 인사는 (늦게 들어와서 본 것이라) 알리지 않는다
 const HOUR = 3600000, CLEANUP_AGE = 7200000, CLEANUP_BATCH = 50, TRACE_READ_MAX = 200;
 
 export async function defaultLoadSdk() {
@@ -80,9 +80,8 @@ async function connect(config, loadSdk, me) {
     if (!val) return;
     for (const [from, v] of Object.entries(val)) {
       const g = v && v.g;
-      if (!g || g.to !== uid || typeof g.at !== "number" || now() - g.at > GREET_COOLDOWN) continue;
-      if ((lastGreet.get(from) || 0) >= g.at) continue;
-      if (g.at - (lastGreet.get(from) || 0) < GREET_COOLDOWN) { lastGreet.set(from, g.at); continue; }
+      if (!g || g.to !== uid || typeof g.at !== "number" || now() - g.at > GREET_FRESH) continue;
+      if ((lastGreet.get(from) || 0) >= g.at) continue;   // 이미 알린 인사 (합장할 때마다 새 시각이라 매번 알린다)
       lastGreet.set(from, g.at);
       for (const cb of greetCbs) cb(from);
     }
