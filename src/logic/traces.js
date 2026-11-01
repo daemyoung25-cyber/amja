@@ -23,3 +23,17 @@ export function staleIds(records, nowMs) {
   if (!records) return [];
   return Object.entries(records).filter(([, r]) => r && typeof r.at === "number" && nowMs - r.at > CLEANUP_AGE_MS).map(([id]) => id);
 }
+
+/* 그리기용: 투명도를 몇 단계로 묶어서, 종류×단계마다 한 번에 그린다. */
+export const OPACITY_LEVELS = 6;
+const TOP = 0.35;
+
+export function bucketTraces(list) {
+  const groups = {};
+  for (const t of list) {
+    const level = Math.min(OPACITY_LEVELS - 1, Math.floor((t.opacity / TOP) * OPACITY_LEVELS));
+    const key = `${t.k}:${level}`;
+    (groups[key] ||= { k: t.k, opacity: ((level + 0.5) / OPACITY_LEVELS) * TOP, items: [] }).items.push(t);
+  }
+  return groups;
+}

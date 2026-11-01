@@ -65,3 +65,19 @@ test("traces are read with a hard cap of 200 newest records", async () => {
   assert.ok(sdk.db.limits.includes(200), JSON.stringify(sdk.db.limits));
   p.close();
 });
+
+test("a late connection is handed to onLate instead of being dropped", async () => {
+  const { sdk, log } = fakeSdk();
+  let late = null;
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const pending = createPresence({ config: { apiKey: "k" }, loadSdk: () => new Promise((r) => setTimeout(() => r(sdk), 9000)), onLate: (p) => { late = p; } });
+    mock.timers.tick(8000);
+    assert.equal((await pending).mode, "solo");
+    mock.timers.tick(1000);
+  } finally { mock.timers.reset(); }
+  await flush();
+  assert.equal(late?.mode, "shared");
+  assert.ok(!log.remove.includes("presence/me"));
+  late.close();
+});

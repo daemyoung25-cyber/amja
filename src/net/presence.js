@@ -20,13 +20,14 @@ function solo() {
   };
 }
 
-export async function createPresence({ config, loadSdk = defaultLoadSdk, me = { c: 0, m: null, p: "stand" } }) {
+export async function createPresence({ config, loadSdk = defaultLoadSdk, me = { c: 0, m: null, p: "stand" }, onLate = null }) {
   if (!config || !config.apiKey) return solo();
   let timer, gaveUp = false;
   const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), CONNECT_TIMEOUT); });
   const shared = connect(config, loadSdk, me).catch((e) => { console.warn("같이 있기 연결 실패, 혼자 모드로", e); return null; });
-  // 혼자 모드로 넘어간 뒤에 연결이 붙으면 바로 정리한다 (남들 화면에 멈춘 사람이 남지 않게)
-  shared.then((p) => { if (gaveUp && p) p.close(); });
+  // 혼자 모드로 넘어간 뒤에 연결이 붙으면: 받아 줄 곳이 있으면 넘기고, 없으면 바로 정리한다
+  // (남들 화면에 멈춘 사람이 남지 않게)
+  shared.then((p) => { if (gaveUp && p) (onLate ? onLate(p) : p.close()); });
   const result = await Promise.race([shared, timeout]);
   clearTimeout(timer);
   if (!result) { gaveUp = true; console.warn("같이 있기 연결이 늦어 혼자 모드로"); }

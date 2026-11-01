@@ -1,6 +1,7 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
 import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
+import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
 const KST_MS = 9 * 3600000;
@@ -285,33 +286,36 @@ export function createWorld(THREE, scene) {
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
   }
 
-  /* 다녀간 흔적: 발자국 한 쌍(step) 또는 난간 앞 옅은 원(lean). 소리는 없다. */
-  const tracePool = [];
-  const stepGeo = new THREE.CircleGeometry(0.07, 8), ringGeo = new THREE.RingGeometry(0.22, 0.3, 20);
-  function traceMesh(i) {
-    if (tracePool[i]) return tracePool[i];
-    const m = new THREE.MeshBasicMaterial({ color: 0x3e372f, transparent: true, depthWrite: false });
-    const g = new THREE.Group();
-    const a = new THREE.Mesh(stepGeo, m), b = new THREE.Mesh(stepGeo, m), ring = new THREE.Mesh(ringGeo, m);
-    a.scale.set(1, 1.6, 1); b.scale.set(1, 1.6, 1);
-    a.position.set(-0.09, 0, 0.04); b.position.set(0.09, 0, -0.04);
-    for (const o of [a, b, ring]) { o.rotation.x = -Math.PI / 2; g.add(o); }
-    g.userData = { m, a, b, ring };
-    g.position.y = 0.015;
-    scene.add(g);
-    return (tracePool[i] = g);
+  /* 다녀간 흔적: 발자국 한 쌍(step) 또는 난간 앞 옅은 원(lean). 소리는 없다.
+     투명도를 몇 단계로 묶어 종류×단계마다 InstancedMesh 하나로 그린다 (최대 12번 그리기). */
+  const feet = [];
+  for (const [ox, oz] of [[-0.09, 0.04], [0.09, -0.04]]) {
+    const sh = new THREE.Shape();
+    sh.absellipse(ox, oz, 0.07, 0.11, 0, Math.PI * 2, false, 0);
+    feet.push(sh);
   }
+  const traceGeo = { step: new THREE.ShapeGeometry(feet, 6), lean: new THREE.RingGeometry(0.22, 0.3, 20) };
+  for (const g of Object.values(traceGeo)) g.rotateX(-Math.PI / 2);
+  const traceMeshes = new Map();          // "k:level" -> InstancedMesh
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), at = new THREE.Vector3();
   function setTraces(list) {
-    list.forEach((t, i) => {
-      const g = traceMesh(i);
-      g.visible = true;
-      g.position.x = t.x; g.position.z = t.z;
-      g.rotation.y = (t.x * 7.31 + t.z * 3.17) % (Math.PI * 2);    // 자리마다 다른 방향 (매번 같게)
-      g.userData.m.opacity = t.opacity;
-      g.userData.a.visible = g.userData.b.visible = t.k !== "lean";
-      g.userData.ring.visible = t.k === "lean";
-    });
-    for (let i = list.length; i < tracePool.length; i++) tracePool[i].visible = false;
+    const groups = bucketTraces(list);
+    for (const mesh of traceMeshes.values()) mesh.count = 0;
+    for (const [key, g] of Object.entries(groups)) {
+      let mesh = traceMeshes.get(key);
+      if (!mesh) {
+        mesh = new THREE.InstancedMesh(traceGeo[g.k] || traceGeo.step, new THREE.MeshBasicMaterial({ color: 0x3e372f, transparent: true, depthWrite: false, opacity: g.opacity }), TRACE_MAX);
+        mesh.frustumCulled = false;
+        scene.add(mesh);
+        traceMeshes.set(key, mesh);
+      }
+      g.items.forEach((t, i) => {
+        q.setFromAxisAngle(up, (t.x * 7.31 + t.z * 3.17) % (Math.PI * 2));   // 자리마다 다른 방향 (매번 같게)
+        mesh.setMatrixAt(i, m4.compose(at.set(t.x, 0.015, t.z), q, one));
+      });
+      mesh.count = g.items.length;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }
 
   return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces };

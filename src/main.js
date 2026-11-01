@@ -214,20 +214,25 @@ ui.onEnter(async () => {
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;
-  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base } });
-  if (p.mode !== "shared") return;
+  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base }, onLate: adopt });
+  if (p.mode === "shared") adopt(p);
+});
+
+// 같이 있기로 옮겨 탄다 (처음 연결이든, 늦게 붙은 연결이든)
+function adopt(p) {
   // 서버 시계로 옮겨 탄다: 지금 서 있는 자리에서 다시 시작
   const here = positionAt(state.move, Date.now());
   state.move = startMove(here, here, p.now());
   net = p;
   net.sendMove(state.move);
+  net.sendPose(state.base);
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted(() => ui.showWhisper("누군가 합장으로 인사했어요"));
   net.markVisit();
   net.onVisits((v) => { visits = v; });
   net.onTraces((recs) => { traceRecords = recs; redrawTraces(); });
   net.cleanup();
-});
+}
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다

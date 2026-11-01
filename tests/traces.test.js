@@ -38,3 +38,13 @@ test("visitors in the last hour are counted, older ones are not", () => {
 test("only records older than two hours are stale", () => {
   assert.deepEqual(staleIds({ old: { at: NOW - 120 * MIN - 1000 }, kept: { at: NOW - 119 * MIN } }, NOW), ["old"]);
 });
+
+import { bucketTraces, OPACITY_LEVELS } from "../src/logic/traces.js";
+
+test("traces are grouped into a few opacity buckets per kind so drawing stays cheap", () => {
+  const list = Array.from({ length: 200 }, (_, i) => ({ x: i, z: 0, k: i % 2 ? "lean" : "step", opacity: 0.35 * (1 - i / 200) }));
+  const groups = bucketTraces(list);
+  assert.ok(Object.keys(groups).length <= 2 * OPACITY_LEVELS, String(Object.keys(groups).length));
+  assert.equal(Object.values(groups).reduce((s, g) => s + g.items.length, 0), 200);
+  for (const g of Object.values(groups)) for (const t of g.items) assert.ok(Math.abs(t.opacity - g.opacity) <= 0.35 / OPACITY_LEVELS);
+});
