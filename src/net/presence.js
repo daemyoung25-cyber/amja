@@ -2,6 +2,7 @@
    presence/{uid} = { c, m, p, pt, s, g? }  (데이터 구조는 database.rules.json 참고) */
 const SDK = "https://www.gstatic.com/firebasejs/11.10.0/";
 const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_COOLDOWN = 10000;
+const HOUR = 3600000, CLEANUP_AGE = 7200000, CLEANUP_BATCH = 50;
 
 export async function defaultLoadSdk() {
   const [app, auth, db] = await Promise.all([
@@ -15,6 +16,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop,
   };
 }
 
@@ -89,6 +91,25 @@ async function connect(config, loadSdk, me) {
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
       disappear();
     },
-    _db: { db, database },   // 흔적(Task 7)이 같은 연결을 쓴다
+    // 다녀간 흔적과 방문 기록
+    writeTrace({ x, z, k }) { db.push(db.ref(database, "traces"), { x, z, k, at: now() }); },
+    onTraces(cb) {
+      const q = db.query(db.ref(database, "traces"), db.orderByChild("at"), db.startAt(now() - HOUR));
+      db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
+    },
+    markVisit() { db.set(db.ref(database, `visits/${uid}`), { at: now() }); },
+    onVisits(cb) {
+      const q = db.query(db.ref(database, "visits"), db.orderByChild("at"), db.startAt(now() - HOUR));
+      db.onValue(q, (snap) => cb(snap.val() || {}));
+    },
+    async cleanup() {                // 들어올 때 한 번: 두 시간 넘은 기록을 조금씩 지운다
+      for (const path of ["traces", "visits"]) {
+        try {
+          const q = db.query(db.ref(database, path), db.orderByChild("at"), db.endAt(now() - CLEANUP_AGE), db.limitToFirst(CLEANUP_BATCH));
+          const snap = await db.get(q);
+          await Promise.all(Object.keys(snap.val() || {}).map((id) => db.remove(db.ref(database, `${path}/${id}`))));
+        } catch (e) { console.warn("오래된 기록 정리 실패", e); }
+      }
+    },
   };
 }

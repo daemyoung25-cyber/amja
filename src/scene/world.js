@@ -285,7 +285,36 @@ export function createWorld(THREE, scene) {
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
   }
 
-  return { update, groundMeshes, obstacles, seaY: SEA_Y };
+  /* 다녀간 흔적: 발자국 한 쌍(step) 또는 난간 앞 옅은 원(lean). 소리는 없다. */
+  const tracePool = [];
+  const stepGeo = new THREE.CircleGeometry(0.07, 8), ringGeo = new THREE.RingGeometry(0.22, 0.3, 20);
+  function traceMesh(i) {
+    if (tracePool[i]) return tracePool[i];
+    const m = new THREE.MeshBasicMaterial({ color: 0x3e372f, transparent: true, depthWrite: false });
+    const g = new THREE.Group();
+    const a = new THREE.Mesh(stepGeo, m), b = new THREE.Mesh(stepGeo, m), ring = new THREE.Mesh(ringGeo, m);
+    a.scale.set(1, 1.6, 1); b.scale.set(1, 1.6, 1);
+    a.position.set(-0.09, 0, 0.04); b.position.set(0.09, 0, -0.04);
+    for (const o of [a, b, ring]) { o.rotation.x = -Math.PI / 2; g.add(o); }
+    g.userData = { m, a, b, ring };
+    g.position.y = 0.015;
+    scene.add(g);
+    return (tracePool[i] = g);
+  }
+  function setTraces(list) {
+    list.forEach((t, i) => {
+      const g = traceMesh(i);
+      g.visible = true;
+      g.position.x = t.x; g.position.z = t.z;
+      g.rotation.y = (t.x * 7.31 + t.z * 3.17) % (Math.PI * 2);    // 자리마다 다른 방향 (매번 같게)
+      g.userData.m.opacity = t.opacity;
+      g.userData.a.visible = g.userData.b.visible = t.k !== "lean";
+      g.userData.ring.visible = t.k === "lean";
+    });
+    for (let i = list.length; i < tracePool.length; i++) tracePool[i].visible = false;
+  }
+
+  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces };
 }
 
 function mulberry32(a) {

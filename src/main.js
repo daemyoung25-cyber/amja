@@ -10,6 +10,7 @@ import { createAudio } from "./audio.js";
 import { CREDITS } from "./credits.js";
 import { createPresence } from "./net/presence.js";
 import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
+import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
 import { FIREBASE } from "../firebase-config.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
@@ -41,6 +42,7 @@ scene.add(me.root);
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
 let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {} };
 let snapshot = null, peers = [];
+let traceRecords = [], visits = {}, lastTraceAt = null;
 const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
@@ -135,6 +137,10 @@ function frame(t) {
   const p = positionAt(state.move, now);
   if (!p.arrived) state.yaw = p.yaw;
   if (p.arrived && state.base === "walk") {
+    if (net.mode === "shared" && shouldWriteTrace(lastTraceAt, now)) {
+      lastTraceAt = now;
+      net.writeTrace({ x: p.x, z: p.z, k: state.leanOnArrive ? "lean" : "step" });
+    }
     if (state.leanOnArrive) {
       state.yaw = 0;
       setBase("lean");
@@ -186,14 +192,18 @@ function drawOthers(now, mePos, dt) {
     o.avatar.setOpacity(Math.max(0, 1 - o.gone));
     if (o.gone >= 1) { scene.remove(o.avatar.root); others.delete(uid); }
   }
-  ui.setCount(`${peers.length + 1}명 함께`);
+  const here = peers.length + 1, recent = recentVisitorCount(visits, now);
+  ui.setCount(recent > here ? `${here}명 함께 · 지난 한 시간 ${recent}명` : `${here}명 함께`);
 }
+
+function redrawTraces() { world.setTraces(visibleTraces(traceRecords, net.now())); }
+setInterval(redrawTraces, 60000);       // 1분마다 조금씩 옅어진다
 
 ui.onEnter(async () => {
   audio.start();
   ui.showHintOnce();
   const config = new URLSearchParams(location.search).has("emu")
-    ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja", projectId: "demo-amja", appId: "demo", emulator: true }
+    ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;
   const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base } });
   if (p.mode !== "shared") return;
@@ -204,8 +214,12 @@ ui.onEnter(async () => {
   net.sendMove(state.move);
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted(() => ui.showWhisper("누군가 합장으로 인사했어요"));
+  net.markVisit();
+  net.onVisits((v) => { visits = v; });
+  net.onTraces((recs) => { traceRecords = recs; redrawTraces(); });
+  net.cleanup();
 });
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; } };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world };
