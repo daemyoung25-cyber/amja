@@ -1,6 +1,6 @@
 /* 스캔한 불상 모델을 불러와 높이를 맞추고 금빛 재질을 입힌다.
    못 불러오면 null을 돌려주고, 그 자리는 코드로 만든 부처님이 계속 지킨다. */
-export async function loadStatue(THREE, url, { height, envIntensity = 0.6, doubleSided = false }) {
+export async function loadStatue(THREE, url, { height, envIntensity = 0.6, doubleSided = false, metalness = 0.85, roughness = 0.4 }) {
   try {
     const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
       import("three/addons/loaders/GLTFLoader.js"),
@@ -18,8 +18,8 @@ export async function loadStatue(THREE, url, { height, envIntensity = 0.6, doubl
     model.traverse((o) => {
       if (!o.isMesh) return;
       const m = o.material;
-      m.metalness = 0.85;
-      m.roughness = 0.4;
+      m.metalness = metalness;   // 금동은 금속, 돌은 0
+      m.roughness = roughness;
       m.envMapIntensity = envIntensity;
       if (doubleSided) m.side = THREE.DoubleSide;   // 투각 광배는 안팎이 다 보인다
       materials.push(m);

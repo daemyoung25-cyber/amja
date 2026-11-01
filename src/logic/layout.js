@@ -8,6 +8,11 @@ export const STATUE = { x: 9, z: -4.5, baseR: 1.2 };
 export const YARD = [
   { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
   { kind: "pagoda", x: -6.8, z: 3.0, r: 1.35 }, { kind: "pagoda", x: 6.8, z: 3.0, r: 1.35 },
+  // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 배례석 앞 큰 청동 향로, 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
+  { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
+  { kind: "censer", x: 0, z: 2.3, r: 0.55 },
+  ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -10.8, z, r: 0.35 }, { kind: "pot", x: 10.8, z, r: 0.35 }]),
+  { kind: "giwa", x: -9.4, z: -2.2, r: 0.8 },
 ];
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들

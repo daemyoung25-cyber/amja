@@ -123,7 +123,7 @@ test("a new tap while standing in the doorway steps straight in or out", () => {
   assert.equal(crosses(mid, out, inWall), null, JSON.stringify(out));
 });
 
-import { YARD } from "../src/logic/layout.js";
+import { YARD, BAERYE } from "../src/logic/layout.js";
 const inYardStone = (p) => YARD.some((o) => Math.hypot(p.x - o.x, p.z - o.z) < o.r);
 
 test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrored", () => {
@@ -158,4 +158,43 @@ test("the path from the courtyard into the hall still goes through the door past
   const from = { x: 0, z: 0 }, to = { x: 0, z: 9 };
   const path = routeAround(from, to);
   assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
+});
+
+test("the front yard also has a 괘불대 pair, lotus pots in mirrored pairs, a bronze censer on the axis and a wish-tile stand", () => {
+  for (const kind of ["gwaebul", "pot"]) {
+    const all = YARD.filter((o) => o.kind === kind);
+    assert.ok(all.length >= 2 && all.length % 2 === 0, kind);
+    for (const o of all) assert.ok(all.some((m) => m.x === -o.x && m.z === o.z), `${kind} mirror of ${o.x}`);
+  }
+  const censer = YARD.filter((o) => o.kind === "censer");
+  assert.equal(censer.length, 1);
+  assert.equal(censer[0].x, 0);
+  assert.ok(censer[0].z < BAERYE.z, "향로는 배례석 앞(바다 쪽)");
+  assert.equal(YARD.filter((o) => o.kind === "giwa").length, 1);
+});
+
+test("nothing in the front yard overlaps another thing or the hall", () => {
+  const all = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) assert.ok(Math.hypot(all[i].x - all[j].x, all[i].z - all[j].z) > all[i].r + all[j].r + 0.6, `${JSON.stringify(all[i])} ~ ${JSON.stringify(all[j])}`);
+    assert.ok(all[i].z + all[i].r < HALL.minZ, JSON.stringify(all[i]));
+    assert.ok(walkable({ x: all[i].x - all[i].r, z: all[i].z }) && walkable({ x: all[i].x + all[i].r, z: all[i].z }), JSON.stringify(all[i]));
+  }
+});
+
+test("from anywhere people arrive, the way into the hall goes round every yard stone", () => {
+  for (let x = -4; x <= 4; x += 1) for (const z of [-2.5, -1.5, -0.5]) {
+    const from = { x, z }, to = { x: 0, z: 9 };
+    const path = routeAround(from, to);
+    assert.deepEqual(path.at(-1), to);
+    assert.equal(crosses(from, path, inYardStone), null, `${x},${z}: ${JSON.stringify(path)}`);
+  }
+});
+
+test("and the way back out from the door to the railing goes round them too", () => {
+  for (let x = -10; x <= 10; x += 2.5) {
+    const from = { x: 0, z: 9 }, to = { x, z: -5.4 };
+    const path = routeAround(from, to);
+    assert.equal(crosses(from, path, inYardStone), null, `${x}: ${JSON.stringify(path)}`);
+  }
 });

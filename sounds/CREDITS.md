@@ -17,6 +17,7 @@
 | `models/buddha.glb` | 서라벌 천년왕경 금동제여래좌상 3D 에셋 ([국가유산 디지털 서비스](https://digital.khs.go.kr)) | 국가유산청 | 공공누리 제1유형 (출처 표시) | FBX를 GLB로, 텍스처 1024px webp, meshopt 압축 |
 | `models/bodhisattva.glb` | 서라벌 천년왕경 선림원지 금동보살입상 3D 에셋 ([국가유산 디지털 서비스](https://digital.khs.go.kr)) | 국가유산청 | 공공누리 제1유형 (출처 표시) | Low FBX를 GLB로, 텍스처 연결, 면 수 절반, 1024px webp, meshopt |
 | `textures/taenghwa.jpg` | [The Assembly of Tejaprabha Buddha](https://clevelandart.org/art/1998.120), 조선 | Cleveland Museum of Art | CC0 | 1536px로 줄임 |
+| `models/gwaneum.glb` | 서라벌 천년왕경 분황사 석조관음보살입상 3D 에셋 ([국가유산 디지털 서비스](https://digital.khs.go.kr)) | 국가유산청 | 공공누리 제1유형 (출처 표시) | Lowpoly FBX를 GLB로, 텍스처 연결, 색을 흰 화강암 빛으로 밝힘, 1024px webp, meshopt |
 | `textures/jijang.jpg` | [Bodhisattva Jijang (Kshitigarbha) and the Ten Kings of Hell](https://commons.wikimedia.org/wiki/File:Bodhisattva_Jijang_(Kshitigarbha)_and_the_Ten_Kings_of_Hell_LACMA_AC1994.49.1_(1_of_9).jpg), 조선 | LACMA | Public domain | 1280px로 줄임 |
 | `textures/sinjung.jpg` | [Buddhist Deities](https://clevelandart.org/art/1999.119), 조선 | Cleveland Museum of Art | CC0 | 가장자리 잘라 1100px로 |
 

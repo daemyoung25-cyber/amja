@@ -308,9 +308,9 @@ export function createWorld(THREE, scene) {
   hall.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); if (!noBlock.has(o)) obstacles.push(o); } });
 
   /* 대웅전 앞마당: 석등 한 쌍, 삼층석탑 한 쌍, 배례석 */
-  const yard = createYard(THREE, { lanterns: YARD.filter((o) => o.kind === "lantern"), pagodas: YARD.filter((o) => o.kind === "pagoda"), baerye: BAERYE });
+  const yard = createYard(THREE, { items: YARD, baerye: BAERYE });
   scene.add(yard.group);
-  yard.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  yard.group.traverse((o) => { if (o.isMesh && !o.userData.air) { groundMeshes.push(o); obstacles.push(o); } });   // 향 연기는 눌리거나 카메라를 막지 않는다
 
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
@@ -375,34 +375,68 @@ export function createWorld(THREE, scene) {
     lanternMesh.instanceMatrix.needsUpdate = true;
   }
 
-  /* 관세음보살: 연꽃 받침 위에 서서 바다를 바라본다 (-z) */
+  /* 해수관음: 높은 팔각 받침과 연꽃 대좌 위에 서서 바다를 바라본다 (-z).
+     국가유산청 3D 에셋 분황사 석조관음보살입상(공공누리 1유형)을 흰 화강암 빛으로 밝혀 모신다.
+     다 불러오기 전과 못 불러올 때는 코드로 만든 관음상이 그 자리를 지킨다. */
   const statue = new THREE.Group();
   const granite = mat(0xe9e4d8), graniteShade = mat(0xcfc8b8);
-  const steps = [[1.2, 0.35], [1.0, 0.3], [0.85, 0.25]];
+  const oct8 = (rTop, rBot, h) => new THREE.CylinderGeometry(rTop, rBot, h, 8);
   let y = 0;
-  for (const [r, h] of steps) {
-    const s = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, h, 12), graniteShade);
+  for (const [r, h] of [[1.2, 0.3], [1.02, 0.25]]) {                  // 두 단 바닥돌
+    const s = new THREE.Mesh(oct8(r, r * 1.04, h), graniteShade);
     s.position.y = y + h / 2; y += h; statue.add(s);
   }
-  const lotus = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.5, 0.35, 12), granite);
-  lotus.position.y = y + 0.17; y += 0.35; statue.add(lotus);
+  const plinth = new THREE.Mesh(oct8(0.72, 0.78, 0.9), granite);      // 팔각 중대석 (모서리 기둥 새김)
+  plinth.position.y = y + 0.45; statue.add(plinth);
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + Math.PI / 8;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.06), graniteShade);
+    post.position.set(Math.sin(a) * 0.74, y + 0.45, Math.cos(a) * 0.74); post.rotation.y = a;
+    statue.add(post);
+  }
+  y += 0.9;
+  const cap = new THREE.Mesh(oct8(0.92, 0.8, 0.16), graniteShade);   // 갑석
+  cap.position.y = y + 0.08; y += 0.16; statue.add(cap);
+  // 연꽃 대좌: 위로 핀 꽃잎 두 겹
+  const lotusCore = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.5, 0.36, 16), granite);
+  lotusCore.position.y = y + 0.18; statue.add(lotusCore);
+  const petalGeo = new THREE.SphereGeometry(1, 8, 6);
+  for (const [n, r, size, tilt, off] of [[12, 0.62, 0.24, -0.55, 0], [12, 0.74, 0.2, -0.8, Math.PI / 12]]) {
+    for (let k = 0; k < n; k++) {
+      const h = new THREE.Group(); h.rotation.y = (k / n) * Math.PI * 2 + off; statue.add(h);
+      const pe = new THREE.Mesh(petalGeo, granite);
+      pe.scale.set(size * 0.55, size, size * 0.3); pe.position.set(r, y + 0.2, 0); pe.rotation.z = tilt;
+      h.add(pe);
+    }
+  }
+  y += 0.36;
+  const FIGURE_Y = y, FIGURE_H = 3.6;
+  const fallback = new THREE.Group();
   const robePts = [[0.55, 0], [0.62, 0.4], [0.5, 1.4], [0.46, 2.1], [0.5, 2.5], [0.42, 2.8], [0.2, 2.95], [0.0, 2.97]].map(([r, h]) => new THREE.Vector2(r, h));
   const robe = new THREE.Mesh(new THREE.LatheGeometry(robePts, 14), granite);
-  robe.position.y = y; statue.add(robe);
+  robe.position.y = y; fallback.add(robe);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), granite);
-  head.position.y = y + 3.22; statue.add(head);
+  head.position.y = y + 3.22; fallback.add(head);
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.24, 0.34, 8), graniteShade);
-  crown.position.y = y + 3.55; statue.add(crown);
+  crown.position.y = y + 3.55; fallback.add(crown);
   const vase = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.32, 6), graniteShade);
-  vase.position.set(0.32, y + 1.9, -0.4); statue.add(vase);
+  vase.position.set(0.32, y + 1.9, -0.4); fallback.add(vase);
   const hand = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), granite);
-  hand.position.set(-0.18, y + 2.2, -0.42); statue.add(hand);
+  hand.position.set(-0.18, y + 2.2, -0.42); fallback.add(hand);
   const halo = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.04, 6, 24), graniteShade);
-  halo.position.set(0, y + 3.3, 0.25); statue.add(halo);
+  halo.position.set(0, y + 3.3, 0.25); fallback.add(halo);
+  statue.add(fallback);
   statue.position.set(STATUE.x, 0, STATUE.z);
   statue.rotation.y = 0;   // 정면(-z)이 바다
   scene.add(statue);
   statue.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  loadStatue(THREE, "models/gwaneum.glb", { height: FIGURE_H, metalness: 0, roughness: 0.85, envIntensity: 0.4 }).then((scan) => {
+    if (!scan) return;
+    scan.object.position.y = FIGURE_Y;
+    scan.object.rotation.y = STATUE_FACING;
+    statue.remove(fallback);
+    statue.add(scan.object);
+  });
 
   /* 빛 */
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444033, 0.8);
@@ -449,6 +483,7 @@ export function createWorld(THREE, scene) {
 
   function update(date, dt, camPos) {
     t += dt;
+    yard.update(t);
     seaU.time.value = t;
     if (camPos) seaU.camPos.value.copy(camPos);
     skyTimer += dt;
