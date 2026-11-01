@@ -13,7 +13,7 @@ export const DOOR_IN = { x: 0, z: 7.1 };
 export const ALTAR = { x: 0, z: 13.9 };
 export const CUSHIONS = [-4, -2, 0, 2, 4].flatMap((x) => [{ x, z: 8.6 }, { x, z: 10.2 }, { x, z: 11.8 }]);
 export const FLOOR_Y = 0.5;
-export const CEILING_Y = FLOOR_Y + WALLS.height - 0.36;
+export const CEILING_Y = FLOOR_Y + WALLS.height - 0.6;   // 바깥 처마 단청 상자(벽 위 0.45m부터)보다 아래
 // 법당 안에 있을 때 카메라가 머무를 상자 (벽·천장 안쪽). 문으로 빠져나가면 문틀에 걸려 깜빡인다.
 export const ROOM = { minX: -8.1, maxX: 8.1, minZ: 6.95, maxZ: 14.7, maxY: CEILING_Y - 0.2 };
 

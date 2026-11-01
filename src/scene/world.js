@@ -3,7 +3,8 @@ import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
-import { sumidanTexture, dancheongBand, cofferTexture } from "./dancheong.js";
+import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./dancheong.js";
+import { createGongpo } from "./gongpo.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -208,12 +209,25 @@ export function createWorld(THREE, scene) {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), mat(0x9a6b45));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FY + 0.005, ROOM_Z);
-  const coffer = cofferTexture(THREE, [Math.round(ROOM_W / 1.4), Math.round(ROOM_D / 1.4)]);
+  const coffer = cofferTexture(THREE, [Math.round(ROOM_W / 2.4), Math.round(ROOM_D / 2.4)]);
   // 아래를 보는 면이라 빛을 덜 받으니, 무늬가 스스로 조금 밝게 보이게
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshLambertMaterial({ map: coffer, emissiveMap: coffer, emissive: 0x6a6a6a, side: THREE.DoubleSide }));
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshLambertMaterial({ map: coffer, emissiveMap: coffer, emissive: 0x505050, side: THREE.DoubleSide }));
   ceiling.rotation.x = Math.PI / 2;
   ceiling.position.set(0, CEILING_Y, ROOM_Z);   // 처마 단청 상자 바닥보다 아래에 (겹치면 폰에서 깜빡인다)
   hall.add(floor, ceiling);
+  // 천장을 가로지르는 대들보: 단청 칠한 굵은 보 (멀리서 비스듬히 봐도 천장 구조가 보이게)
+  const beamMat = new THREE.MeshLambertMaterial({ map: fadedBand(THREE, 10) });
+  for (const dz of [-ROOM_D / 3, 0, ROOM_D / 3]) box(ROOM_W, 0.5, 0.45, beamMat, 0, CEILING_Y - 0.25, ROOM_Z + dz);
+  const beamWood = mat(0x5a2a1f);
+  for (const dx of [-ROOM_W / 4, ROOM_W / 4]) box(0.35, 0.3, ROOM_D, beamWood, dx, CEILING_Y - 0.15, ROOM_Z);
+  // 공포: 안쪽 네 벽 위로 줄지어 (살미는 방 안쪽으로), 바깥 앞 처마 밑 기둥 줄에도
+  const GP = 1.3, inSpots = [];
+  for (let x = -W_SIDE + 0.9; x <= W_SIDE - 0.9 + 1e-6; x += GP) { inSpots.push({ x, z: W_FRONT + 0.45, ry: Math.PI }); inSpots.push({ x, z: W_BACK - 0.45, ry: 0 }); }
+  for (let z = W_FRONT + 1.4; z <= W_BACK - 1.4 + 1e-6; z += GP) { inSpots.push({ x: -W_SIDE + 0.45, z, ry: -Math.PI / 2 }); inSpots.push({ x: W_SIDE - 0.45, z, ry: Math.PI / 2 }); }
+  hall.add(createGongpo(THREE, inSpots, { y: CEILING_Y - 0.72, scale: 0.85 }));
+  const outSpots = [];
+  for (let x = -(hw / 2 - 0.6); x <= hw / 2 - 0.6 + 1e-6; x += GP) outSpots.push({ x, z: HALL.minZ + 0.35, ry: 0 });
+  hall.add(createGongpo(THREE, outSpots, { y: FY + WALL_H - 0.45, scale: 0.8 }));
   hallGround.push(floor);
   const ALTAR_H = 1.0, ALTAR_W = 7.6, ALTAR_D = 1.3, altarTop = FY + ALTAR_H;
   // 수미단: 받침, 연꽃 칸을 그린 몸통, 색띠 두른 윗판 (앞면만 그림, 정면은 -z)
@@ -228,7 +242,7 @@ export function createWorld(THREE, scene) {
   const bandH = 0.6, bandY = CEILING_Y - bandH / 2 + 0.02;
   for (const [w, x, z, ry, rep] of [[ROOM_W, 0, W_BACK - WT / 2 - 0.015, Math.PI, 8], [ROOM_W, 0, W_FRONT + WT / 2 + 0.015, 0, 8],
     [ROOM_D, -W_SIDE + WT / 2 + 0.015, ROOM_Z, Math.PI / 2, 4], [ROOM_D, W_SIDE - WT / 2 - 0.015, ROOM_Z, -Math.PI / 2, 4]]) {
-    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, bandH), new THREE.MeshLambertMaterial({ map: dancheongBand(THREE, rep) }));
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, bandH), new THREE.MeshLambertMaterial({ map: fadedBand(THREE, rep) }));
     band.rotation.y = ry; band.position.set(x, bandY, z);
     hall.add(band);
     paintedBands.push(band);
@@ -319,7 +333,7 @@ export function createWorld(THREE, scene) {
   add(railHit, true);
 
   /* 연등: 마당 위로 줄 세 가닥, 연꽃 모양 등이 줄줄이. 해가 지면 불이 켜진 듯 밝아진다. */
-  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = 12.2, STRING_Y = 4.4, SAG = 0.5, LANTERN_GAP = 0.85;
+  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = 12.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
   const LANTERN_COLORS = [0xf28fb0, 0xf5a35c, 0xf3dd7a, 0x9fd38a, 0xe0574a, 0xf7f1e3];
   const stringY = (x) => STRING_Y - SAG * (1 - (x / POLE_X) ** 2);
   // 꽃잎 끝이 위로 들린 연꽃 모양
