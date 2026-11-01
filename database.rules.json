@@ -5,11 +5,26 @@
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['c','m','p','s'])",
-        "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5" },
+        "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0" },
         "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|hapjang|bow)$/)" },
+        "pt": { ".validate": "newData.isNumber()" },
         "s": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
-        "m": { ".validate": "newData.hasChildren(['fx','fz','tx','tz','t'])" },
-        "g": { ".validate": "newData.hasChildren(['to','at'])" }
+        "m": {
+          ".validate": "newData.hasChildren(['fx','fz','tx','tz','t'])",
+          "fx": { ".validate": "newData.isNumber()" },
+          "fz": { ".validate": "newData.isNumber()" },
+          "tx": { ".validate": "newData.isNumber()" },
+          "tz": { ".validate": "newData.isNumber()" },
+          "t": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        "g": {
+          ".validate": "newData.hasChildren(['to','at'])",
+          "to": { ".validate": "newData.isString() && newData.val().length < 64" },
+          "at": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        "$other": { ".validate": false }
       }
     },
     "traces": {
@@ -17,7 +32,12 @@
       ".indexOn": ["at"],
       "$id": {
         ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 7200000)",
-        ".validate": "!newData.exists() || (newData.child('x').isNumber() && newData.child('z').isNumber() && newData.child('k').isString() && newData.child('k').val().matches(/^(step|lean)$/) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000)"
+        ".validate": "newData.hasChildren(['x','z','k','at'])",
+        "x": { ".validate": "newData.isNumber()" },
+        "z": { ".validate": "newData.isNumber()" },
+        "k": { ".validate": "newData.isString() && newData.val().matches(/^(step|lean)$/)" },
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
       }
     },
     "visits": {
@@ -25,7 +45,9 @@
       ".indexOn": ["at"],
       "$uid": {
         ".write": "auth != null && (auth.uid === $uid || data.child('at').val() < now - 7200000)",
-        ".validate": "!newData.exists() || (newData.child('at').isNumber() && newData.child('at').val() <= now + 60000)"
+        ".validate": "newData.hasChildren(['at'])",
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
       }
     }
   }

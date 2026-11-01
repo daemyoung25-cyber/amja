@@ -57,3 +57,11 @@ test("after a reconnect the presence node is written again in full", async () =>
   assert.deepEqual(Object.keys(writes.at(-1).v).sort().slice(0, 4), ["c", "m", "p", "pt"]);
   p.close();
 });
+
+test("traces are read with a hard cap of 200 newest records", async () => {
+  const { sdk } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
+  p.onTraces(() => {});
+  assert.ok(sdk.db.limits.includes(200), JSON.stringify(sdk.db.limits));
+  p.close();
+});

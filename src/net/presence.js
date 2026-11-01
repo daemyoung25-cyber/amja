@@ -2,7 +2,7 @@
    presence/{uid} = { c, m, p, pt, s, g? }  (데이터 구조는 database.rules.json 참고) */
 const SDK = "https://www.gstatic.com/firebasejs/11.10.0/";
 const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_COOLDOWN = 10000;
-const HOUR = 3600000, CLEANUP_AGE = 7200000, CLEANUP_BATCH = 50;
+const HOUR = 3600000, CLEANUP_AGE = 7200000, CLEANUP_BATCH = 50, TRACE_READ_MAX = 200;
 
 export async function defaultLoadSdk() {
   const [app, auth, db] = await Promise.all([
@@ -104,7 +104,7 @@ async function connect(config, loadSdk, me) {
     // 다녀간 흔적과 방문 기록
     writeTrace({ x, z, k }) { db.push(db.ref(database, "traces"), { x, z, k, at: now() }); },
     onTraces(cb) {
-      const q = db.query(db.ref(database, "traces"), db.orderByChild("at"), db.startAt(now() - HOUR));
+      const q = db.query(db.ref(database, "traces"), db.orderByChild("at"), db.startAt(now() - HOUR), db.limitToLast(TRACE_READ_MAX));
       db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
     },
     markVisit() { db.set(db.ref(database, `visits/${uid}`), { at: now() }); },
