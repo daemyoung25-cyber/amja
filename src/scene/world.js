@@ -1,6 +1,7 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
 import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
+import { createBuddha } from "./buddha.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -210,14 +211,7 @@ export function createWorld(THREE, scene) {
   taenghwa.rotation.y = Math.PI;
   taenghwa.position.set(0, FY + 1.75, W_BACK - WT / 2 - 0.01);
   hall.add(taenghwa);
-  const buddha = new THREE.Group();
-  const bodyPts = [[0.7, 0], [0.73, 0.08], [0.64, 0.2], [0.36, 0.25], [0.38, 0.6], [0.33, 0.88], [0.16, 1.0], [0, 1.02]].map(([r, h]) => new THREE.Vector2(r, h));
-  buddha.add(new THREE.Mesh(new THREE.LatheGeometry(bodyPts, 12), gold));
-  const bHead = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), gold); bHead.position.y = 1.22;
-  const usnisa = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), gold); usnisa.position.y = 1.43;
-  const aura = new THREE.Mesh(new THREE.CircleGeometry(0.62, 20), new THREE.MeshLambertMaterial({ color: 0xb8862f, side: THREE.DoubleSide }));
-  aura.position.set(0, 1.15, 0.3);
-  buddha.add(bHead, usnisa, aura);
+  const buddha = createBuddha(THREE);
   buddha.position.set(ALTAR.x, altarTop + 0.03, ALTAR.z);
   hall.add(buddha);
   const flames = [];
@@ -240,7 +234,7 @@ export function createWorld(THREE, scene) {
   candleLight.position.set(0, FY + 1.8, 8.2);
   hall.add(candleLight);
   scene.add(hall);
-  const noBlock = new Set([...hallGround, ceiling, ...flames, aura, taenghwa]);
+  const noBlock = new Set([...hallGround, ceiling, ...flames, taenghwa]);
   hall.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); if (!noBlock.has(o)) obstacles.push(o); } });
 
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
