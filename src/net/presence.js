@@ -22,12 +22,14 @@ function solo() {
 
 export async function createPresence({ config, loadSdk = defaultLoadSdk, me = { c: 0, m: null, p: "stand" } }) {
   if (!config || !config.apiKey) return solo();
-  let timer;
+  let timer, gaveUp = false;
   const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), CONNECT_TIMEOUT); });
   const shared = connect(config, loadSdk, me).catch((e) => { console.warn("같이 있기 연결 실패, 혼자 모드로", e); return null; });
+  // 혼자 모드로 넘어간 뒤에 연결이 붙으면 바로 정리한다 (남들 화면에 멈춘 사람이 남지 않게)
+  shared.then((p) => { if (gaveUp && p) p.close(); });
   const result = await Promise.race([shared, timeout]);
   clearTimeout(timer);
-  if (!result) console.warn("같이 있기 연결이 늦어 혼자 모드로");
+  if (!result) { gaveUp = true; console.warn("같이 있기 연결이 늦어 혼자 모드로"); }
   return result || solo();
 }
 
@@ -58,6 +60,13 @@ async function connect(config, loadSdk, me) {
   }
   const disappear = () => { present = false; return db.remove(mine); };
   await appear();
+  // 연결이 끊겼다 붙으면 서버가 노드를 지웠으므로 처음처럼 다시 쓴다
+  let wasConnected = true;
+  const stopConn = db.onValue(db.ref(database, ".info/connected"), (snap) => {
+    const on = snap.val() === true;
+    if (on && !wasConnected && (typeof document === "undefined" || !document.hidden)) appear();
+    wasConnected = on;
+  });
 
   const beat = setInterval(() => { if (present) { state.s = now(); db.update(mine, { s: state.s }); } }, HEARTBEAT);
   const onVis = () => (document.hidden ? disappear() : appear());
@@ -88,6 +97,7 @@ async function connect(config, loadSdk, me) {
     close() {
       clearInterval(beat);
       stopPeers();
+      stopConn();
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
       disappear();
     },
