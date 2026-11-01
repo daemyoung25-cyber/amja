@@ -118,17 +118,24 @@ ui.onBow(() => {
   gesture("bow");
 });
 const SOUND_KEY = "amja-sound";
-const toggles = (() => {
-  try { return { waves: true, chime: true, chant: true, ...JSON.parse(localStorage.getItem(SOUND_KEY) || "{}") }; }
-  catch { return { waves: true, chime: true, chant: true }; }
+// 층마다 크기 0..1. 예전에 켜고 끄기(true/false)로 저장한 값도 그대로 읽는다.
+const volumes = (() => {
+  const v = { waves: 1, chime: 1, chant: 1 };
+  try {
+    for (const [k, x] of Object.entries(JSON.parse(localStorage.getItem(SOUND_KEY) || "{}"))) {
+      if (k in v) v[k] = typeof x === "boolean" ? (x ? 1 : 0) : Math.min(1, Math.max(0, Number(x) || 0));
+    }
+  } catch {}
+  return v;
 })();
 const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3" } });
-for (const [k, v] of Object.entries(toggles)) audio.setEnabled(k, v);
-ui.onOpenSettings(() => ui.openSettings({ toggles, credits: CREDITS }));
-ui.onToggle((layer, on) => {
-  toggles[layer] = on;
-  audio.setEnabled(layer, on);
-  try { localStorage.setItem(SOUND_KEY, JSON.stringify(toggles)); } catch {}
+for (const [k, v] of Object.entries(volumes)) audio.setVolume(k, v);
+ui.onOpenSettings(() => ui.openSettings({ volumes }));
+ui.onOpenCredits(() => ui.openCredits(CREDITS));
+ui.onVolume((layer, v) => {
+  volumes[layer] = v;
+  audio.setVolume(layer, v);
+  try { localStorage.setItem(SOUND_KEY, JSON.stringify(volumes)); } catch {}
 });
 document.addEventListener("visibilitychange", async () => {
   if (document.hidden) { audio.suspend(); return; }

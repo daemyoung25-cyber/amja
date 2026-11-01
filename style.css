@@ -66,15 +66,22 @@ button { font: inherit; color: inherit; }
 .sheet h2 { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: 2px; }
 .sheet-head button { background: none; border: 0; color: var(--ink-soft); min-height: 44px; padding: 0 4px; cursor: pointer; }
 .row { display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
-.row input { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, .18); position: relative; cursor: pointer; transition: background .3s; }
-.row input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transition: transform .3s; }
-.row input:checked { background: #b8875d; }
-.row input:checked::after { transform: translateX(18px); }
+.row input[type="range"] { flex: 0 0 52%; height: 44px; background: transparent; accent-color: #b8875d; cursor: pointer; }
+.row input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, .18); position: relative; cursor: pointer; transition: background .3s; }
+.row input[type="checkbox"]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transition: transform .3s; }
+.row input[type="checkbox"]:checked { background: #b8875d; }
+.row input[type="checkbox"]:checked::after { transform: translateX(18px); }
 .row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.credits { margin-top: 12px; color: var(--ink-soft); font-size: 12px; }
-.credits summary { min-height: 36px; line-height: 36px; cursor: pointer; }
-.credits ul { margin: 0; padding-left: 18px; line-height: 1.7; }
-.credits a { color: var(--ink-soft); }
+.sheet-note { margin: 10px 0 0; color: var(--ink-soft); font-size: 12px; }
+.credits { margin: 6px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.8; max-height: 55vh; overflow-y: auto; }
+.credits a { color: var(--ink); }
+.credits-btn {
+  position: absolute; top: max(8px, env(safe-area-inset-top)); right: 12px; pointer-events: auto;
+  min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 12px; letter-spacing: 1px; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.hud.faded .credits-btn { pointer-events: none; }
+.credits-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .resume {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px);
   min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); font-size: 13px; cursor: pointer;

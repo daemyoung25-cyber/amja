@@ -7,7 +7,7 @@ const RAMP = 0.27;                                         // setTargetAtTime �
 export function createAudio({ urls }) {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   let ctx = null, master = null;
-  const layers = {}, enabled = { waves: true, chime: true, chant: true };
+  const layers = {}, volume = { waves: 1, chime: 1, chant: 1 };   // 사용자가 정한 크기 0..1
   let listener = { x: 0, z: 0 }, chimeTimer = 0;
 
   async function load(url) {
@@ -46,8 +46,9 @@ export function createAudio({ urls }) {
 
   function apply() {
     if (!ctx) return;
-    const g = layerGains(listener, enabled);
-    for (const name of Object.keys(LEVEL)) layers[name].gain.setTargetAtTime(g[name] * LEVEL[name], ctx.currentTime, RAMP);
+    const on = { waves: volume.waves > 0, chime: volume.chime > 0, chant: volume.chant > 0 };
+    const g = layerGains(listener, on);
+    for (const name of Object.keys(LEVEL)) layers[name].gain.setTargetAtTime(g[name] * LEVEL[name] * volume[name], ctx.currentTime, RAMP);
   }
 
   // 사용자의 누름 안에서 불러야 폰에서 소리가 난다
@@ -74,7 +75,7 @@ export function createAudio({ urls }) {
     apply();
   }
 
-  function setEnabled(layer, on) { enabled[layer] = on; apply(); }
+  function setVolume(layer, v) { volume[layer] = Math.min(1, Math.max(0, v)); apply(); }
 
   async function resumeIfNeeded() {
     if (!ctx) return true;
@@ -85,5 +86,5 @@ export function createAudio({ urls }) {
 
   function suspend() { if (ctx && ctx.state === "running") ctx.suspend(); }
 
-  return { start, setListener, setEnabled, resumeIfNeeded, suspend, state: () => (ctx ? ctx.state : "suspended") };
+  return { start, setListener, setVolume, resumeIfNeeded, suspend, state: () => (ctx ? ctx.state : "suspended") };
 }

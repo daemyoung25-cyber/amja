@@ -44,14 +44,19 @@
     <button id="btn-bow" type="button" hidden>절</button>
     <button id="btn-sound" type="button" aria-label="소리 설정">소리</button>
   </div>
+  <button id="btn-credits" class="credits-btn" type="button" aria-label="출처 보기">출처</button>
 </div>
 
 <section id="sheet" class="sheet" hidden aria-labelledby="sheet-title">
   <div class="sheet-head"><h2 id="sheet-title">소리</h2><button id="sheet-close" type="button" aria-label="닫기">닫기</button></div>
-  <label class="row"><span>파도와 바람</span><input type="checkbox" data-layer="waves" checked></label>
-  <label class="row"><span>풍경</span><input type="checkbox" data-layer="chime" checked></label>
-  <label class="row"><span>불경</span><input type="checkbox" data-layer="chant" checked></label>
-  <details class="credits"><summary>음원·그림 정보</summary><ul id="credits"></ul></details>
+  <label class="row"><span>파도와 바람</span><input type="range" min="0" max="100" step="1" data-layer="waves" aria-label="파도와 바람 크기"></label>
+  <label class="row"><span>풍경</span><input type="range" min="0" max="100" step="1" data-layer="chime" aria-label="풍경 크기"></label>
+  <label class="row"><span>불경</span><input type="range" min="0" max="100" step="1" data-layer="chant" aria-label="불경 크기"></label>
+  <p class="sheet-note">끝까지 왼쪽으로 밀면 꺼져요</p>
+</section>
+<section id="credits-sheet" class="sheet" hidden aria-labelledby="credits-title">
+  <div class="sheet-head"><h2 id="credits-title">출처</h2><button id="credits-close" type="button" aria-label="닫기">닫기</button></div>
+  <ul id="credits" class="credits"></ul>
 </section>
 <button id="sound-resume" class="resume" type="button" hidden>눌러서 소리 다시 켜기</button>
 

@@ -52,15 +52,24 @@ export function createUI({ placeName }) {
     whisperTimer = setTimeout(() => whisper.classList.remove("on"), ms);
   }
 
-  const sheet = $("sheet"), resume = $("sound-resume");
-  const toggleCbs = [];
+  const sheet = $("sheet"), creditsSheet = $("credits-sheet"), resume = $("sound-resume");
+  const volumeCbs = [];
   $("sheet-close").addEventListener("click", () => (sheet.hidden = true));
-  for (const box of sheet.querySelectorAll("input[data-layer]")) {
-    box.addEventListener("change", () => toggleCbs.forEach((cb) => cb(box.dataset.layer, box.checked)));
+  $("credits-close").addEventListener("click", () => (creditsSheet.hidden = true));
+  for (const slider of sheet.querySelectorAll("input[data-layer]")) {
+    slider.addEventListener("input", () => volumeCbs.forEach((cb) => cb(slider.dataset.layer, slider.value / 100)));
   }
 
-  function openSettings({ toggles, credits }) {
-    for (const box of sheet.querySelectorAll("input[data-layer]")) box.checked = !!toggles[box.dataset.layer];
+  // 소리 시트: 층마다 크기 (0이면 꺼짐)
+  function openSettings({ volumes }) {
+    creditsSheet.hidden = true;
+    for (const slider of sheet.querySelectorAll("input[data-layer]")) slider.value = Math.round((volumes[slider.dataset.layer] ?? 1) * 100);
+    sheet.hidden = false;
+  }
+
+  // 출처 시트: 오른쪽 위 [출처] 버튼
+  function openCredits(credits) {
+    sheet.hidden = true;
     const list = $("credits");
     list.replaceChildren(...credits.map((c) => {
       const li = document.createElement("li");
@@ -72,7 +81,7 @@ export function createUI({ placeName }) {
       } else li.append(c.title);
       return li;
     }));
-    sheet.hidden = false;
+    creditsSheet.hidden = false;
   }
 
   function showSoundResume(cb) {
@@ -81,7 +90,8 @@ export function createUI({ placeName }) {
   }
 
   return {
-    openSettings, showSoundResume, onToggle: (cb) => toggleCbs.push(cb),
+    openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
+    onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
     onEnter, setCount, setNearStatue, setLeaning, pokeHud, showHintOnce, showWhisper,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
