@@ -1,14 +1,44 @@
 /* 사람 캐릭터: 절에 온 보살님 차림 — 회색·밤색 법복(개량 한복)에 흰 동정, 밤색 가사를 왼어깨에 두르고
    염주를 건다. 얼굴은 부처님처럼 눈을 지그시 감고 인자하게 미소 짓는다. (동자승 아님, 머리카락 있음)
    모델 정면은 -z이고, root.rotation.y = yaw (walk.js와 같은 규칙). */
-export const AVATAR_COLORS = [0x8c8a84, 0x6f6d68, 0x8a7560, 0x9d9483, 0x5e5a55, 0x7a6655];   // 법복 색 (보안 규칙상 6가지)
+export const AVATAR_COLORS = [0xc9c6bf, 0xb8b5ae, 0xd3cfc5, 0xaeaba4, 0xc2bdb2, 0xbcb9b3];   // 법복 회색 (보안 규칙상 6가지)
+
+/* 법복 무늬: 흰 동정(V자)과 왼어깨에서 오른 옆구리로 두른 밤색 가사를 옷 표면에 그린다.
+   캡슐 UV는 u=0이 등(+z), 0.25가 오른쪽(+x), 0.5가 앞(-z), 0.75가 왼쪽(-x). v=1이 위. 색은 재질 색과 곱해진다. */
+let robeTex = null;
+function robeTexture(THREE) {
+  if (robeTex) return robeTex;
+  const S = 256, c = document.createElement("canvas"); c.width = c.height = S;
+  const g = c.getContext("2d");
+  const P = (u, v) => [u * S, (1 - v) * S];
+  const poly = (pts, color) => { g.fillStyle = color; g.beginPath(); pts.forEach(([u, v], i) => (i ? g.lineTo(...P(u, v)) : g.moveTo(...P(u, v)))); g.closePath(); g.fill(); };
+  g.fillStyle = "#e9e9e9"; g.fillRect(0, 0, S, S);
+  const KASAYA = "#8a5a3c", EDGE = "#6b412a";
+  // 가사 앞자락: 왼어깨 앞(u≈.7)에서 오른 옆구리(u≈.34)로
+  poly([[0.66, 1], [0.76, 1], [0.4, 0.3], [0.3, 0.3]], KASAYA);
+  // 어깨 너머 등자락: 왼어깨(u≈.76)에서 등을 지나 오른 옆구리 뒤로
+  poly([[0.76, 1], [0.86, 1], [1.0, 0.62], [1.0, 0.48]], KASAYA);
+  poly([[0.0, 0.62], [0.0, 0.48], [0.12, 0.3], [0.2, 0.3]], KASAYA);
+  g.strokeStyle = EDGE; g.lineWidth = 3;
+  for (const [a, b] of [[[0.66, 1], [0.3, 0.3]], [[0.76, 1], [0.4, 0.3]]]) { g.beginPath(); g.moveTo(...P(...a)); g.lineTo(...P(...b)); g.stroke(); }
+  // 흰 동정: 앞 가운데로 모이는 V
+  g.lineCap = "round";
+  for (const [w, col] of [[9, "#9a9a9a"], [6, "#ffffff"]]) {
+    g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+    g.moveTo(...P(0.43, 0.94)); g.lineTo(...P(0.5, 0.8)); g.lineTo(...P(0.57, 0.94)); g.stroke();
+  }
+  robeTex = new THREE.CanvasTexture(c);
+  robeTex.colorSpace = THREE.SRGBColorSpace;
+  return robeTex;
+}
 const POSE_LEN = { hapjang: 2.5, bow: 4 };
 
 export function createAvatar(THREE, { color }) {
   const m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, transparent: true });
-  const robeMat = m(color), skinMat = m(0xf0d6bd), hairMat = m(0x2a2522);
-  const collarMat = m(0xf4f0e6), kasayaMat = m(0x7b4a2e), beadMat = m(0x3b2418), faceMat = m(0x5a3a2c), lipMat = m(0xc0766a);
-  const materials = [robeMat, skinMat, hairMat, collarMat, kasayaMat, beadMat, faceMat, lipMat];
+  const robeMat = m(color), skirtMat = m(color), skinMat = m(0xf0d6bd), hairMat = m(0x2a2522);
+  robeMat.map = robeTexture(THREE);
+  const beadMat = m(0x3b2418), faceMat = m(0x5a3a2c), lipMat = m(0xc0766a);
+  const materials = [robeMat, skirtMat, skinMat, hairMat, beadMat, faceMat, lipMat];
 
   const root = new THREE.Group();
   const body = new THREE.Group();            // 발을 축으로 숙인다
@@ -17,7 +47,7 @@ export function createAvatar(THREE, { color }) {
   const robe = new THREE.Mesh(new THREE.CapsuleGeometry(0.27, 0.42, 4, 10), robeMat);
   robe.position.y = 0.5;
   robe.scale.set(1, 1, 0.9);
-  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.3, 10), robeMat);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.3, 10), skirtMat);
   skirt.position.y = 0.17;
   const upper = new THREE.Group();           // 허리 위: 숙이기, 합장
   upper.position.y = 0.6;
@@ -52,18 +82,7 @@ export function createAvatar(THREE, { color }) {
     upper.add(b);
   }
 
-  // 옷: 흰 동정(V자 깃), 밤색 가사(왼어깨에서 오른 옆구리로), 목에 건 염주
-  for (const sx of [-1, 1]) {
-    const c = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.2, 0.02), collarMat);
-    c.position.set(sx * 0.05, 0.84, -0.232); c.rotation.set(-0.35, 0, -sx * 0.55);   // V자로 모인다
-    body.add(c);
-  }
-  const kasaya = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.64, 0.025), kasayaMat);
-  kasaya.position.set(0.0, 0.62, -0.25); kasaya.rotation.set(-0.12, 0, 0.6);
-  const kasayaBack = kasaya.clone(); kasayaBack.position.z = 0.25; kasayaBack.rotation.set(0.12, 0, 0.6);
-  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.025, 0.47), kasayaMat);   // 왼어깨 위로 넘어가는 끈
-  strap.position.set(-0.15, 0.935, 0); strap.rotation.z = 0.62;
-  body.add(kasaya, kasayaBack, strap);
+  // 동정과 가사는 법복 무늬(robeTexture)로 옷에 그려져 있다. 목에는 염주.
   const beads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 5, 4), beadMat, 18);
   const bm = new THREE.Matrix4();
   for (let i = 0; i < 18; i++) {                  // 목에서 가슴으로 늘어진 둥근 줄
