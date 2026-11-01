@@ -56,14 +56,33 @@ export function createUI({ placeName }) {
   const volumeCbs = [];
   $("sheet-close").addEventListener("click", () => (sheet.hidden = true));
   $("credits-close").addEventListener("click", () => (creditsSheet.hidden = true));
-  for (const slider of sheet.querySelectorAll("input[data-layer]")) {
-    slider.addEventListener("input", () => volumeCbs.forEach((cb) => cb(slider.dataset.layer, slider.value / 100)));
+  // 소리 시트: 층마다 [−] 숫자 [+], 10씩. 0이면 꺼짐.
+  const STEP = 10;
+  const rows = [...sheet.querySelectorAll(".row[data-layer]")];
+  const showLevel = (row, level) => {
+    row.querySelector("output").textContent = level === 0 ? "끔" : String(level);
+    row.querySelector('[data-step="-1"]').disabled = level <= 0;
+    row.querySelector('[data-step="1"]').disabled = level >= 100;
+  };
+  for (const row of rows) {
+    for (const btn of row.querySelectorAll("button[data-step]")) {
+      btn.addEventListener("click", () => {
+        const now = Number(row.dataset.level ?? 100);
+        const level = Math.min(100, Math.max(0, Math.round(now / STEP) * STEP + Number(btn.dataset.step) * STEP));
+        row.dataset.level = level;
+        showLevel(row, level);
+        volumeCbs.forEach((cb) => cb(row.dataset.layer, level / 100));
+      });
+    }
   }
 
-  // 소리 시트: 층마다 크기 (0이면 꺼짐)
   function openSettings({ volumes }) {
     creditsSheet.hidden = true;
-    for (const slider of sheet.querySelectorAll("input[data-layer]")) slider.value = Math.round((volumes[slider.dataset.layer] ?? 1) * 100);
+    for (const row of rows) {
+      const level = Math.round((volumes[row.dataset.layer] ?? 1) * 100);
+      row.dataset.level = level;
+      showLevel(row, level);
+    }
     sheet.hidden = false;
   }
 

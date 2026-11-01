@@ -49,10 +49,10 @@
 
 <section id="sheet" class="sheet" hidden aria-labelledby="sheet-title">
   <div class="sheet-head"><h2 id="sheet-title">소리</h2><button id="sheet-close" type="button" aria-label="닫기">닫기</button></div>
-  <label class="row"><span>파도와 바람</span><input type="range" min="0" max="100" step="1" data-layer="waves" aria-label="파도와 바람 크기"></label>
-  <label class="row"><span>풍경</span><input type="range" min="0" max="100" step="1" data-layer="chime" aria-label="풍경 크기"></label>
-  <label class="row"><span>불경</span><input type="range" min="0" max="100" step="1" data-layer="chant" aria-label="불경 크기"></label>
-  <p class="sheet-note">끝까지 왼쪽으로 밀면 꺼져요</p>
+  <div class="row" data-layer="waves"><span>파도와 바람</span><div class="stepper"><button type="button" data-step="-1" aria-label="파도와 바람 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="파도와 바람 크게">+</button></div></div>
+  <div class="row" data-layer="chime"><span>풍경</span><div class="stepper"><button type="button" data-step="-1" aria-label="풍경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="풍경 크게">+</button></div></div>
+  <div class="row" data-layer="chant"><span>불경</span><div class="stepper"><button type="button" data-step="-1" aria-label="불경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="불경 크게">+</button></div></div>
+  <p class="sheet-note">10씩 커지고 작아져요. 0이면 꺼져요</p>
 </section>
 <section id="credits-sheet" class="sheet" hidden aria-labelledby="credits-title">
   <div class="sheet-head"><h2 id="credits-title">출처</h2><button id="credits-close" type="button" aria-label="닫기">닫기</button></div>
