@@ -11,6 +11,8 @@ export const DOOR_IN = { x: 0, z: 6.7 };
 export const ALTAR = { x: 0, z: 9.3 };
 export const CUSHIONS = [-1.8, 0, 1.8].flatMap((x) => [{ x, z: 7.5 }, { x, z: 8.35 }]);
 export const FLOOR_Y = 0.5;
+// 법당 안에 있을 때 카메라가 머무를 상자 (벽·천장 안쪽). 문으로 빠져나가면 문틀에 걸려 깜빡인다.
+export const ROOM = { minX: -3.45, maxX: 3.45, minZ: 6.45, maxZ: 9.55, maxY: 2.8 };
 
 const MARGIN = 0.3;
 const LEAN_X = 11.5;

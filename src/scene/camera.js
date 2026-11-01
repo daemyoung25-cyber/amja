@@ -1,6 +1,6 @@
 /* 3인칭 카메라. 기본은 캐릭터 뒤에서 바다(-z) 쪽을 본다.
    한 손가락 끌기 = 둘러보기, 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
-const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 2.6, INDOOR_PITCH = 0.55, INDOOR_AHEAD = 2.4, INDOOR_FOV = 72;
+const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 2.6, INDOOR_PITCH = 0.55, INDOOR_AHEAD = 2.4, INDOOR_FOV = 80;
 const TAP_PX = 8, TAP_MS = 400;
 
 export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = {}) {
@@ -54,7 +54,9 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
   function follow({ x, z, yaw: y = 0, y: up = 0 }) { want.set(x, 1.1 + up, z); targetYaw = y; }
 
   // 들어가면 불단을 바라보고, 나오면 다시 바다 쪽을 본다
-  function setIndoor(on, faceYaw = Math.PI) {
+  let room = null;
+  function setIndoor(on, faceYaw = Math.PI, box = null) {
+    room = box;
     if (on === indoor) return;
     indoor = on;
     yawGoal = on ? faceYaw : 0;
@@ -96,6 +98,10 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
     const hit = obstacles.length ? ray.intersectObjects(obstacles, false)[0] : null;
     const k = hit ? Math.max(0.6, hit.distance - 0.35) / len : 1;
     camera.position.set(eye.x + dir.x * len * k, Math.max(0.4, eye.y + dir.y * len * k), eye.z + dir.z * len * k);
+    if (indoor && room) {
+      const p = camera.position;
+      p.set(Math.min(room.maxX, Math.max(room.minX, p.x)), Math.min(room.maxY, p.y), Math.min(room.maxZ, Math.max(room.minZ, p.z)));
+    }
     // 기대 있을 땐 시선을 바다 쪽으로 조금 더 멀리
     const ahead = 4 * leanBlend + INDOOR_AHEAD * indoorBlend;
     camera.lookAt(focus.x - Math.sin(yaw) * ahead + Math.cos(yaw) * side, fy + 0.1 * leanBlend, focus.z - Math.cos(yaw) * ahead - Math.sin(yaw) * side);

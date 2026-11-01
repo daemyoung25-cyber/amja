@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar } from "./logic/layout.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -20,7 +20,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 2000);   // near를 너무 작게 두면 폰에서 깊이 정밀도가 모자라 면이 깜빡인다
 
 const world = createWorld(THREE, scene);
 // 금빛 불상이 비춰 볼 주변: 방 안 조명을 흉내 낸 환경맵 (금속 재질에만 쓰인다)
@@ -188,7 +188,7 @@ function frame(t) {
   me.update(dt);
   const inside = insideHall(p);
   ui.setNearStatue(inside || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
-  rig.setIndoor(inside, faceAltar(p));
+  rig.setIndoor(inside, faceAltar(p), ROOM);
 
   drawOthers(now, p, dt);
   audio.setListener(p);
