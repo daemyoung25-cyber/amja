@@ -1,6 +1,11 @@
-/* 암자를 둘러싼 땅: 절이 앉은 작은 만(灣), 양옆으로 바다에 뻗은 곶, 뒤로 겹겹이 높아지는 산줄기, 먼 바위섬.
-   노이즈로 만든 높이 지형 한 장에 높이·경사로 색을 칠한다 (숲, 바위 벼랑, 물가 검은 바위). 먼 산은 안개(scene.fog)에 묻혀 푸르게 흐려진다. */
+/* 암자를 둘러싼 땅: 실제 지형(남해 금산 남쪽 바닷가, SRTM)을 가로 0.23배·세로 0.38배로 줄여 깔고,
+   절 둘레 150m 안쪽만 손으로 다듬은 지형(난간 아래 벼랑, 평평한 마당)으로 이어 붙인다.
+   뒤로 금산이 솟고 앞바다 오른쪽에 실제 섬들이 떠 있다. 높이 지도는 PNG라 받아 온 뒤에 땅을 짓는다. */
 import { mulberry32 } from "./world.js";
+import { decodeDem, demSampler } from "../logic/dem.js";
+
+// 높이 지도: 31.4m 간격 350×288칸, 절 자리(금산 남쪽 상주 바닷가)가 (175, 160)
+const DEM = { url: "textures/terrain-namhae.png", originX: 175, originY: 160, mpp: 31.41, sh: 0.23, sv: 0.38 };
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
 // 값 노이즈 + 부드러운 보간, 여러 겹(fbm)과 능선형(ridged)
@@ -47,7 +52,20 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
     const ax = Math.abs(x);
     return railZ - 1.2 - 0.5 * Math.max(0, ax - 30) * smooth(30, 120, ax) - 22 * (fbm(x / 70 + 3, 1.7, 3) - 0.5) * smooth(25, 60, ax);
   };
+  const foamTimeRef = { value: 0 };
+  let real = () => 0;                                                             // 실제 지형 (높이 지도를 받기 전엔 바다)
   const height = (x, z) => {
+    const near = Math.hypot(x, z * 0.8);
+    const r = real(x, z), landK = smooth(0.2, 3, r);
+    // 실제 바닷가는 낮아서(5m쯤) 절 둘레 땅을 언덕처럼 마당 높이까지 부드럽게 들어 올린다 (뭍에만)
+    const lift = (-seaY + 6) * smooth(260, 40, near) * landK;
+    // 높이 지도는 31m 간격이라 물가가 넓적한 판처럼 나온다: 2m 아래는 물에 잠기게 하고 물가를 가파르게
+    const realY = seaY + Math.max(-30, (r - 2) * 1.25) + lift;
+    const w = smooth(30, 75, near);                                               // 마당·난간 벼랑만 다듬은 땅
+    if (w >= 1) return realY;
+    return designed(x, z) * (1 - w) + realY * w;
+  };
+  const designed = (x, z) => {
     const land = z - coastZ(x);
     if (land < 0) return seaY - 6 - Math.min(20, -land * 0.4);                    // 물속
     const d = Math.hypot(x, (z - 2) * 1.2);                                       // 절에서 떨어진 정도
@@ -65,16 +83,17 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
     return y + (-0.5 - y) * inYard;
   };
 
-  /* 큰 지형 한 장: 가까운 곳은 촘촘하게 (격자를 가운데로 모은다) */
-  const W = 900, SX = 220, SZ = 240, Z_SEA = 260, Z_LAND = 500;   // 앞(바다) 260m, 뒤(산) 500m
+  /* 큰 지형 한 장: 가까운 곳은 촘촘하게 (격자를 가운데로 모은다). 높이 지도를 받은 뒤에 짓는다. */
+  const build = () => {
+  const W = 2500, SX = 260, SZ = 260, Z_SEA = 900, Z_LAND = 1150;   // 동서 2.5km, 앞(바다) 900m, 뒤(산) 1.15km
   const geo = new THREE.PlaneGeometry(1, 1, SX, SZ);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  const warp = (u) => Math.sign(u) * Math.pow(Math.abs(u), 1.6);                  // -0.5..0.5 → 가운데 촘촘
+  const warp = (u) => Math.sign(u) * Math.pow(Math.abs(u), 2.0);                  // -0.5..0.5 → 가운데 촘촘
   for (let i = 0; i < pos.count; i++) {
     const u = pos.getX(i), v = pos.getZ(i);
     const t = v * 2;                                                              // -0.5(바다 쪽) → +0.5(산 쪽), 원래 면 방향 그대로
-    const x = warp(u * 2) / 2 * W, z = Math.sign(t) * Math.pow(Math.abs(t), 1.7) * (t > 0 ? Z_LAND : Z_SEA);   // 절벽 둘레를 촘촘하게
+    const x = warp(u * 2) / 2 * W, z = Math.sign(t) * Math.pow(Math.abs(t), 2.0) * (t > 0 ? Z_LAND : Z_SEA);   // 절벽 둘레를 촘촘하게
     pos.setXYZ(i, x, height(x, z), z);
   }
   geo.computeVertexNormals();
@@ -101,62 +120,72 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   canopy.wrapS = canopy.wrapT = THREE.MirroredRepeatWrapping;                     // 거울로 이어 붙여 이음매가 없다
   canopy.anisotropy = 4;
   const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: canopy });
+  const seaLevel = { value: seaY }, foamTime = foamTimeRef;
   terrainMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace("void main() {", "attribute float rock; varying float vRock;\nvoid main() {\n  vRock = rock;");
-    // 바위에는 숲 무늬의 밝기만 남겨 결처럼
-    sh.fragmentShader = sh.fragmentShader.replace("void main() {", "varying float vRock;\nvoid main() {")
+    sh.uniforms.seaLevel = seaLevel; sh.uniforms.foamTime = foamTime;
+    sh.vertexShader = sh.vertexShader.replace("void main() {", "attribute float rock; varying float vRock; varying vec3 vWp;\nvoid main() {\n  vRock = rock;\n  vWp = (modelMatrix * vec4(position, 1.0)).xyz;");
+    // 바위: 숲 무늬의 밝기에 가로 결(층리)과 얼룩을 더해 회칠한 벽처럼 보이지 않게. 물가엔 하얀 물거품 띠가 일렁인다
+    sh.fragmentShader = sh.fragmentShader.replace("void main() {", `varying float vRock; varying vec3 vWp; uniform float seaLevel, foamTime;
+      float th(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float tn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(th(i), th(i + vec2(1, 0)), f.x), mix(th(i + vec2(0, 1)), th(i + vec2(1, 1)), f.x), f.y); }
+      void main() {`)
       .replace("#include <map_fragment>", `vec4 texel = texture2D( map, vMapUv );
-        diffuseColor.rgb *= mix( texel.rgb * 1.5, vec3( 0.7 + 0.8 * dot( texel.rgb, vec3( 0.333 ) ) ), vRock );`);
+        vec2 rp = vec2(vWp.x + vWp.z, vWp.y);
+        float strata = tn(vec2(rp.x * 0.05, rp.y * 0.9)) * 0.55 + tn(rp * 0.35) * 0.3 + tn(rp * 1.7) * 0.15;
+        vec3 rockTone = vec3(0.55 + 0.75 * strata) * (0.85 + 0.3 * dot(texel.rgb, vec3(0.333)));
+        diffuseColor.rgb *= mix( texel.rgb * 1.5, rockTone, vRock );
+        float above = vWp.y - seaLevel;
+        float foam = smoothstep(1.4, 0.2, above) * smoothstep(-0.6, 0.1, above) * (0.55 + 0.45 * sin(foamTime * 1.3 + tn(vWp.xz * 0.15) * 9.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.6), foam * 0.75);`);
   };
   const terrain = new THREE.Mesh(geo, terrainMat);
   group.add(terrain);
-  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm }));
-
-  /* 먼 바위섬: 가파른 바위에 꼭대기만 소나무 숲 */
-  // 먼 섬은 안개를 반쯤만 먹는다: 아침·저녁 밝은 수평선 빛에 하얗게 떠 보이지 않고 어두운 바위 실루엣으로
-  const islandMat = capFog(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.45);
-  const islands = [[-170, -330, 30, 3], [230, -460, 46, 5], [60, -620, 24, 8], [-380, -560, 40, 13]];
-  for (const [ix, iz, r, seed] of islands) {
-    const n = makeNoise(seed);
-    const ig = new THREE.PlaneGeometry(r * 2.8, r * 2.8, 40, 40);
-    ig.rotateX(-Math.PI / 2);
-    const ipos = ig.attributes.position;
-    for (let i = 0; i < ipos.count; i++) {
-      const lx = ipos.getX(i), lz = ipos.getZ(i), d = Math.hypot(lx, lz) / r;
-      const edge = 1 - smooth(0.55 + 0.3 * n.fbm(lx / 12, lz / 12, 3), 1.15, d);
-      ipos.setY(i, seaY - 3 + edge * r * (0.6 + 0.7 * n.ridged(lx / 25, lz / 25, 4)));
-    }
-    ig.computeVertexNormals();
-    const inrm = ig.attributes.normal, ic = new Float32Array(ipos.count * 3);
-    for (let i = 0; i < ipos.count; i++) {
-      c.copy(rock).lerp(rockDark, 0.6).lerp(pine.clone().multiplyScalar(0.55), smooth(0.75, 0.9, inrm.getY(i)) * smooth(seaY + 4, seaY + 12, ipos.getY(i)));
-      ic.set([c.r, c.g, c.b], i * 3);
-    }
-    ig.setAttribute("color", new THREE.BufferAttribute(ic, 3));
-    const isl = new THREE.Mesh(ig, islandMat);
-    isl.position.set(ix, 0, iz);
-    group.add(isl);
-  }
+  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt: (x, z) => real(x, z) }));
+  };
+  const ready = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const g = cv.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0);
+      real = demSampler({ data: decodeDem(g.getImageData(0, 0, img.width, img.height).data, img.width, img.height), w: img.width, h: img.height, ...DEM });
+      build();
+      resolve();
+    };
+    img.onerror = () => { build(); resolve(); };                                 // 못 받으면 다듬은 땅만이라도
+    img.src = DEM.url;
+  });
 
   /* 먼 산 그림: 절 뒤로 반원보다 조금 넓게 둘러선 화강암 봉우리와 단풍 숲 (북한산 사진, CC0, 단풍빛으로 바꿈).
      사진을 거울로 이어 붙여 두 번 두르고, 빛은 시각에 따라 setLight로 맞춘다. 아래쪽은 3D 산줄기에 가려진다. */
-  const R = 640, ARC = Math.PI * 1.25, TILES = 2;
+  const R = 1700, ARC = Math.PI * 0.9, TILES = 2;             // 실제 지형(1.2km)보다 바깥, 하늘(2.2km)보다 안. 뭍 쪽(북)만
   const tex = new THREE.TextureLoader().load("textures/mountains.webp");
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.MirroredRepeatWrapping;
   tex.repeat.set(TILES, 1);
-  tex.offset.x = 0.5;                                          // 거울 이음매가 대웅전 바로 뒤에 오지 않게 (양옆 56° 쪽으로)
+  tex.offset.x = 0.35;                                          // 거울 이음매가 대웅전 바로 뒤에 오지 않게 (양옆 56° 쪽으로)
   const tileW = (R * ARC) / TILES, tileH = tileW * 960 / 3200;
   const backFog = { value: 0.4 };
   const backMat = capFog(new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.BackSide, depthWrite: false }), backFog);
   const back = new THREE.Mesh(new THREE.CylinderGeometry(R, R, tileH, 96, 1, true, -ARC / 2, ARC), backMat);
-  back.position.y = tileH / 2 - 15;
+  // 양 끝은 하늘로 스르르 사라지게 (잘린 모서리가 보이지 않게)
+  const prevCompile = backMat.onBeforeCompile;
+  backMat.onBeforeCompile = (sh) => {
+    prevCompile(sh);
+    // vMapUv.x = 2u + 0.35 (거울 두 장 + 이음매 옮김) → 둘레 위치 u (0..1)
+    sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", `#include <alphamap_fragment>
+      float arcU = (vMapUv.x - ${tex.offset.x.toFixed(2)}) / ${TILES.toFixed(1)};
+      diffuseColor.a *= smoothstep(0.0, 0.12, arcU) * smoothstep(0.0, 0.12, 1.0 - arcU);`);
+  };
+  back.position.y = tileH / 2 - 40;
   back.renderOrder = -1;                                       // 하늘 다음, 땅보다 먼저
   group.add(back);
   // 밤에는 안개(수평선 빛)도 거의 안 먹여 하늘보다 어두운 실루엣으로
   const setLight = (color, night) => { backMat.color.copy(color); backFog.value = 0.4 - 0.32 * night; };
 
-  return { group, height, setLight };
+  const tick = (t) => { foamTimeRef.value = t; };
+  return { group, height, setLight, ready, tick };
 }
 
 /* 둥글게 닳은 바위 덩어리: 잘게 나눈 정이십면체를 노이즈로 울퉁불퉁하게, 색은 바위 결 따라 얼룩지게 (매끈한 음영) */
@@ -183,7 +212,7 @@ export function boulderGeometry(THREE, seed) {
 /* 가까운 산비탈의 숲: 둥근 단풍나무(주황·다홍·노랑, 무리 지어)와 짙은 소나무 수천 그루.
    잎 덩어리는 정이십면체 세 개를 겹친 낮은 폴리곤에 둥근 법선을 줘서 부드러운 공처럼 보이게.
    방향별 8묶음으로 나눠 등 뒤 묶음은 그리지 않는다. 멀수록 크게 심어 빈틈을 메운다. */
-function plantTrees(THREE, { height, seaY, railZ, yard, fbm }) {
+function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt }) {
   const rnd = mulberry32(23);
   // 잎 덩어리: 크기 1 언저리, 바닥이 y=0
   const blobs = [[0, 0.62, 0, 0.55], [-0.28, 0.45, 0.12, 0.4], [0.27, 0.48, -0.1, 0.42]];
@@ -210,13 +239,17 @@ function plantTrees(THREE, { height, seaY, railZ, yard, fbm }) {
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
     if (inYardZone(x, z)) continue;
     const y = height(x, z);
-    if (y < seaY + 4) continue;                                     // 물가·바다
+    if (y < seaY + 18 || (r > 150 && y < seaY + 32)) continue;   // 갯바위섬처럼 낮은 땅엔 나무 대신 바위와 풀빛만
+                                      // 물가·바다, 낮은 갯바위섬엔 안 심는다
     const sx = height(x + 2, z) - height(x - 2, z), sz = height(x, z + 2) - height(x, z - 2);
     if (Math.hypot(sx, sz) / 4 > 0.9) continue;                     // 깎아지른 벼랑엔 안 자란다
     const grow = 1.15 + Math.max(0, r - 40) / 80;                    // 멀수록 크게 (빈틈 없이), 가까운 나무는 실제 크기
     const isPine = fbm(x / 40 - 7, z / 40 + 3, 3) < 0.3 || rnd() < 0.07;   // 단풍이 주인공, 소나무는 군데군데
     const sector = Math.floor(((a / (Math.PI * 2)) * SECTORS) % SECTORS);
-    const t = { x, y: y - 0.3, z, s: (isPine ? 3.6 + rnd() * 2 : 2.6 + rnd() * 1.6) * grow, ry: rnd() * 6.28 };
+    // 땅 격자는 멀수록 성기다: 둘레 네 곳 중 가장 낮은 높이에 심어야 봉우리 위에 떠 보이지 않는다
+    const sp = 3 + r * 0.035;
+    const baseY = Math.min(y, height(x + sp, z), height(x - sp, z), height(x, z + sp), height(x, z - sp));
+    const t = { x, y: baseY - 0.4, z, s: (isPine ? 3.6 + rnd() * 2 : 2.6 + rnd() * 1.6) * grow, ry: rnd() * 6.28 };
     if (isPine) { t.c = pineCols[Math.floor(rnd() * pineCols.length)]; conifer[sector].push(t); }
     else {
       const f = fbm(x / 18 + 11, z / 18 - 4, 3);                    // 같은 빛깔끼리 무리 지어

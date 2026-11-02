@@ -27,7 +27,7 @@ export function createWorld(THREE, scene) {
     top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() },
     sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunColor: { value: new THREE.Color() }, night: { value: 0 }, time: { value: 0 },
   };
-  add(new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
+  add(new THREE.Mesh(new THREE.SphereGeometry(2200, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `
@@ -60,6 +60,13 @@ export function createWorld(THREE, scene) {
           cloud = mix(cloud, horizon, smoothstep(0.25, 0.03, vDir.y) * 0.6);   // 멀리 낮은 구름은 수평선 빛에 녹는다
           c = mix(c, cloud, dens * smoothstep(0.015, 0.14, vDir.y) * 0.92);
         }
+        // 햇살: 해 둘레로 부챗살처럼 퍼지는 빛줄기 (해가 낮을수록, 구름 가장자리 사이로 더)
+        vec3 sd = normalize(sunDir);
+        vec3 ax = normalize(cross(sd, vec3(0.0, 1.0, 0.0)) + 1e-4), ay = cross(ax, sd);
+        float ang = atan(dot(vDir, ay), dot(vDir, ax));
+        float rays = vnoise(vec2(ang * 7.0, time * 0.04)) * 0.7 + vnoise(vec2(ang * 15.0, 3.0 + time * 0.03)) * 0.3;
+        float low = 1.0 - smoothstep(0.15, 0.7, sd.y);
+        c += sunColor * pow(d, 10.0) * smoothstep(0.35, 0.95, rays) * (0.1 + 0.22 * low) * (1.0 - night) * step(-0.05, vDir.y);
         gl_FragColor = vec4(c, 1.0);
       }`,
   })));
@@ -113,6 +120,32 @@ export function createWorld(THREE, scene) {
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = SEA_Y;
   add(sea, true);
+
+  /* 물안개: 바다 위 낮게 세 겹. 해 뜰 무렵 짙었다가 해가 오르면 걷히고, 저녁·밤엔 옅게. 가까운 곳은 비워 둔다. */
+  const mistU = { time: skyU.time, amount: { value: 0 }, color: { value: new THREE.Color() }, camPos: { value: new THREE.Vector3() } };
+  const mistMat = new THREE.ShaderMaterial({
+    uniforms: mistU, transparent: true, depthWrite: false, fog: false,
+    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `
+      uniform float time, amount; uniform vec3 color, camPos; varying vec3 vW;
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }
+      void main(){
+        vec2 p = vW.xz * 0.006 + vec2(time * 0.004, time * 0.0015) + vW.y * 0.37;
+        float n = vn(p) * 0.55 + vn(p * 2.3 + 5.0) * 0.3 + vn(p * 5.1 - 2.0) * 0.15;
+        float dist = length(vW.xz - camPos.xz);
+        float a = smoothstep(0.3, 0.75, n) * amount * smoothstep(30.0, 180.0, dist) * (1.0 - smoothstep(1500.0, 2000.0, dist));
+        gl_FragColor = vec4(color, a * 0.8);
+      }`,
+  });
+  for (const [dy, i] of [[1.5, 0], [4.5, 1], [9, 2]]) {
+    const layer = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 1, 1), mistMat);
+    layer.rotation.x = -Math.PI / 2;
+    layer.position.y = SEA_Y + dy;
+    layer.renderOrder = 2 + i;
+    scene.add(layer);
+  }
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
   const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD });
   scene.add(landscape.group);
@@ -505,7 +538,7 @@ export function createWorld(THREE, scene) {
       o.castShadow = o.receiveShadow = true;
     });
   }
-  scene.fog = new THREE.Fog(0x000000, 90, 700);   // 먼 산이 하늘빛으로 흐려지는 공기 원근
+  scene.fog = new THREE.Fog(0x000000, 120, 2000);  // 먼 산이 하늘빛으로 흐려지는 공기 원근 (금산 1km쯤은 반쯤)
 
   let skyTimer = 1, t = 0, swing = 0, night = 0;
   const tmp = new THREE.Color(), backWhite = new THREE.Color(1, 1, 1);
@@ -522,6 +555,11 @@ export function createWorld(THREE, scene) {
     // 해: 동(+x) → 남(-z, 바다 위) → 서(-x). 밤에는 반대편에서 달이 같은 길을 간다.
     const { sunrise, sunset } = sunTimesKST(date);
     const kstMin = ((date.getTime() + KST_MS) / 60000) % 1440;
+    // 물안개 양: 해 뜨기 40분 전부터 짙어져 해 뜬 뒤 1시간쯤 가장 짙고, 오전 늦게 걷힌다. 낮엔 아주 옅게, 저녁·밤엔 조금
+    const sm = (a, b, v) => { const k = Math.min(1, Math.max(0, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const morning = sm(sunrise - 40, sunrise + 30, kstMin) * (1 - sm(sunrise + 90, sunrise + 210, kstMin));
+    mistU.amount.value = 0.12 + 0.88 * morning + 0.18 * sm(sunset - 30, sunset + 60, kstMin);
+    mistU.color.value.setRGB(...s.horizon).lerp(tmp.setRGB(...s.sun), 0.2).multiplyScalar(0.85 + 0.25 * s.light);
     let f = (kstMin - sunrise) / (sunset - sunrise);
     const isNight = f < 0 || f > 1;
     if (isNight) f = (((kstMin - sunset + 1440) % 1440) / (1440 - (sunset - sunrise)));
@@ -552,7 +590,8 @@ export function createWorld(THREE, scene) {
     t += dt;
     seaU.time.value = t;
     skyU.time.value = t;
-    if (camPos) seaU.camPos.value.copy(camPos);
+    landscape.tick(t);
+    if (camPos) { seaU.camPos.value.copy(camPos); mistU.camPos.value.copy(camPos); }
     skyTimer += dt;
     if (skyTimer >= 1) { skyTimer = 0; applySky(date); markShadows(); }
     swing += dt;

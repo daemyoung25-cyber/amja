@@ -30,7 +30,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 setInterval(() => { renderer.shadowMap.needsUpdate = true; }, 1000);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 2000);   // near를 너무 작게 두면 폰에서 깊이 정밀도가 모자라 면이 깜빡인다
+const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 3000);   // near를 너무 작게 두면 폰에서 깊이 정밀도가 모자라 면이 깜빡인다
 
 const world = createWorld(THREE, scene);
 // 금빛 불상이 비춰 볼 주변: 방 안 조명을 흉내 낸 환경맵 (금속 재질에만 쓰인다)
