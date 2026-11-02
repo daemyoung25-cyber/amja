@@ -22,17 +22,23 @@ export function createWorld(THREE, scene) {
   const mat = (color, opts = {}) => new THREE.MeshLambertMaterial({ color, flatShading: true, ...opts });
   const add = (mesh, pickable = false) => { scene.add(mesh); if (pickable) groundMeshes.push(mesh); return mesh; };
 
-  /* 하늘: 위아래 그라데이션 + 해/달 */
+  /* 하늘: 위아래 그라데이션 + 해/달 + 천천히 흐르는 구름 (해 쪽은 은빛 테, 노을엔 물들고, 밤엔 어둡게 별을 가린다) */
   const skyU = {
     top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() },
-    sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunColor: { value: new THREE.Color() }, night: { value: 0 },
+    sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunColor: { value: new THREE.Color() }, night: { value: 0 }, time: { value: 0 },
   };
   add(new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `
-      uniform vec3 top, horizon, sunColor, sunDir; uniform float night; varying vec3 vDir;
+      uniform vec3 top, horizon, sunColor, sunDir; uniform float night, time; varying vec3 vDir;
       float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnoise(vec2 p){
+        vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
       void main(){
         float h = clamp(vDir.y, -0.2, 1.0);
         vec3 c = mix(horizon, top, pow(smoothstep(-0.02, 0.55, h), 0.7));
@@ -40,6 +46,20 @@ export function createWorld(THREE, scene) {
         c += sunColor * (pow(d, 900.0) * 1.6 + pow(d, 12.0) * 0.18 * (1.0 - night));
         float st = step(0.9975, hash(floor(vDir * 420.0))) * smoothstep(0.08, 0.4, h) * night;
         c += vec3(st * 0.8);
+        // 구름: 하늘을 높이 800m쯤의 평면으로 보고 그 위의 노이즈. 바람은 동쪽에서 서쪽으로 아주 천천히
+        if (vDir.y > 0.0) {
+          vec2 uv = vDir.xz / (vDir.y + 0.06) * 0.55 + vec2(time * 0.0035, time * 0.0012);
+          float base = fbm(uv);
+          float dens = smoothstep(0.46, 0.76, base);
+          vec2 toSun = normalize(sunDir.xz + 1e-4) * 0.06;
+          float behind = smoothstep(0.46, 0.76, fbm(uv + toSun));        // 해 쪽으로 더 두꺼우면 그늘
+          float lit = clamp(1.0 - (behind - dens) * 1.6 - dens * 0.35, 0.25, 1.0);
+          vec3 bright = mix(vec3(1.0), sunColor, 0.55) * mix(1.0, 0.13, night);
+          vec3 shade = mix(horizon, top, 0.4) * mix(0.75, 0.35, night);
+          vec3 cloud = mix(shade, bright, lit) + sunColor * pow(d, 6.0) * 0.35 * (1.0 - dens) * (1.0 - night);   // 해 둘레 은빛 테
+          cloud = mix(cloud, horizon, smoothstep(0.25, 0.03, vDir.y) * 0.6);   // 멀리 낮은 구름은 수평선 빛에 녹는다
+          c = mix(c, cloud, dens * smoothstep(0.015, 0.14, vDir.y) * 0.92);
+        }
         gl_FragColor = vec4(c, 1.0);
       }`,
   })));
@@ -531,6 +551,7 @@ export function createWorld(THREE, scene) {
   function update(date, dt, camPos) {
     t += dt;
     seaU.time.value = t;
+    skyU.time.value = t;
     if (camPos) seaU.camPos.value.copy(camPos);
     skyTimer += dt;
     if (skyTimer >= 1) { skyTimer = 0; applySky(date); markShadows(); }
