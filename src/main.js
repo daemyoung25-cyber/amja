@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles } from "./logic/layout.js";
+import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -48,6 +49,7 @@ scene.add(me.root);
 let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {} };
 let snapshot = null, peers = [];
 let traceRecords = [], visits = {}, lastTraceAt = null;
+let candleRecords = [], lastCandleAt = null;
 const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
@@ -57,6 +59,7 @@ const state = {
   })(),
   leanOnArrive: false,
   sitOnArrive: false,
+  candleOnArrive: false,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -88,6 +91,7 @@ function goTo(point) {
   state.move = startMove(here, first, now);
   state.leanOnArrive = r.kind === "lean";
   state.sitOnArrive = r.kind === "sit";
+  state.candleOnArrive = r.kind === "candle";
   net.sendMove(state.move);
   setBase("walk");
 }
@@ -112,6 +116,24 @@ ui.onHapjang(() => {
   const now = net.now();
   const to = nearestPeerWithin(peers, positionAt(state.move, now), now, GREET_RANGE);
   if (to) net.greet(to);
+});
+// 초 켜기: 공양대를 보고 두 손으로 초를 올린 뒤 합장. 초는 모두에게 보이고 하루 동안 탄다.
+ui.onCandle(() => {
+  if (state.base === "walk") return;
+  const now = net.now();
+  if (!canLight(lastCandleAt, now)) { ui.showWhisper("초가 아직 타고 있어요. 조금 뒤에 또 켜요"); return; }
+  lastCandleAt = now;
+  const p = positionAt(state.move, now);
+  state.yaw = faceCandles(p);
+  rig.turnTo(state.yaw);
+  gesture("light");
+  setTimeout(() => {
+    const at = net.now(), slot = pickSlot(liveCandles(candleRecords, at), at);
+    candleRecords = [...candleRecords, { slot, n: myName, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
+    net.lightCandle({ slot, n: myName });
+    redrawCandles();
+    ui.showWhisper("초를 밝혔어요");
+  }, 1600);
 });
 ui.onBow(() => {
   const p = positionAt(state.move, net.now());
@@ -177,7 +199,10 @@ function frame(t) {
       setBase("lean");
       ui.setLeaning(true);
       rig.setLeaning(true);
-    } else setBase("stand");
+    } else {
+      if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
+      setBase("stand");
+    }
   }
   if (state.gestureUntil && t >= state.gestureUntil) { state.gestureUntil = 0; me.setPose(state.base); net.sendPose(state.base); }
 
@@ -189,6 +214,7 @@ function frame(t) {
   me.update(dt);
   const inside = insideHall(p);
   ui.setNearStatue(inside || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
+  ui.setNearCandles(state.base !== "walk" && nearCandles(p));
   rig.setIndoor(inside, faceAltar(p), ROOM);
 
   drawOthers(now, p, dt);
@@ -223,6 +249,7 @@ function drawOthers(now, mePos, dt) {
     o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
+    if (peer.p === "light" && pos.arrived) o.yaw = faceCandles(pos);
     const sat = pos.arrived && seatAt(pos) && ["sit", "hapjang", "bow"].includes(peer.p);
     if (sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
@@ -242,7 +269,11 @@ function drawOthers(now, mePos, dt) {
 }
 
 function redrawTraces() { world.setTraces(visibleTraces(traceRecords, net.now())); }
-setInterval(redrawTraces, 60000);       // 1분마다 조금씩 옅어진다
+function redrawCandles() {
+  const now = net.now();
+  world.setCandles(liveCandles(candleRecords, now).map((c) => ({ slot: c.slot, left: burnLeft(c, now) })));
+}
+setInterval(() => { redrawTraces(); redrawCandles(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
 
 let myName = "", joinedAt = Infinity;
 ui.onEnter(async (name) => {
@@ -276,6 +307,19 @@ function adopt(p) {
   net.markVisit();
   net.onVisits((v) => { visits = v; });
   net.onTraces((recs) => { traceRecords = recs; redrawTraces(); });
+  let candlesSeen = null;
+  net.onCandles((recs) => {
+    // 들어온 뒤에 남이 켠 초만 알린다 (내 초, 처음 읽은 초는 빼고)
+    if (candlesSeen) {
+      for (const c of recs) {
+        const key = `${c.slot}:${c.at}`;
+        if (!candlesSeen.has(key) && c.n !== myName && net.now() - c.at < 30000) ui.notify(`${nameTag(c.n)}님이 초를 밝혔어요 🕯️`);
+      }
+    }
+    candlesSeen = new Set(recs.map((c) => `${c.slot}:${c.at}`));
+    candleRecords = recs;
+    redrawCandles();
+  });
   net.cleanup();
 }
 requestAnimationFrame(frame);

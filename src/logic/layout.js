@@ -9,6 +9,8 @@ export const STATUE = { x: -12, z: -7, baseR: 1.2 };
 export const PRAYER = { minX: STATUE.x - 3.2, maxX: STATUE.x + 3.2, minZ: STATUE.z - 4.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
 export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
 export const PRAYER_SEATS = [-1.2, 0, 1.2].flatMap((dx) => [{ x: STATUE.x + dx, z: STATUE.z - 2.7 }, { x: STATUE.x + dx, z: STATUE.z - 3.7 }]);
+// 촛불 공양대: 마당 왼쪽, 해수관음과 법당 사이. 바다 쪽 앞에 서서 초를 켜 올린다.
+export const CANDLES = { x: -12.5, z: 2.0, r: 1.05, spot: { x: -12.5, z: 0.6 } };
 // 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
 export const YARD = [
   { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
@@ -17,6 +19,7 @@ export const YARD = [
   { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
   ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -16.8, z, r: 0.35 }, { kind: "pot", x: 16.8, z, r: 0.35 }]),
   { kind: "giwa", x: 13, z: -6, r: 0.8 },
+  { kind: "candles", x: CANDLES.x, z: CANDLES.z, r: CANDLES.r },
 ];
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
@@ -46,6 +49,9 @@ const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
 const faceStatue = (p) => Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));
 const SEATS = [...CUSHIONS, ...PRAYER_SEATS];
+const faceCandles = (p) => Math.atan2(-(CANDLES.x - p.x), -(CANDLES.z - p.z));
+export const nearCandles = (p) => Math.hypot(p.x - CANDLES.spot.x, p.z - CANDLES.spot.z) <= 1.8;
+export { faceCandles };
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
 export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : faceStatue(p));
 
@@ -86,6 +92,7 @@ export function nearestLeanSpot({ x }) {
 export function resolveTap(p) {
   const seat = SEATS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < SEAT_R);
   if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
+  if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
   if (p.z < LEAN_TRIGGER_Z) {
     const s = nearestLeanSpot(p);
     return { kind: "lean", to: { x: s.x, z: s.z }, yaw: 0 };

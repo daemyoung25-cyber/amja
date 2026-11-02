@@ -6,7 +6,7 @@
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['c','m','p','s'])",
         "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0" },
-        "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|sit|hapjang|bow)$/)" },
+        "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|sit|hapjang|bow|light)$/)" },
         "pt": { ".validate": "newData.isNumber()" },
         "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
         "s": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
@@ -37,6 +37,18 @@
         "x": { ".validate": "newData.isNumber()" },
         "z": { ".validate": "newData.isNumber()" },
         "k": { ".validate": "newData.isString() && newData.val().matches(/^(step|lean)$/)" },
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
+      }
+    },
+    "candles": {
+      ".read": "auth != null",
+      ".indexOn": ["at"],
+      "$id": {
+        ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 90000000)",
+        ".validate": "newData.hasChildren(['slot','n','at'])",
+        "slot": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 48 && newData.val() % 1 === 0" },
+        "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
         "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
         "$other": { ".validate": false }
       }

@@ -3,6 +3,7 @@
 const SDK = "https://www.gstatic.com/firebasejs/11.10.0/";
 const CONNECT_TIMEOUT = 8000, HEARTBEAT = 30000, GREET_FRESH = 10000;   // 이보다 오래된 인사는 (늦게 들어와서 본 것이라) 알리지 않는다
 const HOUR = 3600000, CLEANUP_AGE = 7200000, CLEANUP_BATCH = 50, TRACE_READ_MAX = 200;
+const DAY = 86400000, CANDLE_READ_MAX = 96;   // 촛불은 하루 타고, 공양대 48칸의 두 배까지만 읽는다
 
 export async function defaultLoadSdk() {
   const [app, auth, db] = await Promise.all([
@@ -16,7 +17,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop,
   };
 }
 
@@ -112,10 +113,16 @@ async function connect(config, loadSdk, me) {
       const q = db.query(db.ref(database, "visits"), db.orderByChild("at"), db.startAt(now() - HOUR));
       db.onValue(q, (snap) => cb(snap.val() || {}));
     },
-    async cleanup() {                // 들어올 때 한 번: 두 시간 넘은 기록을 조금씩 지운다
-      for (const path of ["traces", "visits"]) {
+    // 촛불 공양: candles/{id} = { slot, n, at }
+    lightCandle({ slot, n }) { db.push(db.ref(database, "candles"), { slot, n, at: now() }); },
+    onCandles(cb) {
+      const q = db.query(db.ref(database, "candles"), db.orderByChild("at"), db.startAt(now() - DAY), db.limitToLast(CANDLE_READ_MAX));
+      db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
+    },
+    async cleanup() {                // 들어올 때 한 번: 두 시간 넘은 기록(촛불은 하루 넘은 것)을 조금씩 지운다
+      for (const [path, age] of [["traces", CLEANUP_AGE], ["visits", CLEANUP_AGE], ["candles", DAY + HOUR]]) {
         try {
-          const q = db.query(db.ref(database, path), db.orderByChild("at"), db.endAt(now() - CLEANUP_AGE), db.limitToFirst(CLEANUP_BATCH));
+          const q = db.query(db.ref(database, path), db.orderByChild("at"), db.endAt(now() - age), db.limitToFirst(CLEANUP_BATCH));
           const snap = await db.get(q);
           await Promise.all(Object.keys(snap.val() || {}).map((id) => db.remove(db.ref(database, `${path}/${id}`))));
         } catch (e) { console.warn("오래된 기록 정리 실패", e); }

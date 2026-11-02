@@ -31,7 +31,7 @@ function robeTexture(THREE) {
   robeTex.colorSpace = THREE.SRGBColorSpace;
   return robeTex;
 }
-const POSE_LEN = { hapjang: 2.5, bow: 11.2 };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2 };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -120,6 +120,7 @@ export function createAvatar(THREE, { color }) {
   const hands = {
     stand: [[-0.24, 0.05, -0.02], [0.24, 0.05, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
+    offer: [[-0.06, 0.3, -0.42], [0.06, 0.3, -0.42]],        // 두 손으로 초를 받쳐 앞으로
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
     sit: [[-0.09, -0.04, -0.24], [0.09, -0.04, -0.24]],     // 무릎 위에 포갠 손
     knees: [[-0.2, -0.05, -0.12], [0.2, -0.05, -0.12]],      // 꿇어앉아 손은 허벅지 옆
@@ -176,6 +177,10 @@ export function createAvatar(THREE, { color }) {
     else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "lean") { tilt = -0.12; upperTilt = -0.28; target = hands.lean; bob = Math.sin(t * 1.2) * 0.006; }
     else if (pose === "hapjang") { target = hands.hapjang; upperTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
+    else if (pose === "light") {                                  // 초를 앞으로 내밀어 올리고(1.6초), 합장으로 마무리
+      target = poseT < 2 ? hands.offer : hands.hapjang;
+      upperTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
+    }
     let kneel = 0, drop = 0;
     if (pose === "bow") {
       const b = bowAt(poseT);

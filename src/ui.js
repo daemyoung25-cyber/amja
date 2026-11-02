@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnSound = $("btn-sound");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnSound = $("btn-sound"), btnCandle = $("btn-candle");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -39,6 +39,7 @@ export function createUI({ placeName }) {
 
   function setCount(text) { count.hidden = !text; count.textContent = text || ""; }
   function setNearStatue(near) { btnBow.hidden = !near; }
+  function setNearCandles(near) { btnCandle.hidden = !near; }
 
   function setLeaning(on) {
     leaning = on;
@@ -140,7 +141,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, setCount, setNearStatue, setLeaning, pokeHud, showHintOnce, showWhisper, notify,
+    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
     onOpenSettings: (cb) => btnSound.addEventListener("click", cb),

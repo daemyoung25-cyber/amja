@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -7,6 +7,7 @@ import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./danch
 import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
+import { createCandleRack } from "./candles.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
@@ -312,6 +313,10 @@ export function createWorld(THREE, scene) {
   const yard = createYard(THREE, { items: YARD, baerye: BAERYE });
   scene.add(yard.group);
   yard.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  // 촛불 공양대 (마당 왼쪽): 누르면 앞에 가서 선다
+  const rack = createCandleRack(THREE, CANDLES);
+  scene.add(rack.group);
+  rack.group.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { groundMeshes.push(o); obstacles.push(o); } });
 
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
@@ -496,6 +501,7 @@ export function createWorld(THREE, scene) {
     landscape.setLight(tmp, night);
     lanternGlow.value = 0.45 + 0.55 * night;
     yard.setNight(night);
+    rack.setNight(night);
     candleLight.intensity = 5 + 7 * night;
   }
 
@@ -509,6 +515,7 @@ export function createWorld(THREE, scene) {
     chime.rotation.z = Math.sin(swing * 1.3) * 0.06 + Math.sin(swing * 0.37) * 0.04;
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
     swayLanterns(t);
+    rack.update(t);
     for (const [i, f] of flames.entries()) f.scale.y = 1 + Math.sin(t * 13 + i * 2) * 0.12 + Math.sin(t * 7.3 + i) * 0.08;
   }
 
@@ -544,7 +551,7 @@ export function createWorld(THREE, scene) {
     }
   }
 
-  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces };
+  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces, setCandles: rack.setCandles };
 }
 
 export function mulberry32(a) {

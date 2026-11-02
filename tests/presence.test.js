@@ -103,3 +103,21 @@ test("every 합장 greeting is delivered, even two within a few seconds, but nev
   assert.deepEqual(got, ["you", "you"]);
   p.close();
 });
+
+test("lighting a candle writes slot, name and server time under candles/, and the rack reads at most 96", async () => {
+  const { sdk, log } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
+  p.lightCandle({ slot: 5, n: "연화" });
+  assert.equal(log.push.at(-1).path, "candles");
+  assert.deepEqual({ ...log.push.at(-1).v, at: 0 }, { slot: 5, n: "연화", at: 0 });
+  assert.equal(typeof log.push.at(-1).v.at, "number");
+  p.onCandles(() => {});
+  assert.ok(sdk.db.limits.includes(96), JSON.stringify(sdk.db.limits));
+  p.close();
+});
+
+test("solo mode can light a candle without a connection", async () => {
+  const p = await createPresence({ config: { apiKey: "" } });
+  p.lightCandle({ slot: 0, n: "연화" });
+  p.onCandles(() => {});
+});
