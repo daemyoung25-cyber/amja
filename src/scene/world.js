@@ -460,7 +460,7 @@ export function createWorld(THREE, scene) {
   scene.fog = new THREE.Fog(0x000000, 90, 700);   // 먼 산이 하늘빛으로 흐려지는 공기 원근
 
   let skyTimer = 1, t = 0, swing = 0, night = 0;
-  const tmp = new THREE.Color();
+  const tmp = new THREE.Color(), backWhite = new THREE.Color(1, 1, 1);
 
   function applySky(date) {
     const s = skyAt(date);
@@ -491,6 +491,9 @@ export function createWorld(THREE, scene) {
     hemi.intensity = 0.25 + 0.75 * s.light;
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
     scene.fog.color.setRGB(...s.horizon);
+    // 먼 산 그림: 낮엔 제 빛깔, 해 뜨고 질 땐 햇빛 물, 밤엔 푸르스름한 어둠
+    tmp.setRGB(...(isNight ? [0.55, 0.6, 0.8] : s.sun)).lerp(backWhite, 0.55).multiplyScalar((0.12 + 0.88 * s.light) ** 2);   // 선형 빛이라 제곱해야 밤이 밤답다
+    landscape.setLight(tmp, night);
     lanternGlow.value = 0.45 + 0.55 * night;
     yard.setNight(night);
     candleLight.intensity = 5 + 7 * night;
