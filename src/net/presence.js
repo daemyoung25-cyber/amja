@@ -52,7 +52,7 @@ async function connect(config, loadSdk, me) {
   db.onValue(db.ref(database, ".info/serverTimeOffset"), (s) => { offset = s.val() || 0; });
   const now = () => Date.now() + offset;
 
-  const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now(), ...(me.n ? { n: me.n } : {}) };
+  const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now(), ...(me.n ? { n: me.n } : {}), ...(me.h ? { h: me.h } : {}) };
   let present = false;
   async function appear() {
     await db.onDisconnect(mine).remove();
@@ -113,8 +113,8 @@ async function connect(config, loadSdk, me) {
       const q = db.query(db.ref(database, "visits"), db.orderByChild("at"), db.startAt(now() - HOUR));
       db.onValue(q, (snap) => cb(snap.val() || {}));
     },
-    // 촛불 공양: candles/{id} = { slot, n, at }
-    lightCandle({ slot, n }) { db.push(db.ref(database, "candles"), { slot, n, at: now() }); },
+    // 촛불 공양: candles/{id} = { slot, n, h, at }
+    lightCandle({ slot, n, h }) { db.push(db.ref(database, "candles"), { slot, n, ...(h ? { h } : {}), at: now() }); },
     onCandles(cb) {
       const q = db.query(db.ref(database, "candles"), db.orderByChild("at"), db.startAt(now() - DAY), db.limitToLast(CANDLE_READ_MAX));
       db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));

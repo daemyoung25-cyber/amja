@@ -43,3 +43,8 @@ test("a peer carries their name only when it is a valid Korean name", () => {
   const r = peersFromSnapshot({ a: at(1, 0, { n: "연화" }), b: at(2, 0, { n: "<script>" }), c: at(3, 0) }, "me", NOW, ME);
   assert.deepEqual(r.map((p) => p.n), ["연화", "", ""]);
 });
+
+test("a peer carries m (처사) or f (보살), defaulting to f", () => {
+  const r = peersFromSnapshot({ a: at(1, 0, { h: "m" }), b: at(2, 0, { h: "zz" }), c: at(3, 0) }, "me", NOW, ME);
+  assert.deepEqual(r.map((p) => p.h), ["m", "f", "f"]);
+});

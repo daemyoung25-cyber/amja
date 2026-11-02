@@ -137,8 +137,8 @@ ui.onCandle(() => {
   gesture("light");
   setTimeout(() => {
     const at = net.now(), slot = pickSlot(liveCandles(candleRecords, at), at);
-    candleRecords = [...candleRecords, { slot, n: myName, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
-    net.lightCandle({ slot, n: myName });
+    candleRecords = [...candleRecords, { slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
+    net.lightCandle({ slot, n: myName, h: mySex });
     redrawCandles();
     ui.showWhisper("초를 밝혔어요");
   }, 1600);
@@ -247,7 +247,7 @@ function drawOthers(now, mePos, dt) {
     if (!o) {
       o = { avatar: createAvatar(THREE, { color: AVATAR_COLORS[peer.c % AVATAR_COLORS.length] }), gone: 0 };
       // 이미 계시던 분들 말고, 내가 들어온 뒤에 새로 오신 분만 알린다
-      if (performance.now() - joinedAt > 4000) ui.notify(`${peer.n ? nameTag(peer.n) + "님이" : "누군가"} 들어오셨어요`);
+      if (performance.now() - joinedAt > 4000) ui.notify(`${peer.n ? nameTag(peer.n, peer.h) + "님이" : "누군가"} 들어오셨어요`);
       scene.add(o.avatar.root);
       others.set(peer.uid, o);
     }
@@ -263,7 +263,7 @@ function drawOthers(now, mePos, dt) {
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
-    o.avatar.setName(nameTag(peer.n));
+    o.avatar.setName(nameTag(peer.n, peer.h));
     o.avatar.update(dt);
   }
   for (const [uid, o] of others) {
@@ -283,16 +283,17 @@ function redrawCandles() {
 }
 setInterval(() => { redrawTraces(); redrawCandles(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
 
-let myName = "", joinedAt = Infinity;
-ui.onEnter(async (name) => {
+let myName = "", mySex = "f", joinedAt = Infinity;
+ui.onEnter(async (name, sex) => {
   myName = name;
-  me.setName(nameTag(name));
+  mySex = sex;
+  me.setName(nameTag(name, sex));
   audio.start();
   ui.showHintOnce();
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;
-  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base, n: myName }, onLate: adopt });
+  const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base, n: myName, h: mySex }, onLate: adopt });
   if (p.mode === "shared") adopt(p);
 });
 
@@ -307,7 +308,7 @@ function adopt(p) {
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);
-    ui.notify(`${who && who.n ? nameTag(who.n) + "님이" : "누군가"} 합장으로 인사했어요 🙏`);
+    ui.notify(`${who && who.n ? nameTag(who.n, who.h) + "님이" : "누군가"} 합장으로 인사했어요 🙏`);
   });
   joinedAt = performance.now();
   // 들어왔을 때 이미 계신 분이 있으면 한 번 알려 준다
@@ -321,7 +322,7 @@ function adopt(p) {
     if (candlesSeen) {
       for (const c of recs) {
         const key = `${c.slot}:${c.at}`;
-        if (!candlesSeen.has(key) && c.n !== myName && net.now() - c.at < 30000) ui.notify(`${nameTag(c.n)}님이 초를 밝혔어요 🕯️`);
+        if (!candlesSeen.has(key) && c.n !== myName && net.now() - c.at < 30000) ui.notify(`${nameTag(c.n, c.h)}님이 초를 밝혔어요 🕯️`);
       }
     }
     candlesSeen = new Set(recs.map((c) => `${c.slot}:${c.at}`));

@@ -1,4 +1,4 @@
-import { cleanName } from "./logic/name.js";
+import { cleanName, cleanSex } from "./logic/name.js";
 
 /* 화면 위 글자와 버튼. 늘 보이는 버튼은 최대 3개, 기대 있으면 사라진다. */
 const $ = (id) => document.getElementById(id);
@@ -14,7 +14,17 @@ export function createUI({ placeName }) {
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
 
   // 들어가기: 이름(한글 1~8자)을 받아 넘긴다. 지난번 이름은 기억해 둔다.
-  const NAME_KEY = "amja-name";
+  const NAME_KEY = "amja-name", SEX_KEY = "amja-sex";
+  // 여·남 고르기: 이름 뒤 호칭(보살·처사)이 바로 바뀐다. 지난번 고른 것을 기억한다.
+  let sex = "f";
+  try { sex = cleanSex(localStorage.getItem(SEX_KEY)); } catch {}
+  const sexBtns = [...document.querySelectorAll(".enter-sex button")];
+  const showSex = () => {
+    for (const b of sexBtns) b.setAttribute("aria-checked", String(b.dataset.sex === sex));
+    $("enter-suffix").textContent = sex === "m" ? "처사" : "보살";
+  };
+  for (const b of sexBtns) b.addEventListener("click", () => { sex = cleanSex(b.dataset.sex); showSex(); });
+  showSex();
   const nameInput = $("enter-name"), nameError = $("enter-error");
   try { nameInput.value = localStorage.getItem(NAME_KEY) || ""; } catch {}
   function onEnter(cb) {
@@ -25,12 +35,12 @@ export function createUI({ placeName }) {
       if (!name) { nameError.hidden = false; nameInput.focus(); return; }
       entered = true;
       nameInput.blur();
-      try { localStorage.setItem(NAME_KEY, name); } catch {}
+      try { localStorage.setItem(NAME_KEY, name); localStorage.setItem(SEX_KEY, sex); } catch {}
       const enter = $("enter");
       enter.classList.add("leaving");
       setTimeout(() => (enter.hidden = true), 1300);
       hud.hidden = false;
-      cb(name);
+      cb(name, sex);
     };
     $("enter-btn").addEventListener("click", go);
     nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) go(); });

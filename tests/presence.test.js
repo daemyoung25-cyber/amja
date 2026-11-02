@@ -82,12 +82,13 @@ test("a late connection is handed to onLate instead of being dropped", async () 
   late.close();
 });
 
-test("the chosen name is written with presence so others can see it", async () => {
+test("the chosen name and 보살/처사 are written with presence so others can see them", async () => {
   const { sdk, log } = fakeSdk();
-  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk, me: { c: 1, m: { fx: 0, fz: 0, tx: 0, tz: 0, t: 0 }, p: "stand", n: "연화" } });
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk, me: { c: 1, m: { fx: 0, fz: 0, tx: 0, tz: 0, t: 0 }, p: "stand", n: "법운", h: "m" } });
   await flush();
   const w = log.set.filter((s) => s.path === "presence/me").at(-1);
-  assert.equal(w.v.n, "연화");
+  assert.equal(w.v.n, "법운");
+  assert.equal(w.v.h, "m");
   p.close();
 });
 
@@ -107,9 +108,9 @@ test("every 합장 greeting is delivered, even two within a few seconds, but nev
 test("lighting a candle writes slot, name and server time under candles/, and the rack reads at most 96", async () => {
   const { sdk, log } = fakeSdk();
   const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
-  p.lightCandle({ slot: 5, n: "연화" });
+  p.lightCandle({ slot: 5, n: "법운", h: "m" });
   assert.equal(log.push.at(-1).path, "candles");
-  assert.deepEqual({ ...log.push.at(-1).v, at: 0 }, { slot: 5, n: "연화", at: 0 });
+  assert.deepEqual({ ...log.push.at(-1).v, at: 0 }, { slot: 5, n: "법운", h: "m", at: 0 });
   assert.equal(typeof log.push.at(-1).v.at, "number");
   p.onCandles(() => {});
   assert.ok(sdk.db.limits.includes(96), JSON.stringify(sdk.db.limits));
