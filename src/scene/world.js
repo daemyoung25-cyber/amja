@@ -96,6 +96,7 @@ export function createWorld(THREE, scene) {
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
   const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD });
   scene.add(landscape.group);
+  landscape.group.userData.noShadow = true;            // 먼 산은 그림자 지도 밖
 
   /* 절벽과 마당 */
   const rockDark = mat(0x463a32), stone = mat(0x9b8f7e);
@@ -371,6 +372,7 @@ export function createWorld(THREE, scene) {
   }
   const lanternMesh = new THREE.InstancedMesh(lanternGeo, lanternMat, lanterns.length);
   lanterns.forEach((l, i) => lanternMesh.setColorAt(i, new THREE.Color(l.color)));
+  lanternMesh.userData.noShadow = true;            // 종이등은 빛이 비쳐 짙은 그림자를 안 만든다 (수백 개 점박이가 지저분하다)
   scene.add(lanternMesh);
   const lq = new THREE.Quaternion(), le = new THREE.Euler(), lp = new THREE.Vector3(), ls = new THREE.Vector3(1, 1, 1), lm = new THREE.Matrix4();
   function swayLanterns(time) {
@@ -462,6 +464,27 @@ export function createWorld(THREE, scene) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444033, 0.8);
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   scene.add(hemi, sun, sun.target);
+  // 해(달) 그림자: 마당과 법당 둘레 52m 네모만. 그림자 지도는 1초에 한 번만 다시 그린다 (main.js)
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 40, far: 200 });
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.04;
+  sun.target.position.set(0, 0, 0);
+  // 마당 둘레의 물건은 그림자를 드리우고 받는다. 늦게 불러오는 불상도 잡히게 1초마다 새로 온 것만 본다.
+  // 사람(userData.noShadow)은 발밑 둥근 그림자로 대신한다 (움직이는 그림자는 매 프레임 비싸서)
+  const shadowSeen = new WeakSet(), shBox = new THREE.Box3(), mid = new THREE.Vector3();
+  function markShadows() {
+    scene.traverse((o) => {
+      if (shadowSeen.has(o)) return;
+      shadowSeen.add(o);
+      if (!o.isMesh || o.material.isShaderMaterial || o.material.isMeshBasicMaterial) return;
+      for (let a = o; a; a = a.parent) if (a.userData.noShadow) return;
+      shBox.setFromObject(o).getCenter(mid);
+      if (Math.abs(mid.x) > 30 || mid.z < -22 || mid.z > 22) return;
+      o.castShadow = o.receiveShadow = true;
+    });
+  }
   scene.fog = new THREE.Fog(0x000000, 90, 700);   // 먼 산이 하늘빛으로 흐려지는 공기 원근
 
   let skyTimer = 1, t = 0, swing = 0, night = 0;
@@ -492,8 +515,8 @@ export function createWorld(THREE, scene) {
 
     sun.position.copy(dir).multiplyScalar(100);
     sun.color.setRGB(...(isNight ? [0.55, 0.6, 0.8] : s.sun));
-    sun.intensity = isNight ? 0.25 : 0.3 + 1.1 * s.light;
-    hemi.intensity = 0.25 + 0.75 * s.light;
+    sun.intensity = isNight ? 0.25 : 0.3 + 1.5 * s.light;              // 햇빛을 세게, 하늘빛(hemi)은 줄여 그림자가 또렷하게
+    hemi.intensity = 0.25 + 0.5 * s.light;
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
     scene.fog.color.setRGB(...s.horizon);
     // 먼 산 그림: 낮엔 제 빛깔, 해 뜨고 질 땐 햇빛 물, 밤엔 푸르스름한 어둠
@@ -510,7 +533,7 @@ export function createWorld(THREE, scene) {
     seaU.time.value = t;
     if (camPos) seaU.camPos.value.copy(camPos);
     skyTimer += dt;
-    if (skyTimer >= 1) { skyTimer = 0; applySky(date); }
+    if (skyTimer >= 1) { skyTimer = 0; applySky(date); markShadows(); }
     swing += dt;
     chime.rotation.z = Math.sin(swing * 1.3) * 0.06 + Math.sin(swing * 0.37) * 0.04;
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;

@@ -58,6 +58,7 @@ export function createAvatar(THREE, { color }) {
   const materials = [robeMat, skirtMat, skinMat, hairMat, beadMat, faceMat, lipMat];
 
   const root = new THREE.Group();
+  root.userData.noShadow = true;
   const body = new THREE.Group();            // 발을 축으로 숙인다
   root.add(body);
 

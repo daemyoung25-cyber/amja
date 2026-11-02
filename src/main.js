@@ -21,6 +21,14 @@ const canvas = document.getElementById("view");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// 사진 같은 색: 밝은 곳이 하얗게 날아가지 않고 부드럽게 눌린다
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+// 그림자: 해는 천천히 움직이니 1초에 한 번만 다시 그린다 (폰 부담을 줄이려고)
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+setInterval(() => { renderer.shadowMap.needsUpdate = true; }, 1000);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 2000);   // near를 너무 작게 두면 폰에서 깊이 정밀도가 모자라 면이 깜빡인다
 
