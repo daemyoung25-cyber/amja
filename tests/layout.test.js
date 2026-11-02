@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN } from "../src/logic/layout.js";
+import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN, RAIL_Z, LEAN_Z, PRAYER_SEATS, seatAt } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
 
 test("clampToWalkable keeps points inside the courtyard", () => {
-  assert.equal(clampToWalkable({ x: 30, z: 0 }).x, 12);
+  assert.equal(clampToWalkable({ x: 60, z: 0 }).x, COURTYARD.maxX);
 });
 
 test("clampToWalkable takes a point on the hall inside it, in front of the altar", () => {
@@ -16,25 +16,21 @@ test("clampToWalkable takes a point on the hall inside it, in front of the altar
 });
 
 test("clampToWalkable pushes a point off the statue base", () => {
-  const p = clampToWalkable({ x: 9, z: -4.5 });
+  const p = clampToWalkable({ x: STATUE.x, z: STATUE.z });
   assert.ok(dist(p, STATUE) >= 1.2);
 });
 
 test("tapping the sea leans on the railing straight ahead", () => {
-  assert.deepEqual(resolveTap({ x: 2, z: -20 }), { kind: "lean", to: { x: 2, z: -5.4 }, yaw: 0 });
+  assert.deepEqual(resolveTap({ x: 2, z: RAIL_Z - 14 }), { kind: "lean", to: { x: 2, z: LEAN_Z }, yaw: 0 });
 });
 
 test("tapping far out to sea clamps the lean spot to the railing end", () => {
-  const r = resolveTap({ x: -50, z: -20 });
+  const r = resolveTap({ x: -80, z: RAIL_Z - 14 });
   assert.equal(r.kind, "lean");
-  assert.equal(r.to.x, -11.5);
+  assert.equal(r.to.x, COURTYARD.minX + 0.5);
 });
 
-test("a lean spot next to the statue stays clear of its base", () => {
-  const r = resolveTap({ x: 9, z: -5.8 });
-  assert.equal(r.kind, "lean");
-  assert.ok(dist(r.to, STATUE) >= 1.2);
-});
+
 
 test("tapping the courtyard walks there", () => {
   assert.deepEqual(resolveTap({ x: 0, z: 0 }), { kind: "walk", to: { x: 0, z: 0 } });
@@ -58,11 +54,11 @@ const inStatue = (p) => dist(p, STATUE) < STATUE.baseR;
 const walkable = (p) => p.x >= COURTYARD.minX && p.x <= COURTYARD.maxX && p.z >= COURTYARD.minZ && p.z <= COURTYARD.maxZ;
 
 test("a straight path with nothing in the way is just the destination", () => {
-  assert.deepEqual(routeAround({ x: -5, z: -2 }, { x: 2, z: -5.4 }), [{ x: 2, z: -5.4 }]);
+  assert.deepEqual(routeAround({ x: 2, z: -2 }, { x: 4, z: LEAN_Z }), [{ x: 4, z: LEAN_Z }]);
 });
 
-test("walking along the railing past the statue goes round its landward side", () => {
-  const from = { x: 6, z: -5.4 }, to = { x: 11, z: -5.4 };
+test("walking straight past the statue goes round its base", () => {
+  const from = { x: STATUE.x - 3.5, z: STATUE.z }, to = { x: STATUE.x + 4, z: STATUE.z };
   const path = routeAround(from, to);
   assert.deepEqual(path.at(-1), to);
   assert.equal(crosses(from, path, inStatue), null);
@@ -89,7 +85,7 @@ test("walking from the courtyard into the hall goes through the door", () => {
 });
 
 test("walking from inside the hall to the railing goes out through the door", () => {
-  const from = { x: -2.5, z: 8.4 }, to = { x: 5, z: -5.4 };
+  const from = { x: -2.5, z: 8.4 }, to = { x: STATUE.x + 1, z: LEAN_Z };
   const path = routeAround(from, to);
   assert.deepEqual(path.at(-1), to);
   assert.equal(crosses(from, path, inWall), null, JSON.stringify(path));
@@ -160,16 +156,12 @@ test("the path from the courtyard into the hall still goes through the door past
   assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
 });
 
-test("the front yard also has a 괘불대 pair, lotus pots in mirrored pairs, a bronze censer on the axis and a wish-tile stand", () => {
+test("the front yard also has a 괘불대 pair, lotus pots in mirrored pairs, and a wish-tile stand", () => {
   for (const kind of ["gwaebul", "pot"]) {
     const all = YARD.filter((o) => o.kind === kind);
     assert.ok(all.length >= 2 && all.length % 2 === 0, kind);
     for (const o of all) assert.ok(all.some((m) => m.x === -o.x && m.z === o.z), `${kind} mirror of ${o.x}`);
   }
-  const censer = YARD.filter((o) => o.kind === "censer");
-  assert.equal(censer.length, 1);
-  assert.equal(censer[0].x, 0);
-  assert.ok(censer[0].z < BAERYE.z, "향로는 배례석 앞(바다 쪽)");
   assert.equal(YARD.filter((o) => o.kind === "giwa").length, 1);
 });
 
@@ -183,7 +175,7 @@ test("nothing in the front yard overlaps another thing or the hall", () => {
 });
 
 test("from anywhere people arrive, the way into the hall goes round every yard stone", () => {
-  for (let x = -4; x <= 4; x += 1) for (const z of [-2.5, -1.5, -0.5]) {
+  for (let x = -5; x <= 5; x += 1) for (const z of [-10, -8.5, -7]) {
     const from = { x, z }, to = { x: 0, z: 9 };
     const path = routeAround(from, to);
     assert.deepEqual(path.at(-1), to);
@@ -192,9 +184,48 @@ test("from anywhere people arrive, the way into the hall goes round every yard s
 });
 
 test("and the way back out from the door to the railing goes round them too", () => {
-  for (let x = -10; x <= 10; x += 2.5) {
-    const from = { x: 0, z: 9 }, to = { x, z: -5.4 };
+  for (let x = COURTYARD.minX + 1; x <= COURTYARD.maxX - 1; x += 2.5) {
+    const from = { x: 0, z: 9 }, to = { x, z: LEAN_Z };
     const path = routeAround(from, to);
     assert.equal(crosses(from, path, inYardStone), null, `${x}: ${JSON.stringify(path)}`);
   }
+});
+
+const FORMER_YARD = (12 - -12) * (5.5 - -6);   // 처음 앞마당: 폭 24m, 난간~법당 11.5m
+test("the front yard is about three times as big as it first was", () => {
+  const area = (COURTYARD.maxX - COURTYARD.minX) * (HALL.minZ - RAIL_Z);
+  assert.ok(area >= FORMER_YARD * 2.9 && area <= FORMER_YARD * 3.3, String(area / FORMER_YARD));
+});
+
+test("the sea-facing Gwaneum stands on the left (9 o'clock looking out to sea), between the railing and the hall", () => {
+  assert.ok(STATUE.x < COURTYARD.minX / 2, String(STATUE.x));
+  assert.ok(STATUE.z > RAIL_Z + 6 && STATUE.z < HALL.minZ - 4, String(STATUE.z));
+});
+
+test("in front of the Gwaneum, on the sea side, there are prayer cushions to sit on facing her", () => {
+  assert.ok(PRAYER_SEATS.length >= 4);
+  for (const c of PRAYER_SEATS) {
+    assert.ok(c.z < STATUE.z - STATUE.baseR, JSON.stringify(c));
+    assert.ok(dist(c, STATUE) <= STATUE.baseR + 3, "합장할 수 있는 거리");
+    const r = resolveTap({ x: c.x + 0.15, z: c.z + 0.1 });
+    assert.equal(r.kind, "sit");
+    assert.deepEqual(r.to, { x: c.x, z: c.z });
+    assert.ok(Math.abs(r.yaw - Math.atan2(-(STATUE.x - c.x), -(STATUE.z - c.z))) < 1e-9);
+    assert.equal(seatAt(r.to), c);
+  }
+});
+
+test("walking from the middle of the yard to a prayer cushion goes round the statue and the stones", () => {
+  for (const c of PRAYER_SEATS) {
+    const from = { x: 0, z: -8 }, path = routeAround(from, c);
+    assert.deepEqual(path.at(-1), { x: c.x, z: c.z });
+    assert.equal(crosses(from, path, inStatue), null, JSON.stringify(path));
+  }
+});
+
+test("the censer is gone so nothing stands in the way of the steps, and the pagodas are smaller", () => {
+  assert.equal(YARD.filter((o) => o.kind === "censer").length, 0);
+  for (const o of YARD.filter((y) => y.kind === "pagoda")) assert.ok(o.r < 1.1, String(o.r));
+  const from = { x: 0, z: -8 }, path = routeAround(from, HALL.door);
+  assert.deepEqual(path, [HALL.door]);
 });

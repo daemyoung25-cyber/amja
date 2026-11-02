@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layerGains } from "../src/logic/mix.js";
-import { COURTYARD, CHIME } from "../src/logic/layout.js";
+import { COURTYARD, CHIME, LEAN_Z } from "../src/logic/layout.js";
 
 const ALL = { waves: true, chime: true, chant: true };
 const near = (a, b, eps) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b}`);
 
 test("at the railing the waves are loud and the chant at most a third of them", () => {
-  const g = layerGains({ x: 0, z: -5.4 }, ALL);
+  const g = layerGains({ x: 0, z: LEAN_Z }, ALL);
   assert.ok(g.waves >= 0.95, String(g.waves));
   assert.ok(g.chant <= g.waves / 3, `${g.chant} > ${g.waves}/3`);
 });
@@ -29,7 +29,7 @@ test("chant never exceeds 0.6 anywhere and every gain stays in 0..1", () => {
 
 test("the wind chime is 0.45 under the eaves and 0.3 at the railing", () => {
   near(layerGains({ x: CHIME.x, z: CHIME.z }, ALL).chime, 0.45, 1e-9);
-  near(layerGains({ x: 0, z: -5.4 }, ALL).chime, 0.3, 1e-9);
+  near(layerGains({ x: 0, z: LEAN_Z }, ALL).chime, 0.3, 1e-9);
 });
 
 test("a switched-off layer is silent and the others are unchanged", () => {

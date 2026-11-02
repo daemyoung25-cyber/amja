@@ -1,18 +1,22 @@
 /* 암자 배치. 단위는 미터, z가 음수인 쪽이 바다(남쪽). yaw 0 = 바다를 바라봄. */
-export const COURTYARD = { minX: -12, maxX: 12, minZ: -6, maxZ: 16.5 };
-export const RAIL_Z = -6;
-export const LEAN_Z = -5.4;
+// 앞마당(난간~법당)은 폭 36m, 깊이 23m: 처음(24m×11.5m)의 세 배쯤이라 답답하지 않다
+export const COURTYARD = { minX: -18, maxX: 18, minZ: -17.5, maxZ: 16.5 };
+export const RAIL_Z = -17.5;
+export const LEAN_Z = RAIL_Z + 0.6;
 export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
-export const STATUE = { x: 9, z: -4.5, baseR: 1.2 };
+// 해수관음: 바다를 보고 섰을 때 왼쪽(9시). 앞(바다 쪽)에 기도 터가 있다.
+export const STATUE = { x: -12, z: -7, baseR: 1.2 };
+export const PRAYER = { minX: STATUE.x - 3.2, maxX: STATUE.x + 3.2, minZ: STATUE.z - 4.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
+export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
+export const PRAYER_SEATS = [-1.2, 0, 1.2].flatMap((dx) => [{ x: STATUE.x + dx, z: STATUE.z - 2.7 }, { x: STATUE.x + dx, z: STATUE.z - 3.7 }]);
 // 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
 export const YARD = [
   { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
-  { kind: "pagoda", x: -6.8, z: 3.0, r: 1.35 }, { kind: "pagoda", x: 6.8, z: 3.0, r: 1.35 },
-  // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 배례석 앞 큰 청동 향로, 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
+  { kind: "pagoda", x: -6.8, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 6.8, z: 3.0, r: 0.95 },
+  // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
   { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
-  { kind: "censer", x: 0, z: 2.3, r: 0.55 },
-  ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -10.8, z, r: 0.35 }, { kind: "pot", x: 10.8, z, r: 0.35 }]),
-  { kind: "giwa", x: -9.4, z: -2.2, r: 0.8 },
+  ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -16.8, z, r: 0.35 }, { kind: "pot", x: 16.8, z, r: 0.35 }]),
+  { kind: "giwa", x: 13, z: -6, r: 0.8 },
 ];
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
@@ -31,8 +35,8 @@ export const CEILING_Y = FLOOR_Y + WALLS.height - 0.6;   // 바깥 처마 단청
 export const ROOM = { minX: -8.1, maxX: 8.1, minZ: 6.95, maxZ: 14.7, maxY: CEILING_Y - 0.2 };
 
 const MARGIN = 0.3;
-const LEAN_X = 11.5;
-const LEAN_TRIGGER_Z = -5.2;
+const LEAN_X = COURTYARD.maxX - 0.5;
+const LEAN_TRIGGER_Z = LEAN_Z + 0.2;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const inCourtyard = (p) => clamp(p.x, COURTYARD.minX, COURTYARD.maxX) === p.x && clamp(p.z, COURTYARD.minZ, COURTYARD.maxZ) === p.z;
@@ -40,6 +44,10 @@ const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p
 export const insideHall = (p) => p.x >= INSIDE.minX && p.x <= INSIDE.maxX && p.z >= INSIDE.minZ && p.z <= INSIDE.maxZ;
 const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
+const faceStatue = (p) => Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));
+const SEATS = [...CUSHIONS, ...PRAYER_SEATS];
+// 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
+export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : faceStatue(p));
 
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
@@ -62,7 +70,7 @@ export function clampToWalkable({ x, z }) {
   return p;
 }
 
-export const seatAt = (p) => CUSHIONS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < 0.05) || null;
+export const seatAt = (p) => SEATS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < 0.05) || null;
 export { faceAltar };
 
 export function nearestLeanSpot({ x }) {
@@ -76,8 +84,8 @@ export function nearestLeanSpot({ x }) {
 }
 
 export function resolveTap(p) {
-  const seat = CUSHIONS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < SEAT_R);
-  if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceAltar(seat) };
+  const seat = SEATS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < SEAT_R);
+  if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
   if (p.z < LEAN_TRIGGER_Z) {
     const s = nearestLeanSpot(p);
     return { kind: "lean", to: { x: s.x, z: s.z }, yaw: 0 };

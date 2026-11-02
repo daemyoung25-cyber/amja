@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat } from "./logic/layout.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -52,7 +52,7 @@ const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
   move: (() => {        // 들어오는 자리를 마당 앞쪽에 흩어 둔다 (여럿이 겹치지 않게)
-    const spawn = { x: (Math.random() - 0.5) * 8, z: -2.5 + Math.random() * 2 };
+    const spawn = { x: (Math.random() - 0.5) * 8, z: -9 + Math.random() * 2 };
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,
@@ -168,7 +168,7 @@ function frame(t) {
       net.writeTrace({ x: p.x, z: p.z, k: state.leanOnArrive ? "lean" : "step" });
     }
     if (state.sitOnArrive) {
-      state.yaw = faceAltar(p);
+      state.yaw = faceSeat(p);   // 법당에선 부처님, 기도 터에선 해수관음 쪽
       setBase("sit");
       rig.turnTo(state.yaw);
       ui.setLeaning(true);              // 앉아 있는 동안 버튼은 물러난다
@@ -224,7 +224,7 @@ function drawOthers(now, mePos, dt) {
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
     const sat = pos.arrived && seatAt(pos) && ["sit", "hapjang", "bow"].includes(peer.p);
-    if (sat) o.yaw = faceAltar(pos);
+    if (sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);

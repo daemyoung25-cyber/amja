@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -86,12 +86,13 @@ export function createWorld(THREE, scene) {
   scene.add(lines);
   // 바다 쪽으로 깎아지른 절벽: 겹친 바위 덩어리
   const rnd = mulberry32(7);
-  for (let i = 0; i < 14; i++) {
+  const ROCKS = Math.ceil((W + 8) / 2.6);
+  for (let i = 0; i < ROCKS; i++) {
     const w = 6 + rnd() * 6, h = 10 + rnd() * 18;
     const g = new THREE.DodecahedronGeometry(1, 0);
     const m = new THREE.Mesh(g, rnd() > 0.5 ? rock : rockDark);
     m.scale.set(w / 2, h / 2, 4 + rnd() * 3);
-    m.position.set(-16 + i * 2.6 + rnd(), -h / 2 - 0.6 + rnd() * 2, RAIL_Z - 2.2 - rnd() * 2.5);
+    m.position.set(COURTYARD.minX - 4 + i * 2.6 + rnd(), -h / 2 - 0.6 + rnd() * 2, RAIL_Z - 2.2 - rnd() * 2.5);
     m.rotation.set(rnd() * 0.4, rnd() * 3, rnd() * 0.3);
     add(m);
   }
@@ -108,7 +109,7 @@ export function createWorld(THREE, scene) {
       const r = add(new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rnd() > 0.5 ? rock : rockDark));
       const s = 8 + rnd() * 10;
       r.scale.set(s, s * (1 + rnd()), s);
-      r.position.set(side * (26 + i * 9 + rnd() * 4), SEA_Y + s * 0.6, -6 - i * 10 - rnd() * 8);
+      r.position.set(side * (COURTYARD.maxX + 14 + i * 9 + rnd() * 4), SEA_Y + s * 0.6, RAIL_Z - i * 10 - rnd() * 8);
       const cap = add(new THREE.Mesh(new THREE.ConeGeometry(s * 0.9, s * 0.8, 6), grass));
       cap.position.set(r.position.x, r.position.y + s * 1.25, r.position.z);
     }
@@ -122,7 +123,7 @@ export function createWorld(THREE, scene) {
     const swCap = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, len + 0.2), capMat));
     swCap.position.set(sw.position.x, 1.05, sw.position.z);
     obstacles.push(sw);
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < Math.ceil(len / 4.5); i++) {
       const s = 5 + rnd() * 3;
       const slope = add(new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), i % 2 ? grass : mat(0x56643f)));
       slope.scale.set(s * 1.1, s * (0.7 + rnd() * 0.5), s);
@@ -147,6 +148,8 @@ export function createWorld(THREE, scene) {
     }
   };
   pine(-11.2, 9, 5.5); pine(-11, 14.5, 4.6); pine(11.2, 10, 5); pine(11, 15.2, 4.2);
+  // 넓어진 마당 양옆 담 따라 몇 그루 더
+  pine(-17, 9, 6); pine(17, 12, 5.6); pine(-17.2, -3, 4.8); pine(17.2, 1, 5.2); pine(17, -12, 4.4);
 
   /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. 크기는 layout.js의 WALLS를 따른다. */
   const hall = new THREE.Group();
@@ -310,7 +313,7 @@ export function createWorld(THREE, scene) {
   /* 대웅전 앞마당: 석등 한 쌍, 삼층석탑 한 쌍, 배례석 */
   const yard = createYard(THREE, { items: YARD, baerye: BAERYE });
   scene.add(yard.group);
-  yard.group.traverse((o) => { if (o.isMesh && !o.userData.air) { groundMeshes.push(o); obstacles.push(o); } });   // 향 연기는 눌리거나 카메라를 막지 않는다
+  yard.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
 
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
@@ -341,7 +344,7 @@ export function createWorld(THREE, scene) {
   add(railHit, true);
 
   /* 연등: 마당 위로 줄 세 가닥, 연꽃 모양 등이 줄줄이. 해가 지면 불이 켜진 듯 밝아진다. */
-  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = 12.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
+  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = COURTYARD.maxX + 0.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
   const LANTERN_COLORS = [0xf28fb0, 0xf5a35c, 0xf3dd7a, 0x9fd38a, 0xe0574a, 0xf7f1e3];
   const stringY = (x) => STRING_Y - SAG * (1 - (x / POLE_X) ** 2);
   // 꽃잎 끝이 위로 들린 연꽃 모양
@@ -361,7 +364,7 @@ export function createWorld(THREE, scene) {
     const pts = [];
     for (let i = 0; i <= 24; i++) { const x = -POLE_X + (2 * POLE_X * i) / 24; pts.push(new THREE.Vector3(x, stringY(x), z)); }
     add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2622 })));
-    for (let x = -11.4 + (LANTERN_ROWS.indexOf(z) % 2) * LANTERN_GAP / 2; x <= 11.41; x += LANTERN_GAP) lanterns.push({ x, y: stringY(x) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
+    for (let x = -(POLE_X - 0.8) + (LANTERN_ROWS.indexOf(z) % 2) * LANTERN_GAP / 2; x <= POLE_X - 0.79; x += LANTERN_GAP) lanterns.push({ x, y: stringY(x) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
   }
   const lanternMesh = new THREE.InstancedMesh(lanternGeo, lanternMat, lanterns.length);
   lanterns.forEach((l, i) => lanternMesh.setColorAt(i, new THREE.Color(l.color)));
@@ -430,6 +433,20 @@ export function createWorld(THREE, scene) {
   statue.rotation.y = 0;   // 정면(-z)이 바다
   scene.add(statue);
   statue.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  /* 기도 터: 관음상 앞(바다 쪽)에 박석을 깔고, 배례석과 방석을 놓는다. 방석을 누르면 관음상을 보고 앉는다. */
+  const prayerFloor = add(new THREE.Mesh(new THREE.BoxGeometry(PRAYER.maxX - PRAYER.minX, 0.06, PRAYER.maxZ - PRAYER.minZ), mat(0xb9ae9b)), true);
+  prayerFloor.position.set((PRAYER.minX + PRAYER.maxX) / 2, 0.03, (PRAYER.minZ + PRAYER.maxZ) / 2);
+  const prayerEdge = add(new THREE.Mesh(new THREE.BoxGeometry(PRAYER.maxX - PRAYER.minX + 0.3, 0.04, PRAYER.maxZ - PRAYER.minZ + 0.3), mat(0x8d877b)), true);
+  prayerEdge.position.set(prayerFloor.position.x, 0.02, prayerFloor.position.z);
+  const pBaerye = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.6), granite), true);
+  pBaerye.position.set(PRAYER_BAERYE.x, 0.11, PRAYER_BAERYE.z);
+  const lotusMark = add(new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), graniteShade), true);
+  lotusMark.rotation.x = -Math.PI / 2; lotusMark.position.set(PRAYER_BAERYE.x, 0.165, PRAYER_BAERYE.z);
+  const prayerCushion = mat(0x8c2f3a);
+  for (const c of PRAYER_SEATS) {
+    const cu = add(new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.66), prayerCushion), true);
+    cu.position.set(c.x, 0.1, c.z);
+  }
   loadStatue(THREE, "models/gwaneum.glb", { height: FIGURE_H, metalness: 0, roughness: 0.85, envIntensity: 0.4 }).then((scan) => {
     if (!scan) return;
     scan.object.position.y = FIGURE_Y;
@@ -483,7 +500,6 @@ export function createWorld(THREE, scene) {
 
   function update(date, dt, camPos) {
     t += dt;
-    yard.update(t);
     seaU.time.value = t;
     if (camPos) seaU.camPos.value.copy(camPos);
     skyTimer += dt;

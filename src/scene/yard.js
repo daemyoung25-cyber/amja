@@ -1,4 +1,4 @@
-/* 대웅전 앞마당: 팔각 석등 한 쌍, 삼층석탑 한 쌍, 계단 앞 배례석, 괘불대 한 쌍, 청동 향로, 연꽃 화분, 소원 기와 단.
+/* 대웅전 앞마당: 팔각 석등 한 쌍, 삼층석탑 한 쌍, 계단 앞 배례석, 괘불대 한 쌍, 연꽃 화분, 소원 기와 단.
    석등 화창(불빛 창)은 해가 지면 따뜻하게 밝아진다 (setNight). */
 export function createYard(THREE, { items, baerye }) {
   const group = new THREE.Group();
@@ -52,7 +52,7 @@ export function createYard(THREE, { items, baerye }) {
     return g;
   }
 
-  /* 삼층석탑 (약 4m): 이층 기단(모서리 기둥·가운데 버팀 기둥 새김) → 몸돌·지붕돌 세 층 → 상륜(노반·복발·찰주) */
+  /* 삼층석탑 (약 2.8m, 넓은 마당에 맞게 0.7배): 이층 기단(모서리 기둥·가운데 버팀 기둥 새김) → 몸돌·지붕돌 세 층 → 상륜(노반·복발·찰주) */
   function pagoda(x, z) {
     const g = new THREE.Group(); g.position.set(x, 0, z);
     const pillars = (w, h, y) => {                                      // 우주(모서리)와 탱주(가운데) 돋을새김
@@ -84,6 +84,7 @@ export function createYard(THREE, { items, baerye }) {
     put(g, new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), graniteDark, y + 0.55);   // 찰주
     for (let k = 0; k < 3; k++) put(g, new THREE.TorusGeometry(0.11 - k * 0.02, 0.022, 4, 10), graniteDark, y + 0.42 + k * 0.13, { rx: Math.PI / 2 });
     put(g, new THREE.SphereGeometry(0.06, 8, 6), granite, y + 0.92);     // 보주
+    g.scale.setScalar(0.7);
     return g;
   }
 
@@ -111,35 +112,6 @@ export function createYard(THREE, { items, baerye }) {
       const top = put(g, new THREE.CylinderGeometry(0.15, 0.15, 0.2, 10, 1, false, 0, Math.PI), granite, 1.66, { x: sx, rz: Math.PI / 2, ry: Math.PI / 2 });
       top.rotation.set(0, Math.PI / 2, Math.PI / 2);
       for (const hy of [0.7, 1.3]) put(g, new THREE.CylinderGeometry(0.035, 0.035, 0.21, 8), hole, hy, { x: sx, rz: Math.PI / 2 });
-    }
-    return g;
-  }
-
-  /* 큰 청동 향로: 돌 받침 위 세 발 달린 둥근 몸통, 손잡이 둘, 뚜껑 위 연봉오리. 오래 써서 푸르스름한 청동. */
-  const bronze = new THREE.MeshStandardMaterial({ color: 0x5d5a3c, metalness: 0.7, roughness: 0.55, flatShading: true });
-  const bronzeEdge = new THREE.MeshStandardMaterial({ color: 0x7d6a3a, metalness: 0.8, roughness: 0.45, flatShading: true });
-  let smoke = null;
-  function censer(x, z) {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    put(g, oct(0.62, 0.68, 0.3), graniteDark, 0.15);
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2;
-      put(g, new THREE.CylinderGeometry(0.05, 0.07, 0.36, 6), bronze, 0.48, { x: Math.cos(a) * 0.32, z: Math.sin(a) * 0.32 });
-    }
-    const body = put(g, new THREE.SphereGeometry(0.46, 14, 10, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.7), bronze, 0.98);
-    body.scale.y = 0.8;
-    put(g, new THREE.TorusGeometry(0.44, 0.04, 6, 20), bronzeEdge, 1.22, { rx: Math.PI / 2 });
-    for (const sx of [-1, 1]) put(g, new THREE.TorusGeometry(0.1, 0.025, 6, 12), bronzeEdge, 1.3, { x: sx * 0.46 });
-    const lid = put(g, new THREE.SphereGeometry(0.4, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), bronze, 1.22);
-    lid.scale.y = 0.55;
-    put(g, new THREE.SphereGeometry(0.09, 8, 6), bronzeEdge, 1.5);                  // 연봉오리
-    put(g, new THREE.ConeGeometry(0.05, 0.1, 8), bronzeEdge, 1.6);
-    // 가늘게 오르는 향 연기 (아주 옅게)
-    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xece8e0, transparent: true, opacity: 0.1, depthWrite: false });
-    smoke = [];
-    for (let i = 0; i < 5; i++) {
-      const puff = put(g, new THREE.SphereGeometry(0.035 + i * 0.012, 8, 6), smokeMat, 1.7 + i * 0.3);
-      puff.userData.k = i; puff.userData.air = true; smoke.push(puff);
     }
     return g;
   }
@@ -198,21 +170,11 @@ export function createYard(THREE, { items, baerye }) {
 
   let n = 0;
   for (const o of items) {
-    const make = { lantern: stoneLantern, pagoda, gwaebul, censer, pot: lotusPot, giwa: giwaStand }[o.kind];
+    const make = { lantern: stoneLantern, pagoda, gwaebul, pot: lotusPot, giwa: giwaStand }[o.kind];
     if (make) group.add(make(o.x, o.z, n++));
   }
   group.add(baeryeStone(baerye.x, baerye.z));
 
   function setNight(night) { glow.opacity = Math.min(1, night * 1.2); }
-  // 향 연기: 천천히 오르며 흩어지고 다시 아래에서 피어난다
-  function update(time) {
-    if (!smoke) return;
-    smoke.forEach((p) => {
-      const f = (time * 0.12 + p.userData.k / smoke.length) % 1;
-      p.position.y = 1.65 + f * 1.4;
-      p.position.x = Math.sin(time * 0.5 + f * 4) * 0.08 * f;
-      p.scale.setScalar(0.6 + f * 1.2);
-    });
-  }
-  return { group, setNight, update };
+  return { group, setNight };
 }
