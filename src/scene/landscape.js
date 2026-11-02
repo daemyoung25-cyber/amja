@@ -5,7 +5,7 @@ import { mulberry32 } from "./world.js";
 import { decodeDem, demSampler } from "../logic/dem.js";
 
 // 높이 지도: 31.4m 간격 350×288칸, 절 자리(금산 남쪽 상주 바닷가)가 (175, 160)
-const DEM = { url: "textures/terrain-namhae.png", originX: 175, originY: 160, mpp: 31.41, sh: 0.23, sv: 0.38 };
+export const DEM = { url: "textures/terrain-namhae.png", originX: 175, originY: 160, mpp: 31.41, sh: 0.23, sv: 0.38 };
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
 // 값 노이즈 + 부드러운 보간, 여러 겹(fbm)과 능선형(ridged)

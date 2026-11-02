@@ -8,7 +8,7 @@ import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
-import { createLandscape, boulderGeometry } from "./landscape.js";
+import { createLandscape, boulderGeometry, DEM } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -122,12 +122,25 @@ export function createWorld(THREE, scene) {
   add(sea, true);
 
   /* 물안개: 바다 위 낮게 세 겹. 해 뜰 무렵 짙었다가 해가 오르면 걷히고, 저녁·밤엔 옅게. 가까운 곳은 비워 둔다. */
-  const mistU = { time: skyU.time, amount: { value: 0 }, color: { value: new THREE.Color() }, camPos: { value: new THREE.Vector3() } };
+  // 높이 지도를 그대로 텍스처로 받아 뭍 위엔 안개를 걷어 낸다 (바닷가 골짜기처럼 안개 판보다 낮은 땅이 허옇게 보이지 않게)
+  const landTex = new THREE.TextureLoader().load(DEM.url);
+  landTex.magFilter = landTex.minFilter = THREE.NearestFilter;      // R·G 두 바이트를 섞지 않게
+  landTex.generateMipmaps = false;
+  landTex.flipY = false;                                             // 그림 위쪽(북)이 v=0
+  landTex.colorSpace = THREE.NoColorSpace;
+  const mistU = { time: skyU.time, amount: { value: 0 }, color: { value: new THREE.Color() }, camPos: { value: new THREE.Vector3() },
+    land: { value: landTex }, dem: { value: new THREE.Vector4(DEM.originX, DEM.originY, 1 / (DEM.sh * DEM.mpp), DEM.sv) }, demSize: { value: new THREE.Vector2(350, 288) } };
   const mistMat = new THREE.ShaderMaterial({
     uniforms: mistU, transparent: true, depthWrite: false, fog: false,
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: `
-      uniform float time, amount; uniform vec3 color, camPos; varying vec3 vW;
+      uniform float time, amount; uniform vec3 color, camPos; uniform sampler2D land; uniform vec4 dem; uniform vec2 demSize; varying vec3 vW;
+      float landH(vec2 xz){
+        vec2 px = vec2(dem.x + xz.x * dem.z, dem.y - xz.y * dem.z);
+        if (px.x < 0.0 || px.y < 0.0 || px.x > demSize.x - 1.0 || px.y > demSize.y - 1.0) return 0.0;
+        vec4 t = texture2D(land, (px + 0.5) / demSize);
+        return ((t.r * 255.0 * 256.0 + t.g * 255.0) / 10.0 - 20.0) * dem.w;
+      }
       float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -135,7 +148,8 @@ export function createWorld(THREE, scene) {
         vec2 p = vW.xz * 0.006 + vec2(time * 0.004, time * 0.0015) + vW.y * 0.37;
         float n = vn(p) * 0.55 + vn(p * 2.3 + 5.0) * 0.3 + vn(p * 5.1 - 2.0) * 0.15;
         float dist = length(vW.xz - camPos.xz);
-        float a = smoothstep(0.3, 0.75, n) * amount * smoothstep(30.0, 180.0, dist) * (1.0 - smoothstep(1500.0, 2000.0, dist));
+        float sea = 1.0 - smoothstep(0.5, 2.5, landH(vW.xz));   // 뭍 위는 걷는다
+        float a = smoothstep(0.3, 0.75, n) * amount * sea * smoothstep(30.0, 180.0, dist) * (1.0 - smoothstep(1500.0, 2000.0, dist));
         gl_FragColor = vec4(color, a * 0.8);
       }`,
   });
@@ -558,7 +572,7 @@ export function createWorld(THREE, scene) {
     // 물안개 양: 해 뜨기 40분 전부터 짙어져 해 뜬 뒤 1시간쯤 가장 짙고, 오전 늦게 걷힌다. 낮엔 아주 옅게, 저녁·밤엔 조금
     const sm = (a, b, v) => { const k = Math.min(1, Math.max(0, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
     const morning = sm(sunrise - 40, sunrise + 30, kstMin) * (1 - sm(sunrise + 90, sunrise + 210, kstMin));
-    mistU.amount.value = 0.12 + 0.88 * morning + 0.18 * sm(sunset - 30, sunset + 60, kstMin);
+    mistU.amount.value = (0.12 + 0.88 * morning + 0.18 * sm(sunset - 30, sunset + 60, kstMin)) * (1 - 0.7 * night);   // 밤엔 어둠 속에 허옇게 뜨지 않게 아주 옅게
     mistU.color.value.setRGB(...s.horizon).lerp(tmp.setRGB(...s.sun), 0.2).multiplyScalar(0.85 + 0.25 * s.light);
     let f = (kstMin - sunrise) / (sunset - sunrise);
     const isNight = f < 0 || f > 1;
