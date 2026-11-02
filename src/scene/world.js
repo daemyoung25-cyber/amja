@@ -7,7 +7,7 @@ import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./danch
 import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
-import { createLandscape } from "./landscape.js";
+import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -97,7 +97,7 @@ export function createWorld(THREE, scene) {
   scene.add(landscape.group);
 
   /* 절벽과 마당 */
-  const rock = mat(0x5a4b40), rockDark = mat(0x463a32), stone = mat(0x9b8f7e), grass = mat(0x4b5a3c);
+  const rockDark = mat(0x463a32), stone = mat(0x9b8f7e);
   const W = COURTYARD.maxX - COURTYARD.minX, D = COURTYARD.maxZ - COURTYARD.minZ;
   const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), stone), true);
   ground.position.set(0, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
@@ -106,17 +106,20 @@ export function createWorld(THREE, scene) {
   lines.position.set(0, 0.01, ground.position.z);
   lines.material.transparent = true; lines.material.opacity = 0.35;
   scene.add(lines);
-  // 바다 쪽으로 깎아지른 절벽: 겹친 바위 덩어리
   const rnd = mulberry32(7);
-  const ROCKS = Math.ceil((W + 8) / 2.6);
-  for (let i = 0; i < ROCKS; i++) {
-    const w = 6 + rnd() * 6, h = 10 + rnd() * 18;
-    const g = new THREE.DodecahedronGeometry(1, 0);
-    const m = new THREE.Mesh(g, rnd() > 0.5 ? rock : rockDark);
-    m.scale.set(w / 2, h / 2, 4 + rnd() * 3);
-    m.position.set(COURTYARD.minX - 4 + i * 2.6 + rnd(), -h / 2 - 0.6 + rnd() * 2, RAIL_Z - 2.2 - rnd() * 2.5);
-    m.rotation.set(rnd() * 0.4, rnd() * 3, rnd() * 0.3);
-    add(m);
+  // 난간 아래 절벽에 붙은 바위: 두 줄로 엇갈려, 꼭대기는 마당보다 낮게 (바다 보는 눈을 가리지 않게)
+  const boulderMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const boulders = [1, 2, 3, 4, 5, 6].map((sd) => boulderGeometry(THREE, sd));
+  const ROCKS = Math.ceil((W + 8) / 1.8);
+  for (let row = 0; row < 2; row++) {
+    for (let i = 0; i < ROCKS; i++) {
+      const w = 3 + rnd() * 3.5, h = 4 + rnd() * 6 + row * 4, dz = 2.2 + rnd() * 1.5;
+      const m = new THREE.Mesh(boulders[(i + row * 3) % boulders.length], boulderMat);
+      m.scale.set(w / 2, h / 2, dz);
+      m.position.set(COURTYARD.minX - 4 + i * 1.8 + row * 0.9 + rnd() * 0.6, -h / 2 - 0.5 - row * (2 + rnd() * 4), RAIL_Z - 1.6 - row * 2.2 - rnd() * 1.2);
+      m.rotation.set(rnd() * 0.5, rnd() * 6.3, rnd() * 0.4);
+      add(m);
+    }
   }
   const cliffBody = add(new THREE.Mesh(new THREE.BoxGeometry(W + 30, 30, 40), rockDark));
   obstacles.push(cliffBody);
@@ -130,13 +133,6 @@ export function createWorld(THREE, scene) {
     const swCap = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, len + 0.2), capMat));
     swCap.position.set(sw.position.x, 1.05, sw.position.z);
     obstacles.push(sw);
-    for (let i = 0; i < Math.ceil(len / 4.5); i++) {
-      const s = 5 + rnd() * 3;
-      const slope = add(new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), i % 2 ? grass : mat(0x56643f)));
-      slope.scale.set(s * 1.1, s * (0.7 + rnd() * 0.5), s);
-      slope.position.set(side * (COURTYARD.maxX + 3 + s * 0.6), -1 + rnd(), RAIL_Z + 2 + i * 4.5);
-      obstacles.push(slope);
-    }
   }
 
 
@@ -461,7 +457,7 @@ export function createWorld(THREE, scene) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444033, 0.8);
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   scene.add(hemi, sun, sun.target);
-  scene.fog = new THREE.Fog(0x000000, 120, 900);
+  scene.fog = new THREE.Fog(0x000000, 90, 700);   // 먼 산이 하늘빛으로 흐려지는 공기 원근
 
   let skyTimer = 1, t = 0, swing = 0, night = 0;
   const tmp = new THREE.Color();

@@ -1,6 +1,7 @@
 /* 암자를 둘러싼 땅: 절이 앉은 작은 만(灣), 양옆으로 바다에 뻗은 곶, 뒤로 겹겹이 높아지는 산줄기, 먼 바위섬.
    노이즈로 만든 높이 지형 한 장에 높이·경사로 색을 칠한다 (숲, 바위 벼랑, 물가 검은 바위). 먼 산은 안개(scene.fog)에 묻혀 푸르게 흐려진다. */
 import { mulberry32 } from "./world.js";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
 // 값 노이즈 + 부드러운 보간, 여러 겹(fbm)과 능선형(ridged)
 function makeNoise(seed) {
@@ -30,32 +31,36 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   // 바닷가 선: 절 앞은 난간 바로 아래 절벽, 옆으로 갈수록 바다 쪽으로 뻗어 곶이 된다
   const coastZ = (x) => {
     const ax = Math.abs(x);
-    return railZ - 4 - 0.5 * Math.max(0, ax - 30) * smooth(30, 120, ax) - 22 * (fbm(x / 70 + 3, 1.7, 3) - 0.5) * smooth(25, 60, ax);
+    return railZ - 1.2 - 0.5 * Math.max(0, ax - 30) * smooth(30, 120, ax) - 22 * (fbm(x / 70 + 3, 1.7, 3) - 0.5) * smooth(25, 60, ax);
   };
   const height = (x, z) => {
     const land = z - coastZ(x);
     if (land < 0) return seaY - 6 - Math.min(20, -land * 0.4);                    // 물속
     const d = Math.hypot(x, (z - 2) * 1.2);                                       // 절에서 떨어진 정도
-    const behind = smooth(10, 90, z);                                             // 뒤로 갈수록 높아진다
-    const amp = (40 + 150 * behind) * smooth(28, 110, d);
-    const m = amp * (0.55 * ridged(x / 150, z / 150) + 0.45 * fbm(x / 60 + 9, z / 60 - 4));
-    const shoulder = 14 * smooth(24, 70, d) * fbm(x / 25, z / 25, 3);           // 가까운 둔덕
-    const cliff = smooth(0, 3 + 9 * smooth(30, 120, Math.abs(x)), land);          // 물가 벼랑: 절 앞은 가파르게
-    let y = seaY + (-seaY + m + shoulder) * cliff + 4 * fbm(x / 9, z / 9, 3) * cliff * smooth(8, 40, d);
+    // 산은 겹겹이 물러난다: 절 둘레 낮은 숲 둔덕 → 가운데 산줄기(z≈130) → 먼 높은 산(z>250, 안개에 푸르게)
+    const band = (zc, w) => Math.exp(-(((z - zc) / w) ** 2));
+    const near = 18 * smooth(24, 80, d) * fbm(x / 45, z / 45, 4);
+    const mid = 75 * band(130, 55) * (0.35 + ridged(x / 120 + 3, z / 120, 5));
+    const far = 135 * smooth(190, 330, z) * (0.3 + ridged(x / 220 + 7, z / 220, 5));
+    const capes = 34 * smooth(35, 130, Math.abs(x)) * smooth(160, 40, z) * fbm(x / 55 - 2, z / 55 + 5, 4);   // 양옆 곶
+    const m = (near + mid + far + capes + 8 * smooth(30, 200, z)) * smooth(24, 60, d);
+    const cliff = smooth(0, 1 + 11 * smooth(25, 120, Math.abs(x)), land);         // 물가 벼랑: 난간 바로 아래서 깎아지른다
+    let y = seaY + (-seaY + m) * cliff + 4 * fbm(x / 9, z / 9, 3) * cliff * smooth(8, 40, d);
     // 마당과 그 둘레는 평평하게 비워 둔다 (마당 바닥 조금 아래)
     const inYard = smooth(yard.maxX + 10, yard.maxX + 2, Math.abs(x)) * smooth(railZ - 1, railZ + 1, z) * smooth(yard.maxZ + 14, yard.maxZ + 4, z);
     return y + (-0.5 - y) * inYard;
   };
 
   /* 큰 지형 한 장: 가까운 곳은 촘촘하게 (격자를 가운데로 모은다) */
-  const W = 900, D = 760, SX = 220, SZ = 190, Z0 = -260;
+  const W = 900, SX = 220, SZ = 240, Z_SEA = 260, Z_LAND = 500;   // 앞(바다) 260m, 뒤(산) 500m
   const geo = new THREE.PlaneGeometry(1, 1, SX, SZ);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const warp = (u) => Math.sign(u) * Math.pow(Math.abs(u), 1.6);                  // -0.5..0.5 → 가운데 촘촘
   for (let i = 0; i < pos.count; i++) {
     const u = pos.getX(i), v = pos.getZ(i);
-    const x = warp(u * 2) / 2 * W, z = Z0 + (v + 0.5) * D;
+    const t = v * 2;                                                              // -0.5(바다 쪽) → +0.5(산 쪽), 원래 면 방향 그대로
+    const x = warp(u * 2) / 2 * W, z = Math.sign(t) * Math.pow(Math.abs(t), 1.7) * (t > 0 ? Z_LAND : Z_SEA);   // 절벽 둘레를 촘촘하게
     pos.setXYZ(i, x, height(x, z), z);
   }
   geo.computeVertexNormals();
@@ -68,7 +73,7 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
     const f = fbm(x / 14, z / 14, 3), g = fbm(x / 4 + 50, z / 4, 2);
     c.copy(forest[0]).lerp(forest[1], smooth(0.35, 0.6, f)).lerp(forest[2], smooth(0.62, 0.8, f) * 0.6);
     c.multiplyScalar(0.8 + 0.4 * g);                                              // 나무 한 그루 한 그루 같은 잔 얼룩
-    const steep = smooth(0.82, 0.6, up);
+    const steep = smooth(0.62, 0.42, up);                                       // 아주 가파른 데만 바위가 드러난다
     c.lerp(rock.clone().multiplyScalar(0.8 + 0.4 * g), steep);
     c.lerp(rockDark, smooth(seaY + 7, seaY + 1, y));                              // 물가
     if (y > 120) c.lerp(sand, smooth(120, 190, y) * steep * 0.5);
@@ -79,7 +84,15 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   group.add(terrain);
 
   /* 먼 바위섬: 가파른 바위에 꼭대기만 소나무 숲 */
-  const islands = [[-170, -420, 34, 3], [230, -640, 52, 5], [60, -900, 26, 8], [-420, -760, 44, 13]];
+  // 먼 섬은 안개를 반쯤만 먹는다: 아침·저녁 밝은 수평선 빛에 하얗게 떠 보이지 않고 어두운 바위 실루엣으로
+  const islandMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  islandMat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace("#include <fog_fragment>", `#ifdef USE_FOG
+      float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, min( fogFactor, 0.45 ) );
+    #endif`);
+  };
+  const islands = [[-170, -330, 30, 3], [230, -460, 46, 5], [60, -620, 24, 8], [-380, -560, 40, 13]];
   for (const [ix, iz, r, seed] of islands) {
     const n = makeNoise(seed);
     const ig = new THREE.PlaneGeometry(r * 2.8, r * 2.8, 40, 40);
@@ -97,10 +110,31 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
       ic.set([c.r, c.g, c.b], i * 3);
     }
     ig.setAttribute("color", new THREE.BufferAttribute(ic, 3));
-    const isl = new THREE.Mesh(ig, terrain.material);
+    const isl = new THREE.Mesh(ig, islandMat);
     isl.position.set(ix, 0, iz);
     group.add(isl);
   }
 
   return { group, height };
+}
+
+/* 둥글게 닳은 바위 덩어리: 잘게 나눈 정이십면체를 노이즈로 울퉁불퉁하게, 색은 바위 결 따라 얼룩지게 (매끈한 음영) */
+export function boulderGeometry(THREE, seed) {
+  const n = makeNoise(seed);
+  const ico = new THREE.IcosahedronGeometry(1, 3);   // 바위 60여 개라 폰에서도 가볍게
+  ico.deleteAttribute("normal"); ico.deleteAttribute("uv");
+  const g = mergeVertices(ico);                                   // 꼭짓점을 이어 붙여야 음영이 매끈해진다
+  const pos = g.attributes.position, v = new THREE.Vector3(), col = new Float32Array(pos.count * 3);
+  const light = new THREE.Color(0x6e6153), dark = new THREE.Color(0x3a322c), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const k = 0.78 + 0.32 * n.fbm(v.x * 1.3 + v.y * 0.7 + 5, v.z * 1.3 - v.y * 0.5, 4) + 0.08 * n.ridged(v.x * 3 + v.y, v.z * 3, 3);
+    v.multiplyScalar(k);
+    pos.setXYZ(i, v.x, v.y, v.z);
+    c.copy(dark).lerp(light, smooth(0.35, 0.75, n.fbm(v.x * 2 + 11, v.y * 4 + v.z, 3)));   // 가로 결
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
 }
