@@ -7,6 +7,7 @@ import { sumidanTexture, dancheongBand, cofferTexture, fadedBand } from "./danch
 import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
+import { createLandscape } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -42,37 +43,58 @@ export function createWorld(THREE, scene) {
       }`,
   })));
 
-  /* 바다: 잔물결은 셰이더로, 해 쪽으로 반짝이는 띠 */
+  /* 바다: 노멀 맵 두 겹을 엇갈려 흘려 잔물결을 만들고, 하늘을 비추는 프레넬 반사와 해 쪽 반짝임.
+     멀어질수록 물결을 눕혀(반짝임 깜빡임 방지) 수평선 안개에 녹인다. */
+  const waterNormals = new THREE.TextureLoader().load("textures/waternormals.jpg");
+  waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
   const seaU = {
-    time: { value: 0 }, sea: { value: new THREE.Color() }, horizon: { value: new THREE.Color() },
+    time: { value: 0 }, sea: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, skyTop: skyU.top,
     sunDir: { value: new THREE.Vector3(0, 1, -1) }, sunColor: { value: new THREE.Color() }, camPos: { value: new THREE.Vector3() },
+    normals: { value: waterNormals }, night: skyU.night,
   };
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 1, 1), new THREE.ShaderMaterial({
     uniforms: seaU,
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: `
-      uniform float time; uniform vec3 sea, horizon, sunColor, sunDir, camPos; varying vec3 vW;
+      uniform float time, night; uniform vec3 sea, horizon, skyTop, sunColor, sunDir, camPos; uniform sampler2D normals; varying vec3 vW;
+      vec3 nm(vec2 uv){ return texture2D(normals, uv).rgb * 2.0 - 1.0; }
       void main(){
-        vec2 p = vW.xz;
-        float t = time;
-        vec3 n = normalize(vec3(
-          0.10*sin(p.x*0.07 + t*0.9) + 0.06*sin(p.x*0.21 + p.y*0.13 + t*1.7) + 0.03*sin(p.x*0.6 - p.y*0.4 + t*2.6),
-          1.0,
-          0.10*sin(p.y*0.09 + t*0.7) + 0.06*sin(p.y*0.23 - p.x*0.11 + t*1.5) + 0.03*sin(p.y*0.7 + p.x*0.3 + t*2.3)));
-        vec3 v = normalize(camPos - vW);
-        float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-        vec3 c = mix(sea, horizon, clamp(fres * 0.9, 0.0, 1.0));
-        vec3 r = reflect(-v, n);
-        float s = pow(max(dot(r, normalize(sunDir)), 0.0), 220.0);
-        c += sunColor * s * 1.4 * step(0.0, sunDir.y + 0.03);
+        vec2 p = vW.xz; float t = time;
         float dist = length(vW.xz - camPos.xz);
-        c = mix(c, horizon, smoothstep(300.0, 1600.0, dist));
-        gl_FragColor = vec4(c, 1.0);
+        // 잔물결 네 겹 (크기·방향·속도가 다르게)
+        vec3 a = nm(p * 0.031 + vec2(t * 0.012, t * 0.007));
+        vec3 b = nm(p * 0.047 + vec2(-t * 0.009, t * 0.011));
+        vec3 c = nm(p * 0.0081 + vec2(t * 0.004, -t * 0.003));
+        vec3 d = nm(p * 0.13 + vec2(t * 0.03, t * 0.021));
+        vec2 slope = (a.xy + b.xy) * 0.5 + c.xy * 0.8 + d.xy * 0.25 * (1.0 - smoothstep(30.0, 120.0, dist));
+        // 큰 너울
+        slope += vec2(0.05 * sin(p.x * 0.035 + p.y * 0.012 + t * 0.8), 0.05 * sin(p.y * 0.04 - p.x * 0.01 + t * 0.65));
+        float flat_ = mix(1.0, 0.18, smoothstep(60.0, 900.0, dist));
+        vec3 n = normalize(vec3(slope.x * flat_ * 0.55, 1.0, slope.y * flat_ * 0.55));
+        vec3 v = normalize(camPos - vW);
+        vec3 r = reflect(-v, n);
+        // 하늘 비침: 수평선 빛에서 하늘 꼭대기 빛으로
+        vec3 skyRef = mix(horizon, skyTop, pow(clamp(r.y, 0.0, 1.0), 0.45));
+        float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
+        // 물빛: 깊은 바다색, 물결 등성이는 살짝 밝은 청록 (빛이 비치는 느낌)
+        vec3 deep = sea * 0.55;
+        vec3 body = mix(deep, sea * 1.15 + vec3(0.0, 0.05, 0.05) * (1.0 - night), clamp(slope.x * 0.6 + slope.y * 0.4 + 0.35, 0.0, 1.0) * 0.6);
+        vec3 col = mix(body, skyRef, clamp(fres * 1.15, 0.0, 1.0));
+        // 해 쪽 반짝임: 날카로운 점 + 넓은 윤슬
+        vec3 L = normalize(sunDir);
+        float s1 = pow(max(dot(r, L), 0.0), 600.0) * 3.0;
+        float s2 = pow(max(dot(r, L), 0.0), 40.0) * 0.18;
+        col += sunColor * (s1 + s2) * step(0.0, L.y + 0.03);
+        col = mix(col, horizon, smoothstep(250.0, 1700.0, dist));
+        gl_FragColor = vec4(col, 1.0);
       }`,
   }));
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = SEA_Y;
   add(sea, true);
+  /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
+  const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD });
+  scene.add(landscape.group);
 
   /* 절벽과 마당 */
   const rock = mat(0x5a4b40), rockDark = mat(0x463a32), stone = mat(0x9b8f7e), grass = mat(0x4b5a3c);
@@ -99,21 +121,6 @@ export function createWorld(THREE, scene) {
   const cliffBody = add(new THREE.Mesh(new THREE.BoxGeometry(W + 30, 30, 40), rockDark));
   obstacles.push(cliffBody);
   cliffBody.position.set(0, -15.6, COURTYARD.maxZ + 15);
-  // 뒤쪽 산자락과 옆 해안
-  for (let i = 0; i < 9; i++) {
-    const hill = add(new THREE.Mesh(new THREE.ConeGeometry(14 + rnd() * 16, 14 + rnd() * 18, 7), mat(i % 2 ? 0x3d4a33 : 0x34412d)));
-    hill.position.set(-70 + i * 18 + rnd() * 6, 2, 30 + rnd() * 20);
-  }
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 6; i++) {
-      const r = add(new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rnd() > 0.5 ? rock : rockDark));
-      const s = 8 + rnd() * 10;
-      r.scale.set(s, s * (1 + rnd()), s);
-      r.position.set(side * (COURTYARD.maxX + 14 + i * 9 + rnd() * 4), SEA_Y + s * 0.6, RAIL_Z - i * 10 - rnd() * 8);
-      const cap = add(new THREE.Mesh(new THREE.ConeGeometry(s * 0.9, s * 0.8, 6), grass));
-      cap.position.set(r.position.x, r.position.y + s * 1.25, r.position.z);
-    }
-  }
   // 마당 양옆: 낮은 돌담과 그 뒤로 솟은 산자락
   const wallMat = mat(0x8c8273), capMat = mat(0x3a3533);
   for (const side of [-1, 1]) {
@@ -132,11 +139,6 @@ export function createWorld(THREE, scene) {
     }
   }
 
-  // 멀리 작은 섬 둘
-  for (const [x, z, s] of [[-180, -520, 26], [240, -760, 40]]) {
-    const isl = add(new THREE.Mesh(new THREE.ConeGeometry(s * 2.2, s, 7), mat(0x2e3a3a)));
-    isl.position.set(x, SEA_Y + s * 0.3, z);
-  }
 
   /* 소나무 몇 그루 */
   const pine = (x, z, h) => {
@@ -546,6 +548,6 @@ export function createWorld(THREE, scene) {
   return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces };
 }
 
-function mulberry32(a) {
+export function mulberry32(a) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
