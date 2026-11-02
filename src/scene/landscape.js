@@ -9,7 +9,7 @@ export const DEM = { url: "textures/terrain-namhae.png", originX: 175, originY: 
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
 // 값 노이즈 + 부드러운 보간, 여러 겹(fbm)과 능선형(ridged)
-function makeNoise(seed) {
+export function makeNoise(seed) {
   const rnd = mulberry32(seed), P = new Uint8Array(512), perm = [...Array(256).keys()];
   for (let i = 255; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
   for (let i = 0; i < 512; i++) P[i] = perm[i & 255];
@@ -43,7 +43,7 @@ function capFog(mat, cap) {
 
 const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createLandscape(THREE, { seaY, railZ, yard }) {
+export function createLandscape(THREE, { seaY, railZ, yard, flats = [] }) {
   const { fbm, ridged } = makeNoise(11);
   const group = new THREE.Group();
 
@@ -54,7 +54,13 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   };
   const foamTimeRef = { value: 0 };
   let real = () => 0;                                                             // 실제 지형 (높이 지도를 받기 전엔 바다)
+  // 평평하게 비워 둘 곳 (동굴 법당 둘레): 땅을 마당 바닥 높이로 눌러 굴 안으로 산이 파고들지 않게
+  const flatK = (x, z) => flats.reduce((k, f) => Math.max(k, smooth(f.minX - 4, f.minX, x) * smooth(f.maxX + 4, f.maxX, x) * smooth(f.minZ - 4, f.minZ, z) * smooth(f.maxZ + 4, f.maxZ, z)), 0);
   const height = (x, z) => {
+    const h = rawHeight(x, z), k = flatK(x, z);
+    return k > 0 ? h + (-0.5 - h) * k : h;
+  };
+  const rawHeight = (x, z) => {
     const near = Math.hypot(x, z * 0.8);
     const r = real(x, z), landK = smooth(0.2, 3, r);
     // 실제 바닷가는 낮아서(5m쯤) 절 둘레 땅을 언덕처럼 마당 높이까지 부드럽게 들어 올린다 (뭍에만)
@@ -141,7 +147,7 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   };
   const terrain = new THREE.Mesh(geo, terrainMat);
   group.add(terrain);
-  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt: (x, z) => real(x, z) }));
+  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt: (x, z) => real(x, z), flats }));
   };
   const ready = new Promise((resolve) => {
     const img = new Image();
@@ -216,7 +222,7 @@ export function boulderGeometry(THREE, seed) {
 /* 가까운 산비탈의 숲: 둥근 단풍나무(주황·다홍·노랑, 무리 지어)와 짙은 소나무 수천 그루.
    잎 덩어리는 정이십면체 세 개를 겹친 낮은 폴리곤에 둥근 법선을 줘서 부드러운 공처럼 보이게.
    방향별 8묶음으로 나눠 등 뒤 묶음은 그리지 않는다. 멀수록 크게 심어 빈틈을 메운다. */
-function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt }) {
+function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats }) {
   const rnd = mulberry32(23);
   // 잎 덩어리: 크기 1 언저리, 바닥이 y=0
   const blobs = [[0, 0.62, 0, 0.55], [-0.28, 0.45, 0.12, 0.4], [0.27, 0.48, -0.1, 0.42]];
@@ -242,6 +248,7 @@ function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt }) {
     const a = rnd() * Math.PI * 2, r = 24 + 300 * Math.pow(rnd(), 1.5);
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
     if (inYardZone(x, z)) continue;
+    if (flats.some((f) => x > f.minX - 9 && x < f.maxX + 9 && z > f.minZ - 9 && z < f.maxZ + 9)) continue;   // 굴 둘레엔 큰 나무가 바위를 뚫지 않게
     const y = height(x, z);
     if (y < seaY + 18 || (r > 150 && y < seaY + 32)) continue;   // 갯바위섬처럼 낮은 땅엔 나무 대신 바위와 풀빛만
                                       // 물가·바다, 낮은 갯바위섬엔 안 심는다

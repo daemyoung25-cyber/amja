@@ -11,10 +11,23 @@ export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
 export const PRAYER_SEATS = [-1.2, 0, 1.2].flatMap((dx) => [{ x: STATUE.x + dx, z: STATUE.z - 2.7 }, { x: STATUE.x + dx, z: STATUE.z - 3.7 }]);
 // 촛불 공양대: 마당 왼쪽, 해수관음과 법당 사이. 바다 쪽 앞에 서서 초를 켜 올린다.
 export const CANDLES = { x: -12.5, z: 2.0, r: 1.05, spot: { x: -12.5, z: 0.6 } };
+// 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 언덕 속. 마당 뒤끝(foot)에서 돌계단으로 1.6m 올라 굴 어귀(door)를 지나 안으로.
+export const CAVE = (() => {
+  const x = -13.5;
+  return {
+    x, z: 27.2, floor: 1.6, foot: { x, z: 16.2 }, door: { x, z: 23.4 },
+    inside: { minX: x - 2.8, maxX: x + 2.8, minZ: 24.0, maxZ: 30.2 },
+    altar: { x, z: 31.0 },
+    seats: [-1.1, 0, 1.1].map((dx) => ({ x: x + dx, z: 28.2 })),
+  };
+})();
+// 굴 안에 있을 때 카메라가 머무를 상자
+export const CAVE_ROOM = { minX: CAVE.inside.minX - 0.1, maxX: CAVE.inside.maxX + 0.1, minZ: CAVE.door.z, maxZ: CAVE.inside.maxZ + 0.5, maxY: CAVE.floor + 2.7 };
+const STEP_HALF = 0.9;
 // 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
 export const YARD = [
   { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
-  { kind: "pagoda", x: -6.8, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 6.8, z: 3.0, r: 0.95 },
+  { kind: "pagoda", x: -9.5, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 9.5, z: 3.0, r: 0.95 },
   // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
   { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
   ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -16.8, z, r: 0.35 }, { kind: "pot", x: 16.8, z, r: 0.35 }]),
@@ -44,25 +57,38 @@ const LEAN_TRIGGER_Z = LEAN_Z + 0.2;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const inCourtyard = (p) => clamp(p.x, COURTYARD.minX, COURTYARD.maxX) === p.x && clamp(p.z, COURTYARD.minZ, COURTYARD.maxZ) === p.z;
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
+export const insideCave = (p) => p.x >= CAVE.inside.minX && p.x <= CAVE.inside.maxX && p.z >= CAVE.inside.minZ && p.z <= CAVE.inside.maxZ;
+const onCaveSteps = (p) => Math.abs(p.x - CAVE.x) <= STEP_HALF && p.z > COURTYARD.maxZ && p.z < CAVE.inside.minZ;
+const inCaveArea = (p) => insideCave(p) || onCaveSteps(p);
+const faceCaveAltar = (p) => Math.atan2(-(CAVE.altar.x - p.x), -(CAVE.altar.z - p.z));
+export { faceCaveAltar };
 export const insideHall = (p) => p.x >= INSIDE.minX && p.x <= INSIDE.maxX && p.z >= INSIDE.minZ && p.z <= INSIDE.maxZ;
 const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
 const faceStatue = (p) => Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));
-const SEATS = [...CUSHIONS, ...PRAYER_SEATS];
+const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats];
 const faceCandles = (p) => Math.atan2(-(CANDLES.x - p.x), -(CANDLES.z - p.z));
 export const nearCandles = (p) => Math.hypot(p.x - CANDLES.spot.x, p.z - CANDLES.spot.z) <= 1.8;
 export { faceCandles };
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
-export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : faceStatue(p));
+export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : faceStatue(p));
 
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
 export function floorY({ x, z }) {
+  if (insideCave({ x, z })) return CAVE.floor;
+  if (onCaveSteps({ x, z })) return CAVE.floor * clamp((z - COURTYARD.maxZ) / (CAVE.door.z - COURTYARD.maxZ), 0, 1);
   if (x < BASE.minX || x > BASE.maxX || z < STEP_Z || z > BASE.maxZ) return 0;
   return z >= BASE.minZ ? FLOOR_Y : FLOOR_Y * (z - STEP_Z) / (BASE.minZ - STEP_Z);
 }
 
 export function clampToWalkable({ x, z }) {
+  // 굴 둘레 바위를 누르면 굴 안으로, 돌계단 위면 계단 위로
+  if (Math.abs(x - CAVE.x) <= 5 && z > CAVE.door.z - 0.5 && z < CAVE.inside.maxZ + 5) {
+    const m = 0.3;
+    return { x: clamp(x, CAVE.inside.minX + m, CAVE.inside.maxX - m), z: clamp(z, CAVE.inside.minZ + m, CAVE.inside.maxZ - m) };
+  }
+  if (z > COURTYARD.maxZ && Math.abs(x - CAVE.x) <= STEP_HALF + 0.6) return { x: clamp(x, CAVE.x - STEP_HALF + 0.2, CAVE.x + STEP_HALF - 0.2), z };
   let p = { x: clamp(x, COURTYARD.minX, COURTYARD.maxX), z: clamp(z, COURTYARD.minZ, COURTYARD.maxZ) };
   // 법당을 누르면 안으로 들어간다 (불단 앞까지)
   if (inHall(p)) return { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
@@ -117,6 +143,11 @@ const pathLen = (a, pts) => pts.reduce((s, p, i) => s + len(i ? pts[i - 1] : a, 
 const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, blockedByStatue) && !hits(i ? pts[i - 1] : a, p, blockedByHall));
 
 export function routeAround(from, to) {
+  // 굴로 오가는 길: 마당 뒤끝(foot) - 돌계단 - 굴 어귀(door) - 굴 안
+  const ca = inCaveArea(from), cb = inCaveArea(to);
+  if (ca && cb) return insideCave(from) === insideCave(to) ? [to] : [CAVE.door, to];
+  if (ca) return [...(insideCave(from) ? [CAVE.door] : []), CAVE.foot, ...routeAround(CAVE.foot, to)];
+  if (cb) return [...routeAround(from, CAVE.foot), ...(insideCave(to) ? [CAVE.door] : []), to];
   const a = insideHall(from), b = insideHall(to);
   const inDoorway = Math.abs(from.x) < 0.7 && from.z > HALL.door.z && from.z < DOOR_IN.z;
   if (inDoorway) return b ? [DOOR_IN, to] : [HALL.door, ...routeOutside(HALL.door, to)];

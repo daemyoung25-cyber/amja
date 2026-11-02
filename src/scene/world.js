@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, CAVE, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -8,6 +8,7 @@ import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
+import { createCave } from "./cave.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
@@ -138,7 +139,7 @@ export function createWorld(THREE, scene) {
   add(sea, true);
 
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
-  const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD });
+  const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD, flats: [{ minX: CAVE.x - 9, maxX: CAVE.x + 9, minZ: COURTYARD.maxZ, maxZ: CAVE.altar.z + 4 }] });
   scene.add(landscape.group);
   landscape.group.userData.noShadow = true;            // 먼 산은 그림자 지도 밖
 
@@ -317,6 +318,10 @@ export function createWorld(THREE, scene) {
     statue.object.rotation.y = STATUE_FACING;
     hall.remove(buddha);
     hall.add(statue.object);
+    // 동굴 법당 천수관음 자리에도 같은 불상을 작게 모신다 (모델을 한 번만 받으려고 복제)
+    const small = statue.object.clone();
+    small.scale.multiplyScalar(1.6 / BUDDHA_H);
+    cave.setStatue(small);
   });
   // 양옆 협시보살: 국가유산청 3D 에셋 선림원지 금동보살입상(공공누리 1유형).
   loadStatue(THREE, "models/bodhisattva.glb", { height: BODHI_H, doubleSided: true }).then((statue) => {
@@ -355,6 +360,11 @@ export function createWorld(THREE, scene) {
   hall.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); if (!noBlock.has(o)) obstacles.push(o); } });
 
   /* 대웅전 앞마당: 석등 한 쌍, 삼층석탑 한 쌍, 배례석 */
+  /* 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 절벽 */
+  const cave = createCave(THREE, { cave: CAVE, yardBackZ: COURTYARD.maxZ });
+  scene.add(cave.group);
+  groundMeshes.push(...cave.pickables);
+  obstacles.push(...cave.obstacles);
   const yard = createYard(THREE, { items: YARD, baerye: BAERYE });
   scene.add(yard.group);
   yard.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
@@ -568,6 +578,7 @@ export function createWorld(THREE, scene) {
     landscape.setLight(tmp, night);
     lanternGlow.value = 0.45 + 0.55 * night;
     yard.setNight(night);
+    cave.setNight(night);
     rack.setNight(night);
     candleLight.intensity = 5 + 7 * night;
   }
@@ -585,6 +596,7 @@ export function createWorld(THREE, scene) {
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
     swayLanterns(t);
     rack.update(t);
+    cave.update(t);
     for (const [i, f] of flames.entries()) f.scale.y = 1 + Math.sin(t * 13 + i * 2) * 0.12 + Math.sin(t * 7.3 + i) * 0.08;
   }
 

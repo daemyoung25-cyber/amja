@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, insideCave, faceCaveAltar, CAVE_ROOM } from "./logic/layout.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
@@ -145,7 +145,7 @@ ui.onCandle(() => {
 });
 ui.onBow(() => {
   const p = positionAt(state.move, net.now());
-  state.yaw = insideHall(p) ? faceAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
+  state.yaw = insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
   gesture("bow");
 });
 const SOUND_KEY = "amja-sound";
@@ -221,9 +221,10 @@ function frame(t) {
   me.setSeated(seated);
   me.update(dt);
   const inside = insideHall(p);
-  ui.setNearStatue(inside || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
+  ui.setNearStatue(inside || insideCave(p) || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
   ui.setNearCandles(state.base !== "walk" && nearCandles(p));
-  rig.setIndoor(inside, faceAltar(p), ROOM);
+  const inCave = insideCave(p);
+  rig.setIndoor(inside || inCave, inCave ? faceCaveAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : ROOM);
 
   drawOthers(now, p, dt);
   audio.setListener(p);

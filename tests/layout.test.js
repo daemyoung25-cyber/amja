@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN, RAIL_Z, LEAN_Z, PRAYER_SEATS, seatAt, CANDLES, nearCandles, faceCandles } from "../src/logic/layout.js";
+import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN, RAIL_Z, LEAN_Z, PRAYER_SEATS, seatAt, CANDLES, nearCandles, faceCandles, CAVE, insideCave } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
@@ -132,7 +132,8 @@ test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrore
 });
 
 test("walking straight across the front yard goes round the stones, not through them", () => {
-  const lantern = YARD.find((o) => o.kind === "lantern"), pagoda = YARD.find((o) => o.kind === "pagoda");
+  // 탑은 오른쪽 것으로 (왼쪽 탑 바로 옆엔 촛불 공양대가 있어 3m 떨어진 출발점이 공양대 안이다)
+  const lantern = YARD.find((o) => o.kind === "lantern"), pagoda = YARD.find((o) => o.kind === "pagoda" && o.x > 0);
   for (const o of [lantern, pagoda]) {
     const from = { x: o.x - 3, z: o.z }, to = { x: o.x + 3, z: o.z };
     const path = routeAround(from, to);
@@ -249,4 +250,54 @@ test("tapping the candle rack walks to the place in front of it", () => {
   const from = { x: 0, z: -8 }, path = routeAround(from, r.to);
   assert.deepEqual(path.at(-1), CANDLES.spot);
   assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
+});
+
+// 동굴 법당 (관음굴): 마당 왼쪽 뒤 바위 언덕 속, 돌계단으로 올라간다
+test("the cave hall sits up behind the left end of the yard, a little above it", () => {
+  assert.ok(CAVE.x < HALL.minX && CAVE.x > COURTYARD.minX, String(CAVE.x));
+  assert.ok(CAVE.door.z > COURTYARD.maxZ && CAVE.inside.minZ >= CAVE.door.z, JSON.stringify(CAVE));
+  assert.ok(CAVE.floor >= 1 && CAVE.floor <= 3, String(CAVE.floor));
+  assert.ok(CAVE.foot.z <= COURTYARD.maxZ && Math.abs(CAVE.foot.x - CAVE.x) < 0.01);
+});
+
+test("the stone steps rise steadily from the yard to the cave floor, and inside is level", () => {
+  let last = -1;
+  for (let z = CAVE.foot.z; z <= CAVE.door.z; z += 0.25) {
+    const y = floorY({ x: CAVE.x, z });
+    assert.ok(y >= last - 1e-9 && y >= 0 && y <= CAVE.floor, `${z}: ${y}`);
+    last = y;
+  }
+  assert.equal(floorY({ x: CAVE.x, z: CAVE.door.z }), CAVE.floor);
+  assert.equal(floorY({ x: CAVE.x + 1, z: (CAVE.inside.minZ + CAVE.inside.maxZ) / 2 }), CAVE.floor);
+  assert.ok(insideCave({ x: CAVE.x, z: (CAVE.inside.minZ + CAVE.inside.maxZ) / 2 }));
+  assert.ok(!insideCave({ x: 0, z: -8 }));
+});
+
+test("tapping the cave rock walks inside it, up the steps through the mouth", () => {
+  const r = resolveTap({ x: CAVE.x + 1.5, z: CAVE.inside.maxZ + 2 });
+  assert.equal(r.kind, "walk");
+  assert.ok(insideCave(r.to), JSON.stringify(r.to));
+  const from = { x: 0, z: -8 }, path = routeAround(from, r.to);
+  assert.deepEqual(path.at(-1), r.to);
+  const i = path.findIndex((p) => p.x === CAVE.foot.x && p.z === CAVE.foot.z), j = path.findIndex((p) => p.x === CAVE.door.x && p.z === CAVE.door.z);
+  assert.ok(i >= 0 && j > i, JSON.stringify(path));
+  assert.equal(crosses(from, path.slice(0, i + 1), inYardStone), null, JSON.stringify(path));
+});
+
+test("leaving the cave for the railing goes out through the mouth and down the steps", () => {
+  const from = { x: CAVE.x, z: CAVE.inside.maxZ - 1 }, path = routeAround(from, { x: 3, z: LEAN_Z });
+  assert.deepEqual(path.slice(0, 2), [CAVE.door, CAVE.foot]);
+  assert.deepEqual(path.at(-1), { x: 3, z: LEAN_Z });
+});
+
+test("in the cave there are cushions to sit on facing its Buddha", () => {
+  assert.ok(CAVE.seats.length >= 2);
+  for (const c of CAVE.seats) {
+    assert.ok(insideCave(c), JSON.stringify(c));
+    const r = resolveTap({ x: c.x + 0.1, z: c.z - 0.1 });
+    assert.equal(r.kind, "sit");
+    assert.deepEqual(r.to, { x: c.x, z: c.z });
+    assert.ok(Math.abs(r.yaw - Math.atan2(-(CAVE.altar.x - c.x), -(CAVE.altar.z - c.z))) < 1e-9);
+    assert.equal(seatAt(r.to), c);
+  }
 });
