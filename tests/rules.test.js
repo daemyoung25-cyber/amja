@@ -54,6 +54,11 @@ test("sitting on a cushion is an allowed pose", opts, async () => {
   assert.equal(await put(`presence/${me.uid}`, presence({ p: "sit" }), me.token), 200);
 });
 
+test("doing 108 bows is an allowed pose", opts, async () => {
+  const me = await signIn();
+  assert.equal(await put(`presence/${me.uid}`, presence({ p: "bow108" }), me.token), 200);
+});
+
 test("presence may carry a short name, not a long one", opts, async () => {
   const me = await signIn();
   assert.equal(await put(`presence/${me.uid}`, presence({ n: "연화" }), me.token), 200);

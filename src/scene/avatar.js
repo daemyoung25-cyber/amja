@@ -31,7 +31,9 @@ function robeTexture(THREE) {
   robeTex.colorSpace = THREE.SRGBColorSpace;
   return robeTex;
 }
-const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2 };
+import { bowPhase, BOW108_SECONDS } from "../logic/bows.js";
+
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -183,8 +185,8 @@ export function createAvatar(THREE, { color }) {
       upperTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
     }
     let kneel = 0, drop = 0;
-    if (pose === "bow") {
-      const b = bowAt(poseT);
+    if (pose === "bow" || pose === "bow108") {
+      const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
       upperTilt = b.tilt; kneel = b.kneel; drop = b.drop;
       const A = hands[b.from], B = hands[b.to];
       target = A.map((h, j) => h.map((v, n) => v + (B[j][n] - v) * b.e));

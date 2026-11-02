@@ -5,6 +5,7 @@ import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
+import { BOWS, bowsDone } from "./logic/bows.js";
 import { createCameraRig } from "./scene/camera.js";
 import { createUI } from "./ui.js";
 import { createAudio } from "./audio.js";
@@ -81,6 +82,7 @@ const ndc = new THREE.Vector2();
 
 function onTap(cx, cy) {
   ui.pokeHud();
+  if (state.bow108) return;            // 108배 중에는 눌러도 걷지 않는다 (버튼만 돌아온다, 멈추려면 '그만')
   ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(world.groundMeshes, false)[0];
@@ -105,6 +107,10 @@ function goTo(point) {
 }
 
 function setBase(p) {
+  if (p === "walk") {                  // 걸어가면 하던 절·합장은 그친다
+    if (state.bow108) stopBow108();
+    state.gestureUntil = 0;
+  }
   if (state.base === "lean" && p !== "lean") { ui.setLeaning(false); rig.setLeaning(false); }
   if (state.base === "sit" && p !== "sit") ui.setLeaning(false);
   state.base = p;
@@ -143,11 +149,32 @@ ui.onCandle(() => {
     ui.showWhisper("초를 밝혔어요");
   }, 1600);
 });
-ui.onBow(() => {
+function faceBuddha() {
   const p = positionAt(state.move, net.now());
   state.yaw = insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
+}
+ui.onBow(() => {
+  if (state.bow108) return;
+  faceBuddha();
   gesture("bow");
 });
+// 108배: 큰절을 108번 이어 하고, 마치면 그 자리에 조용히 앉는다. '그만'을 누르면 멈춘다
+ui.onBow108(() => {
+  if (state.bow108) { stopBow108(); return; }
+  if (state.base === "walk") return;
+  faceBuddha();
+  gesture("bow108");
+  state.bow108 = { start: performance.now() };
+  ui.setBowing(true);
+  ui.setBowCount(0, BOWS);
+  ui.setLeaning(true);                 // 버튼은 물러나고, 화면을 누르면 잠깐 돌아온다
+});
+function stopBow108() {
+  state.bow108 = null;
+  ui.setBowing(false);
+  if (state.base !== "sit" && state.base !== "lean") ui.setLeaning(false);
+  if (state.gestureUntil) { state.gestureUntil = 0; me.setPose(state.base); net.sendPose(state.base); }
+}
 const SOUND_KEY = "amja-sound";
 // 층마다 크기 0..1. 예전에 켜고 끄기(true/false)로 저장한 값도 그대로 읽는다.
 const volumes = (() => {
@@ -212,7 +239,17 @@ function frame(t) {
       setBase("stand");
     }
   }
-  if (state.gestureUntil && t >= state.gestureUntil) { state.gestureUntil = 0; me.setPose(state.base); net.sendPose(state.base); }
+  if (state.bow108) ui.setBowCount(bowsDone((t - state.bow108.start) / 1000), BOWS);
+  if (state.gestureUntil && t >= state.gestureUntil) {
+    state.gestureUntil = 0;
+    if (state.bow108) {                   // 108배를 마치면 그 자리에 앉는다
+      state.bow108 = null;
+      ui.setBowing(false);
+      ui.showWhisper("108배를 마쳤어요");
+      setBase("sit");
+      ui.setLeaning(true);
+    } else { me.setPose(state.base); net.sendPose(state.base); }
+  }
 
   const seated = state.base === "sit";
   const fy = floorY(p);
@@ -259,8 +296,9 @@ function drawOthers(now, mePos, dt) {
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
     if (peer.p === "light" && pos.arrived) o.yaw = faceCandles(pos);
-    const sat = pos.arrived && seatAt(pos) && ["sit", "hapjang", "bow"].includes(peer.p);
-    if (sat) o.yaw = faceSeat(pos);
+    const onSeat = pos.arrived && seatAt(pos);
+    const sat = onSeat ? ["sit", "hapjang", "bow", "bow108"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
+    if (onSeat && sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);

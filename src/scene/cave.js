@@ -57,40 +57,73 @@ export function createCave(THREE, { cave, yardBackZ }) {
     });
   }
 
-  /* 굴 안: 반타원 굴(앞뒤로 길게) + 안쪽 막힌 벽 + 어귀 쪽 안벽. 바위 빛은 미리 칠한다:
-     왼쪽 벽 파랑, 오른쪽 벽 다홍, 천장 보라, 불단 쪽은 금빛. 바닥 가까이 갈수록 밝다(아래에서 비추는 조명) */
+  /* 굴 안: 반타원 굴(앞뒤로 길게) + 안쪽 막힌 벽 + 어귀 쪽 안벽. 햇빛은 닿지 않고, 벽 아래 조명이 비춘다:
+     왼쪽 벽 파랑, 오른쪽 벽 다홍, 가운데 보라(천장), 불단 쪽 금빛 촛불. 빛은 바위 굴곡을 따라 셰이더에서 계산한다 */
+  // 꼭짓점 색 = 바위 바탕색만 (따뜻한 회색 화강암, 자리마다 조금씩 다르게, 바닥 가까이는 젖어서 어둡게)
   const rockColor = (x, y, z) => {
-    const c = new THREE.Color(0.05, 0.047, 0.045).multiplyScalar(0.7 + 0.6 * n.fbm(x * 0.9 + z * 0.4, y * 1.3, 3));
-    const low = Math.pow(smooth(FL + 3.4, FL + 0.1, y), 1.6), side = (x - CX) / TW, back = smooth(TZ1 - 3.5, TZ1, z);
-    // 벽 아래 조명마다 빛 웅덩이 (2m 간격으로 번갈아)
-    const pool = 0.25 + 0.75 * Math.pow(Math.max(0, Math.cos((z - TZ0) * Math.PI / 2.1)), 2);
-    const patch = pool * (0.6 + 0.4 * n.fbm(x * 0.5 + 3, z * 0.35, 2));
-    c.r += (0.85 * smooth(0.1, 0.9, side) + 0.35 * smooth(0.6, 0.9, y - FL - 2.6) + 0.9 * back) * low * patch * 0.8;
-    c.g += (0.18 * smooth(0.1, 0.9, side) + 0.25 * smooth(0.1, 0.9, -side) + 0.6 * back) * low * patch * 0.8;
-    c.b += (0.95 * smooth(0.1, 0.9, -side) + 0.55 * smooth(0.6, 0.9, y - FL - 2.6) + 0.15 * back) * low * patch * 0.8;
-    return c;
+    const k = n.fbm(x * 0.35 + z * 0.2, y * 0.5 + z * 0.15, 3);
+    const c = new THREE.Color(0.46, 0.42, 0.38).lerp(new THREE.Color(0.30, 0.29, 0.30), smooth(0.35, 0.7, k));
+    return c.multiplyScalar(0.75 + 0.25 * smooth(FL - 0.1, FL + 0.8, y));
   };
-  const innerMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, toneMapped: false });   // 미리 칠한 빛 그대로
-  // 바위 결: 조각마다 밝기가 다른 덩어리 + 갈라진 틈 (위치로 만든 3D 노이즈)
+  const lights = [], lightCols = [];
+  const addLight = (x, y, z, hex, k) => { lights.push(new THREE.Vector3(x, y, z)); lightCols.push(new THREE.Color(hex).multiplyScalar(k)); };
+  for (let i = 0; i < 3; i++) {
+    const z = TZ0 + 0.8 + i * 2.5;
+    addLight(CX - TW * 0.8, FL + 0.2, z, 0x3d6cff, 1.5);          // 왼쪽: 파랑
+    addLight(CX + TW * 0.8, FL + 0.2, z, 0xff5a2a, 1.5);          // 오른쪽: 다홍
+  }
+  addLight(CX, FL + 0.3, (TZ0 + TZ1) / 2 - 0.5, 0x9a5cff, 0.45);    // 가운데 바닥: 천장을 보랏빛으로
+  addLight(CX, FL + 1.1, TZ1 - 1.6, 0xffb24a, 1.8);                // 불단 촛불: 금빛
+  const rockUni = { uLights: { value: lights }, uLightCols: { value: lightCols }, uTime: { value: 0 } };
+  const innerMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, toneMapped: false });
+  // 바위 결: 3D 노이즈로 높낮이를 만들어 면 방향을 흔들고(빛이 결을 따라 걸린다), 갈라진 틈은 어둡게
   innerMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace("void main() {", "varying vec3 vWp;\nvoid main() {\n  vWp = (modelMatrix * vec4(position, 1.0)).xyz;");
+    Object.assign(sh.uniforms, rockUni);
+    sh.vertexShader = sh.vertexShader.replace("void main() {", "varying vec3 vWp;\nvarying vec3 vN;\nvoid main() {\n  vWp = (modelMatrix * vec4(position, 1.0)).xyz;\n  vN = normalize(mat3(modelMatrix) * normal);");
     sh.fragmentShader = sh.fragmentShader.replace("void main() {", `varying vec3 vWp;
+      varying vec3 vN;
+      uniform vec3 uLights[8];
+      uniform vec3 uLightCols[8];
+      uniform float uTime;
       float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
       float n3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
                    mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+      float rock(vec3 p){
+        float r = 1.0 - abs(2.0 * n3(p * 1.6 + vec3(0.0, 0.0, p.y * 0.4)) - 1.0);
+        return 0.5 * n3(p * 0.9) + 0.3 * r * r + 0.13 * n3(p * 4.3) + 0.07 * n3(p * 11.0);
+      }
       void main() {`).replace("#include <color_fragment>", `#include <color_fragment>
-        float big = n3(vWp * 1.3), mid = n3(vWp * 3.1 + 7.0), fine = n3(vWp * 9.0 - 3.0);
-        float crack = smoothstep(0.035, 0.0, abs(n3(vWp * 2.3 + 11.0) - 0.5)) * smoothstep(0.4, 0.7, n3(vWp * 0.7));
-        diffuseColor.rgb *= (0.4 + 0.7 * big + 0.35 * mid + 0.25 * fine) * (1.0 - 0.6 * crack);`);
+        vec3 p = vWp;
+        float h = rock(p);
+        vec2 e = vec2(0.03, 0.0);
+        vec3 grad = vec3(rock(p + e.xyy) - h, rock(p + e.yxy) - h, rock(p + e.yyx) - h) / e.x;
+        vec3 V = normalize(cameraPosition - p);
+        vec3 N = normalize(vN);
+        if (dot(N, V) < 0.0) N = -N;
+        N = normalize(N - 0.5 * (grad - dot(grad, N) * N));
+        float crev = smoothstep(0.3, 0.12, h);
+        float speck = step(0.93, h3(floor(p * 60.0))) * 0.25;
+        vec3 albedo = diffuseColor.rgb * (0.4 + 0.9 * h) * (1.0 - 0.55 * crev) + speck * 0.12;
+        vec3 lit = vec3(0.02, 0.02, 0.028);
+        for (int i = 0; i < 8; i++) {
+          vec3 L = uLights[i] - p;
+          float d2 = dot(L, L);
+          L *= inversesqrt(d2);
+          float fl = i == 7 ? 0.85 + 0.15 * sin(uTime * 7.0) * sin(uTime * 3.1) : 1.0;
+          lit += uLightCols[i] * fl * (0.06 + 0.94 * max(0.0, dot(N, L))) / (1.0 + d2 * 2.0);
+        }
+        lit = mix(lit, vec3(dot(lit, vec3(0.3, 0.5, 0.2))), 0.25);
+        vec3 c = albedo * lit;
+        diffuseColor.rgb = c / (1.0 + 0.6 * c);`);
   };
   {
-    const SU = 40, SV = 30, pos = [], col = [], index = [];
+    const SU = 64, SV = 48, pos = [], col = [], index = [];
     for (let j = 0; j <= SV; j++) {
       const z = TZ0 + (TZ1 - TZ0) * j / SV;
       for (let i = 0; i <= SU; i++) {
         const th = Math.PI * i / SU;
-        const r = 1 + 0.12 * (n.fbm(th * 3 + 5, z / 1.3, 3) - 0.5) * 2 + 0.06 * n.ridged(th * 9, z * 1.7, 2);
+        const r = 1 + 0.2 * (n.fbm(th * 3 + 5, z / 1.3, 4) - 0.5) * 2 + 0.09 * n.ridged(th * 7, z * 1.1, 3) + 0.04 * (n.fbm(th * 18, z * 3, 2) - 0.5);
         const x = CX + Math.cos(th) * TW * r, y = FL - 0.15 + Math.sin(th) * TH * r;
         pos.push(x, y, z);
         const c = rockColor(x, y, z); col.push(c.r, c.g, c.b);
@@ -104,6 +137,7 @@ export function createCave(THREE, { cave, yardBackZ }) {
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
     g.setIndex(index);
+    g.computeVertexNormals();
     group.add(new THREE.Mesh(g, innerMat));
     // 안쪽 막힌 벽과 어귀 쪽 안벽 (어귀 자리는 뚫는다)
     const cap = (z, hole) => {
@@ -138,7 +172,7 @@ export function createCave(THREE, { cave, yardBackZ }) {
     mat.rotation.x = -Math.PI / 2;
     mat.position.set(CX, FL + 0.012, cave.seats[0].z);
     group.add(mat); pickables.push(mat);
-    const cushion = new THREE.MeshLambertMaterial({ color: 0x7a2420 });
+    const cushion = new THREE.MeshLambertMaterial({ color: 0x7a2420, emissive: 0x3a100c });
     for (const s of cave.seats) {
       const cu = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.62), cushion);
       cu.position.set(s.x, FL + 0.05, s.z);
@@ -150,7 +184,7 @@ export function createCave(THREE, { cave, yardBackZ }) {
   const flames = [];
   {
     const altarZ = altar.z - 0.75;
-    const wood = new THREE.MeshLambertMaterial({ color: 0x5c1d14 }), goldTrim = new THREE.MeshLambertMaterial({ color: 0xc9a046, emissive: 0x2a1c05 });
+    const wood = new THREE.MeshLambertMaterial({ color: 0x5c1d14, emissive: 0x2e0d08 }), goldTrim = new THREE.MeshLambertMaterial({ color: 0xc9a046, emissive: 0x2a1c05 });
     const top = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.85, 0.8), wood);
     top.position.set(CX, FL + 0.425, altarZ);
     const trim = new THREE.Mesh(new THREE.BoxGeometry(4.64, 0.06, 0.84), goldTrim);
@@ -291,6 +325,7 @@ export function createCave(THREE, { cave, yardBackZ }) {
       flames.mesh.setMatrixAt(i, fm.compose(fp.set(f.x, f.y, f.z), fq, fs.set(0.013, 0.03 * k, 0.013)));
     });
     flames.mesh.instanceMatrix.needsUpdate = true;
+    rockUni.uTime.value = t;
   }
   function setNight(night) { glowMat.opacity = 0.3 + 0.7 * night; }
 

@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnSound = $("btn-sound"), btnCandle = $("btn-candle");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -48,7 +48,18 @@ export function createUI({ placeName }) {
   }
 
   function setCount(text) { count.hidden = !text; count.textContent = text || ""; }
-  function setNearStatue(near) { btnBow.hidden = !near; }
+  let nearStatue = false, bowing = false;
+  function setNearStatue(near) { nearStatue = near; btnBow.hidden = !near || bowing; btnBow108.hidden = !near && !bowing; }
+  // 108배 하는 동안: 108배 버튼은 '그만'이 되고, 몇 번째인지 작게 보인다. 버튼은 곧 물러나고 숫자만 남는다
+  function setBowing(on) {
+    bowing = on;
+    hud.classList.toggle("bowing", on);
+    btnBow108.textContent = on ? "그만" : "108배";
+    bowCount.hidden = !on;
+    if (!on) bowCount.textContent = "";
+    setNearStatue(nearStatue);
+  }
+  function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
 
   function setLeaning(on) {
@@ -154,6 +165,7 @@ export function createUI({ placeName }) {
     onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
+    onBow108: (cb) => btnBow108.addEventListener("click", cb), setBowing, setBowCount,
     onOpenSettings: (cb) => btnSound.addEventListener("click", cb),
   };
 }

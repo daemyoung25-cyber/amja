@@ -54,6 +54,8 @@ button { font: inherit; color: inherit; }
 /* HUD: 조용하게. 기대 있으면 사라진다. */
 .hud { position: fixed; inset: 0; pointer-events: none; transition: opacity 1.2s ease; }
 .hud.faded { opacity: 0; }
+.hud.bowing.faded { opacity: 1; }
+.hud.bowing.faded > :not(.bowcount) { opacity: 0; transition: opacity 1.2s ease; }
 .hud.faded .actions button { pointer-events: none; }
 .count {
   position: absolute; top: max(14px, env(safe-area-inset-top)); left: 16px; margin: 0;
@@ -67,6 +69,11 @@ button { font: inherit; color: inherit; }
 .hint { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px); }
 .whisper { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 92px); opacity: 0; }
 .whisper.on { opacity: 1; }
+/* 108배 세는 숫자: 버튼이 숨어도 작게 남는다 */
+.bowcount {
+  position: absolute; left: 16px; right: 16px; margin: 0; text-align: center; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px);
+  font-size: 13px; letter-spacing: 2px; color: var(--ink-soft); text-shadow: 0 1px 4px rgba(0, 0, 0, .5); font-variant-numeric: tabular-nums;
+}
 .actions {
   position: absolute; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom));
   display: flex; justify-content: center; gap: 10px; padding: 0 16px;
