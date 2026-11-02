@@ -1,28 +1,36 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { layerGains } from "../src/logic/mix.js";
+import { layerGains, LEVEL } from "../src/logic/mix.js";
 import { COURTYARD, CHIME, LEAN_Z } from "../src/logic/layout.js";
 
 const ALL = { waves: true, chime: true, chant: true };
 const near = (a, b, eps) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b}`);
 
-test("at the railing the waves are loud and the chant at most a third of them", () => {
-  const g = layerGains({ x: 0, z: LEAN_Z }, ALL);
-  assert.ok(g.waves >= 0.95, String(g.waves));
-  assert.ok(g.chant <= g.waves / 3, `${g.chant} > ${g.waves}/3`);
+// 실제로 나오는 세기 = 위치 비율 × 층별 기본 세기
+const heard = (p) => { const g = layerGains(p, { ...ALL, evening: true }); return Object.fromEntries(Object.keys(g).map((k) => [k, g[k] * LEVEL[k]])); };
+
+test("the waves are half as loud as they used to be (0.9 → 0.45 at the railing)", () => {
+  near(heard({ x: 0, z: LEAN_Z }).waves, 0.45, 0.01);
 });
 
-test("at the hall door the chant is clear but never above 0.6", () => {
+test("the chant is the lead voice everywhere: louder than the waves and the evening service, even at the railing", () => {
+  for (let i = 0; i <= 20; i++) for (let j = 0; j <= 20; j++) {
+    const p = { x: COURTYARD.minX + (COURTYARD.maxX - COURTYARD.minX) * i / 20, z: COURTYARD.minZ + (COURTYARD.maxZ - COURTYARD.minZ) * j / 20 };
+    const h = heard(p);
+    assert.ok(h.chant > h.waves && h.chant > h.evening, `${JSON.stringify(p)} ${JSON.stringify(h)}`);
+  }
+});
+
+test("at the hall door the chant is full and the waves fall away", () => {
   const g = layerGains({ x: 0, z: 5 }, ALL);
-  near(g.chant, 0.6, 0.01);
+  near(g.chant, 1, 0.01);
   near(g.waves, 0.35, 0.05);
 });
 
-test("chant never exceeds 0.6 anywhere and every gain stays in 0..1", () => {
+test("every gain stays in 0..1", () => {
   for (let i = 0; i <= 30; i++) for (let j = 0; j <= 30; j++) {
     const p = { x: COURTYARD.minX + (COURTYARD.maxX - COURTYARD.minX) * i / 30, z: COURTYARD.minZ + (COURTYARD.maxZ - COURTYARD.minZ) * j / 30 };
     const g = layerGains(p, ALL);
-    assert.ok(g.chant <= 0.6 + 1e-9);
     for (const v of Object.values(g)) assert.ok(v >= 0 && v <= 1);
   }
 });
@@ -42,7 +50,7 @@ test("a switched-off layer is silent and the others are unchanged", () => {
 
 test("inside the hall the chant is full and the waves are far off", () => {
   const g = layerGains({ x: 0, z: 8 }, ALL);
-  near(g.chant, 0.6, 1e-9);
+  near(g.chant, 1, 1e-9);
   assert.ok(g.waves <= 0.3, String(g.waves));
 });
 

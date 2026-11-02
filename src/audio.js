@@ -1,7 +1,6 @@
-/* 소리 세 층: 파도(녹음), 불경(녹음), 풍경(합성). 위치에 따라 크기가 0.8초에 걸쳐 바뀐다. */
-import { layerGains } from "./logic/mix.js";
+/* 소리 층: 파도(녹음), 염불(녹음), 풍경(합성), 저녁예불(녹음). 위치에 따라 크기가 0.8초에 걸쳐 바뀐다. */
+import { layerGains, LEVEL } from "./logic/mix.js";
 
-const LEVEL = { waves: 0.9, chant: 0.55, chime: 0.35, evening: 0.35 };   // 층별 기본 세기 (전체가 잔잔하게)
 const RAMP = 0.27;                                         // setTargetAtTime 시간 상수 ≈ 0.8초에 95%
 
 export function createAudio({ urls }) {
