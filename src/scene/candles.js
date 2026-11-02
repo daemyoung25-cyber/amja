@@ -47,6 +47,21 @@ export function createCandleRack(THREE, { x, z }) {
   signMesh.position.set(0, 1.66, -0.42);
   signMesh.rotation.y = Math.PI;                                 // 앞(-z)을 본다
   group.add(signMesh);
+  // 지붕 위에 뜬 이름표 (사람 머리 위 이름표와 같은 모양): 멀리서도 어디인지 보이게, 늘 화면을 본다
+  const tagC = document.createElement("canvas"); tagC.width = 512; tagC.height = 128;
+  const tg = tagC.getContext("2d");
+  tg.font = '600 64px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+  tg.textAlign = "center"; tg.textBaseline = "middle";
+  const tw = Math.min(500, tg.measureText("촛불 공양").width + 56);
+  tg.fillStyle = "rgba(20,22,36,0.55)";
+  tg.beginPath(); tg.roundRect((512 - tw) / 2, 14, tw, 100, 50); tg.fill();
+  tg.fillStyle = "#f8f3e8"; tg.fillText("촛불 공양", 256, 66);
+  const tagTex = new THREE.CanvasTexture(tagC); tagTex.colorSpace = THREE.SRGBColorSpace;
+  const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex, transparent: true, depthWrite: false }));
+  tag.scale.set(1.9, 0.475, 1);
+  tag.position.set(0, 2.7, 0);
+  tag.renderOrder = 10;
+  group.add(tag);
 
   /* 초: 컵(투명한 듯 연한 호박빛), 초, 불꽃은 칸 수만큼 인스턴스로 */
   const cupGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.1, 10);
