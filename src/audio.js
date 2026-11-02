@@ -2,23 +2,24 @@
 import { layerGains, LEVEL } from "./logic/mix.js";
 
 const RAMP = 0.27;                                         // setTargetAtTime 시간 상수 ≈ 0.8초에 95%
+const INTRO_S = 8, AMBIENT_RAMP = 2.5;                      // 들어오면 불경이 먼저, 8초 뒤 파도·풍경·저녁예불이 천천히 (≈7초) 깔린다
 
 export function createAudio({ urls }) {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   let ctx = null, master = null;
   const layers = {}, volume = { waves: 1, chime: 1, chant: 1, evening: 1 };   // 사용자가 정한 크기 0..1
-  let listener = { x: 0, z: 0 }, chimeTimer = 0;
+  let listener = { x: 0, z: 0 }, chimeTimer = 0, ambient = 0;   // ambient: 불경 말고 나머지 층 (0 → 1)
 
   async function load(url) {
     const res = await fetch(url);
     return ctx.decodeAudioData(await res.arrayBuffer());
   }
 
-  function startLoop(name, buffer) {
+  function startLoop(name, buffer, offset = Math.random() * buffer.duration) {   // 배경 소리는 매번 다른 곳에서 시작
     const src = ctx.createBufferSource();
     src.buffer = buffer; src.loop = true;
     src.connect(layers[name]);
-    src.start(ctx.currentTime + 0.05, Math.random() * buffer.duration);   // 매번 다른 곳에서 시작
+    src.start(ctx.currentTime + 0.05, offset);
   }
 
   function strike() {
@@ -43,11 +44,20 @@ export function createAudio({ urls }) {
     chimeTimer = setTimeout(() => { strike(); scheduleChime(); }, 8000 + Math.random() * 17000);
   }
 
-  function apply() {
+  function apply(ramp = RAMP) {
     if (!ctx) return;
     const on = Object.fromEntries(Object.keys(LEVEL).map((n) => [n, volume[n] > 0]));
     const g = layerGains(listener, on);
-    for (const name of Object.keys(LEVEL)) layers[name].gain.setTargetAtTime(g[name] * LEVEL[name] * volume[name], ctx.currentTime, RAMP);
+    for (const name of Object.keys(LEVEL)) {
+      const k = name === "chant" ? 1 : ambient;
+      layers[name].gain.setTargetAtTime(g[name] * LEVEL[name] * volume[name] * k, ctx.currentTime, ramp);
+    }
+  }
+  function bringInAmbient() {
+    if (ambient) return;
+    ambient = 1;
+    apply(AMBIENT_RAMP);
+    scheduleChime();
   }
 
   // 사용자의 누름 안에서 불러야 폰에서 소리가 난다
@@ -61,12 +71,12 @@ export function createAudio({ urls }) {
     ctx.resume();
     master.gain.setTargetAtTime(1, ctx.currentTime, 1.2);                // 들어오면서 천천히 커진다
     apply();
-    scheduleChime();
-    setTimeout(strike, 2500);
+    // 온라인 산사처럼 들어서면 불경이 먼저: 처음 구절부터 흐르고, 나머지 소리는 조금 뒤에 깔린다
     const [w, c, ev] = await Promise.allSettled([load(urls.waves), load(urls.chant), load(urls.evening)]);
+    if (c.status === "fulfilled") startLoop("chant", c.value, 0);
     if (w.status === "fulfilled") startLoop("waves", w.value);
     if (ev.status === "fulfilled") startLoop("evening", ev.value);
-    if (c.status === "fulfilled") startLoop("chant", c.value);
+    setTimeout(bringInAmbient, c.status === "fulfilled" ? INTRO_S * 1000 : 0);
   }
 
   function setListener(p) {
