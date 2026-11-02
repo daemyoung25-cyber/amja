@@ -100,14 +100,14 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   // 색: 숲은 사진에서 떠 온 단풍 숲 무늬(canopy.webp)를 땅 위에서 내려다보듯 깔고, 꼭짓점 색으로 크게 얼룩지게.
   // 가파른 곳은 무늬를 걷어내고 흰 화강암, 물가는 젖은 검은 바위 (rock 값으로 셰이더가 섞는다)
   const nrm = geo.attributes.normal, col = new Float32Array(pos.count * 3), rockA = new Float32Array(pos.count), uv = geo.attributes.uv;
-  const rock = new THREE.Color(0xc9bfae), rockDark = new THREE.Color(0x3d3631), pine = new THREE.Color(0x5d7a48), c = new THREE.Color();
+  const rock = new THREE.Color(0xa59b8a), rockDark = new THREE.Color(0x3d3631), pine = new THREE.Color(0x5d7a48), c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), up = nrm.getY(i);
     const f = fbm(x / 14, z / 14, 3), g = fbm(x / 4 + 50, z / 4, 2);
     uv.setXY(i, x / 34, z / 34);
     c.setRGB(1, 1, 1).lerp(pine, smooth(0.42, 0.25, f) * 0.7);                    // 소나무 숲 얼룩
     c.multiplyScalar(0.8 + 0.35 * g);
-    const steep = smooth(0.62, 0.42, up);                                         // 아주 가파른 데만 바위가 드러난다
+    const steep = smooth(0.52, 0.4, up);                                          // 아주 가파른 데만 바위가 드러난다 (숲과 넓게 섞이면 안개처럼 뿌옇다)
     const wet = smooth(seaY + 7, seaY + 1, y);                                    // 물가
     c.lerp(rock.clone().multiplyScalar(0.75 + 0.4 * g), steep).lerp(rockDark, wet);
     rockA[i] = Math.max(steep, wet);
@@ -133,7 +133,7 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
       .replace("#include <map_fragment>", `vec4 texel = texture2D( map, vMapUv );
         vec2 rp = vec2(vWp.x + vWp.z, vWp.y);
         float strata = tn(vec2(rp.x * 0.05, rp.y * 0.9)) * 0.55 + tn(rp * 0.35) * 0.3 + tn(rp * 1.7) * 0.15;
-        vec3 rockTone = vec3(0.55 + 0.75 * strata) * (0.85 + 0.3 * dot(texel.rgb, vec3(0.333)));
+        vec3 rockTone = vec3(0.4 + 0.75 * strata) * (0.8 + 0.4 * dot(texel.rgb, vec3(0.333)));
         diffuseColor.rgb *= mix( texel.rgb * 1.5, rockTone, vRock );
         float above = vWp.y - seaLevel;
         float foam = smoothstep(1.4, 0.2, above) * smoothstep(-0.6, 0.1, above) * (0.55 + 0.45 * sin(foamTime * 1.3 + tn(vWp.xz * 0.15) * 9.0));
@@ -173,10 +173,14 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   const prevCompile = backMat.onBeforeCompile;
   backMat.onBeforeCompile = (sh) => {
     prevCompile(sh);
-    // vMapUv.x = 2u + 0.35 (거울 두 장 + 이음매 옮김) → 둘레 위치 u (0..1)
-    sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", `#include <alphamap_fragment>
+    // vMapUv.x = 2u + 0.35 (거울 두 장 + 이음매 옮김) → 둘레 위치 u (0..1).
+    // 양 끝에서는 반투명하게 흐리지 않고, 산줄기를 아래로 눌러 수평선으로 내려앉게 한다 (유령처럼 겹쳐 보이지 않게)
+    sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", `
       float arcU = (vMapUv.x - ${tex.offset.x.toFixed(2)}) / ${TILES.toFixed(1)};
-      diffuseColor.a *= smoothstep(0.0, 0.12, arcU) * smoothstep(0.0, 0.12, 1.0 - arcU);`);
+      float keep = max(0.001, smoothstep(0.0, 0.22, arcU) * smoothstep(0.0, 0.22, 1.0 - arcU));
+      vec2 squash = vec2(vMapUv.x, vMapUv.y / keep);
+      if (squash.y > 1.0) discard;
+      diffuseColor *= texture2D( map, squash );`);
   };
   back.position.y = tileH / 2 - 40;
   back.renderOrder = -1;                                       // 하늘 다음, 땅보다 먼저

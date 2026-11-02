@@ -8,7 +8,7 @@ import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
-import { createLandscape, boulderGeometry, DEM } from "./landscape.js";
+import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
 
 const SEA_Y = -28;
@@ -38,19 +38,35 @@ export function createWorld(THREE, scene) {
         vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
       }
+      // 별 한 겹: 방향을 칸으로 나눠 칸마다 드물게 별 하나 (칸 안 아무 데나, 크기·밝기 제각각, 천천히 반짝)
+      float star(vec3 dir, float scale, float thresh, float size, float gain){
+        vec3 p = dir * scale, id = floor(p), f = fract(p) - 0.5;
+        float r = hash(id);
+        if (r < thresh) return 0.0;
+        float b = (r - thresh) / (1.0 - thresh);
+        vec3 off = vec3(hash(id + 1.3), hash(id + 2.7), hash(id + 5.1)) - 0.5;
+        float dd = length(f - off * 0.5);
+        float tw = 0.75 + 0.25 * sin(time * (1.5 + 3.0 * hash(id + 9.1)) + r * 60.0);
+        return smoothstep(size * (0.5 + 0.5 * b), 0.0, dd) * (0.35 + b) * gain * tw;
+      }
       float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
       void main(){
         float h = clamp(vDir.y, -0.2, 1.0);
         vec3 c = mix(horizon, top, pow(smoothstep(-0.02, 0.55, h), 0.7));
         float d = max(dot(vDir, normalize(sunDir)), 0.0);
         c += sunColor * (pow(d, 900.0) * 1.6 + pow(d, 12.0) * 0.18 * (1.0 - night));
-        float st = step(0.9975, hash(floor(vDir * 420.0))) * smoothstep(0.08, 0.4, h) * night;
-        c += vec3(st * 0.8);
+        // 밤하늘: 밝기가 다른 별 세 겹(밝은 별은 드물게, 희미한 별은 촘촘히), 조용히 반짝이고, 은하수 띠에는 별이 더 많다
+        vec3 mwN = normalize(vec3(0.55, 0.35, -0.76));                    // 은하수가 지나는 큰 원의 축
+        float mwBand = exp(-pow(dot(vDir, mwN) / 0.2, 2.0));
+        float mwCloud = mwBand * (0.55 + 0.45 * vnoise(vec2(atan(vDir.z, vDir.x) * 6.0, vDir.y * 9.0))) * (0.6 + 0.4 * vnoise(vec2(atan(vDir.z, vDir.x) * 19.0, vDir.y * 27.0)));
+        float sky0 = smoothstep(0.03, 0.3, h) * night;
+        float st = star(vDir, 120.0, 0.982, 0.42, 3.2) + star(vDir, 240.0, 0.968 - 0.04 * mwBand, 0.42, 1.7) + star(vDir, 430.0, 0.95 - 0.08 * mwBand, 0.48, 0.9);
+        c += (vec3(st) * vec3(0.95, 0.97, 1.0) + vec3(0.2, 0.21, 0.28) * mwCloud * mwCloud * 1.6) * sky0;
         // 구름: 하늘을 높이 800m쯤의 평면으로 보고 그 위의 노이즈. 바람은 동쪽에서 서쪽으로 아주 천천히
         if (vDir.y > 0.0) {
           vec2 uv = vDir.xz / (vDir.y + 0.06) * 0.55 + vec2(time * 0.0035, time * 0.0012);
           float base = fbm(uv);
-          float dens = smoothstep(0.46, 0.76, base);
+          float dens = smoothstep(0.46, 0.76, base) * (1.0 - 0.65 * night);   // 밤엔 구름이 걷혀 별이 잘 보인다
           vec2 toSun = normalize(sunDir.xz + 1e-4) * 0.06;
           float behind = smoothstep(0.46, 0.76, fbm(uv + toSun));        // 해 쪽으로 더 두꺼우면 그늘
           float lit = clamp(1.0 - (behind - dens) * 1.6 - dens * 0.35, 0.25, 1.0);
@@ -121,45 +137,6 @@ export function createWorld(THREE, scene) {
   sea.position.y = SEA_Y;
   add(sea, true);
 
-  /* 물안개: 바다 위 낮게 세 겹. 해 뜰 무렵 짙었다가 해가 오르면 걷히고, 저녁·밤엔 옅게. 가까운 곳은 비워 둔다. */
-  // 높이 지도를 그대로 텍스처로 받아 뭍 위엔 안개를 걷어 낸다 (바닷가 골짜기처럼 안개 판보다 낮은 땅이 허옇게 보이지 않게)
-  const landTex = new THREE.TextureLoader().load(DEM.url);
-  landTex.magFilter = landTex.minFilter = THREE.NearestFilter;      // R·G 두 바이트를 섞지 않게
-  landTex.generateMipmaps = false;
-  landTex.flipY = false;                                             // 그림 위쪽(북)이 v=0
-  landTex.colorSpace = THREE.NoColorSpace;
-  const mistU = { time: skyU.time, amount: { value: 0 }, color: { value: new THREE.Color() }, camPos: { value: new THREE.Vector3() },
-    land: { value: landTex }, dem: { value: new THREE.Vector4(DEM.originX, DEM.originY, 1 / (DEM.sh * DEM.mpp), DEM.sv) }, demSize: { value: new THREE.Vector2(350, 288) } };
-  const mistMat = new THREE.ShaderMaterial({
-    uniforms: mistU, transparent: true, depthWrite: false, fog: false,
-    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `
-      uniform float time, amount; uniform vec3 color, camPos; uniform sampler2D land; uniform vec4 dem; uniform vec2 demSize; varying vec3 vW;
-      float landH(vec2 xz){
-        vec2 px = vec2(dem.x + xz.x * dem.z, dem.y - xz.y * dem.z);
-        if (px.x < 0.0 || px.y < 0.0 || px.x > demSize.x - 1.0 || px.y > demSize.y - 1.0) return 0.0;
-        vec4 t = texture2D(land, (px + 0.5) / demSize);
-        return ((t.r * 255.0 * 256.0 + t.g * 255.0) / 10.0 - 20.0) * dem.w;
-      }
-      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }
-      void main(){
-        vec2 p = vW.xz * 0.006 + vec2(time * 0.004, time * 0.0015) + vW.y * 0.37;
-        float n = vn(p) * 0.55 + vn(p * 2.3 + 5.0) * 0.3 + vn(p * 5.1 - 2.0) * 0.15;
-        float dist = length(vW.xz - camPos.xz);
-        float sea = 1.0 - smoothstep(0.5, 2.5, landH(vW.xz));   // 뭍 위는 걷는다
-        float a = smoothstep(0.3, 0.75, n) * amount * sea * smoothstep(30.0, 180.0, dist) * (1.0 - smoothstep(1500.0, 2000.0, dist));
-        gl_FragColor = vec4(color, a * 0.8);
-      }`,
-  });
-  for (const [dy, i] of [[1.5, 0], [4.5, 1], [9, 2]]) {
-    const layer = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 1, 1), mistMat);
-    layer.rotation.x = -Math.PI / 2;
-    layer.position.y = SEA_Y + dy;
-    layer.renderOrder = 2 + i;
-    scene.add(layer);
-  }
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
   const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD });
   scene.add(landscape.group);
@@ -569,11 +546,6 @@ export function createWorld(THREE, scene) {
     // 해: 동(+x) → 남(-z, 바다 위) → 서(-x). 밤에는 반대편에서 달이 같은 길을 간다.
     const { sunrise, sunset } = sunTimesKST(date);
     const kstMin = ((date.getTime() + KST_MS) / 60000) % 1440;
-    // 물안개 양: 해 뜨기 40분 전부터 짙어져 해 뜬 뒤 1시간쯤 가장 짙고, 오전 늦게 걷힌다. 낮엔 아주 옅게, 저녁·밤엔 조금
-    const sm = (a, b, v) => { const k = Math.min(1, Math.max(0, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
-    const morning = sm(sunrise - 40, sunrise + 30, kstMin) * (1 - sm(sunrise + 90, sunrise + 210, kstMin));
-    mistU.amount.value = (0.12 + 0.88 * morning + 0.18 * sm(sunset - 30, sunset + 60, kstMin)) * (1 - 0.7 * night);   // 밤엔 어둠 속에 허옇게 뜨지 않게 아주 옅게
-    mistU.color.value.setRGB(...s.horizon).lerp(tmp.setRGB(...s.sun), 0.2).multiplyScalar(0.85 + 0.25 * s.light);
     let f = (kstMin - sunrise) / (sunset - sunrise);
     const isNight = f < 0 || f > 1;
     if (isNight) f = (((kstMin - sunset + 1440) % 1440) / (1440 - (sunset - sunrise)));
@@ -590,7 +562,7 @@ export function createWorld(THREE, scene) {
     sun.intensity = isNight ? 0.25 : 0.3 + 1.5 * s.light;              // 햇빛을 세게, 하늘빛(hemi)은 줄여 그림자가 또렷하게
     hemi.intensity = 0.25 + 0.5 * s.light;
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
-    scene.fog.color.setRGB(...s.horizon);
+    scene.fog.color.setRGB(...s.horizon).multiplyScalar(1 - 0.75 * night);   // 밤엔 먼 산이 푸르스름하게 뜨지 않게
     // 먼 산 그림: 낮엔 제 빛깔, 해 뜨고 질 땐 햇빛 물, 밤엔 푸르스름한 어둠
     tmp.setRGB(...(isNight ? [0.55, 0.6, 0.8] : s.sun)).lerp(backWhite, 0.55).multiplyScalar((0.12 + 0.88 * s.light) ** 2);   // 선형 빛이라 제곱해야 밤이 밤답다
     landscape.setLight(tmp, night);
@@ -605,7 +577,7 @@ export function createWorld(THREE, scene) {
     seaU.time.value = t;
     skyU.time.value = t;
     landscape.tick(t);
-    if (camPos) { seaU.camPos.value.copy(camPos); mistU.camPos.value.copy(camPos); }
+    if (camPos) seaU.camPos.value.copy(camPos);
     skyTimer += dt;
     if (skyTimer >= 1) { skyTimer = 0; applySky(date); markShadows(); }
     swing += dt;

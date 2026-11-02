@@ -1,7 +1,8 @@
 /* 3인칭 카메라. 기본은 캐릭터 뒤에서 바다(-z) 쪽을 본다.
-   한 손가락 끌기 = 둘러보기, 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
+   한 손가락 끌기 = 둘러보기(위로 끌면 하늘을 올려다본다), 두 손가락 = 확대/축소, 짧게 누르기 = onTap. */
 const MIN_D = 3.5, MAX_D = 12, LEAN_D = 3.4, SHOULDER = 0.75, INDOOR_D = 3.2, INDOOR_PITCH = 0.45, INDOOR_AHEAD = 3.5, INDOOR_FOV = 75;
 const TAP_PX = 12, TAP_MS = 700;   // 손가락 떨림과 짧은 누름을 넉넉히
+const LOOK_UP = 1.25, LOW_PITCH = 0.05;   // 0보다 낮게 끌면 카메라는 낮게 머물고 시선만 하늘로 (최대 약 70°)
 
 export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = {}) {
   const ray = new THREE.Raycaster();
@@ -34,7 +35,7 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
       if (moved > TAP_PX) {
         yawGoal = null;
         yaw -= dx * 0.006;
-        pitchUser = Math.min(1.15, Math.max(0.05, pitchUser + dy * 0.004));
+        pitchUser = Math.min(1.15, Math.max(-LOOK_UP, pitchUser + dy * 0.004));
       }
     } else if (pts.size === 2 && pinch0 > 0) {
       dist = Math.min(MAX_D, Math.max(MIN_D, dist0 * pinch0 / Math.max(1, spread())));
@@ -83,7 +84,9 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
     }
     focus.lerp(want, 1 - Math.exp(-dt * 5));
     const near = dist + (INDOOR_D - dist) * indoorBlend;
-    const pitch = pitchUser + (INDOOR_PITCH - pitchUser) * indoorBlend;   // 안에선 머리 너머로 불단이 보이게
+    const up = Math.max(0, -pitchUser) * (1 - indoorBlend);               // 하늘 올려다보기 (법당 안에선 안 한다)
+    const orbit = Math.max(LOW_PITCH, pitchUser);
+    const pitch = orbit + (INDOOR_PITCH - orbit) * indoorBlend;   // 안에선 머리 너머로 불단이 보이게
     const d = near + (LEAN_D - near) * leanBlend;
     const fy = focus.y + 0.25 * leanBlend;
     // 기대 있을 땐 오른쪽 어깨 너머로 비켜 서서 바다가 가운데 오게 한다
@@ -108,7 +111,9 @@ export function createCameraRig(THREE, camera, dom, { onTap, obstacles = [] } = 
     else camera.position.lerp(target, 1 - Math.exp(-dt * 10));
     // 기대 있을 땐 시선을 바다 쪽으로 조금 더 멀리
     const ahead = 4 * leanBlend + INDOOR_AHEAD * indoorBlend;
-    camera.lookAt(focus.x - Math.sin(yaw) * ahead + Math.cos(yaw) * side, fy + 0.1 * leanBlend, focus.z - Math.cos(yaw) * ahead - Math.sin(yaw) * side);
+    // 올려다볼 땐 머리 앞쪽 먼 곳을 위로 들어 본다
+    const reach = ahead + 6 * Math.min(1, up * 3);
+    camera.lookAt(focus.x - Math.sin(yaw) * reach + Math.cos(yaw) * side, fy + 0.1 * leanBlend + Math.tan(up) * (reach + d), focus.z - Math.cos(yaw) * reach - Math.sin(yaw) * side);
   }
 
   return { follow, setLeaning, setIndoor, turnTo, update };
