@@ -39,8 +39,8 @@ const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS }
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
 const BOW_KEYS = [
   [0.0, 0, 0, 0, "hapjang"], [0.8, 0, 0, -0.05, "hapjang"], [1.6, 0, 0, -0.5, "hapjang"], [2.4, 0, 0, -0.05, "hapjang"],
-  [3.4, 1, 0.38, -0.1, "knees"], [4.2, 1, 0.38, -0.95, "floor"], [5.0, 1, 0.46, -1.4, "prone"], [5.6, 1, 0.46, -1.4, "prone"],
-  [6.3, 1, 0.46, -1.4, "lift"], [7.0, 1, 0.46, -1.4, "prone"], [7.8, 1, 0.38, -0.95, "floor"], [8.6, 1, 0.38, -0.1, "knees"],
+  [3.4, 1, 0.3, -0.1, "knees"], [4.2, 1, 0.3, -0.8, "floor"], [5.0, 1, 0.3, -1.25, "prone"], [5.6, 1, 0.3, -1.25, "prone"],
+  [6.3, 1, 0.3, -1.25, "lift"], [7.0, 1, 0.3, -1.25, "prone"], [7.8, 1, 0.3, -0.8, "floor"], [8.6, 1, 0.3, -0.1, "knees"],
   [9.6, 0, 0, -0.05, "hapjang"], [10.4, 0, 0, -0.5, "hapjang"], [11.2, 0, 0, 0, "hapjang"],
 ];
 function bowAt(sec) {
@@ -69,8 +69,10 @@ export function createAvatar(THREE, { color }) {
   robe.scale.set(1, 1, 0.9);
   const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.3, 10), skirtMat);
   skirt.position.y = 0.17;
-  const upper = new THREE.Group();           // 허리 위: 숙이기, 합장
-  upper.position.y = 0.6;
+  const hip = new THREE.Group();             // 엉덩이 관절: 절할 때 몸통(법복)째 숙인다
+  hip.position.y = 0.35;
+  const upper = new THREE.Group();           // 가슴 위: 머리, 합장 (손 자리는 이 틀 기준)
+  upper.position.y = 0.25;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), skinMat);
   head.position.y = 0.42;
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.212, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
@@ -79,7 +81,9 @@ export function createAvatar(THREE, { color }) {
   const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), skinMat);
   const handR = handL.clone();
   upper.add(head, hair, handL, handR);
-  body.add(robe, skirt, upper);
+  robe.position.y -= hip.position.y;
+  hip.add(robe, upper);
+  body.add(skirt, hip);
 
   // 얼굴: 웃는 눈(∩ 두 개), 부드러운 눈썹, 살짝 올라간 입꼬리(∪). 머리 앞(-z) 표면에 붙인다.
   const arc = (r, tube, m, x, y, flip, tilt = 0) => {
@@ -110,7 +114,8 @@ export function createAvatar(THREE, { color }) {
     bm.makeTranslation(Math.sin(a) * 0.15, 0.88 - (1 - Math.cos(a)) * 0.09, -Math.cos(a) * 0.12 - 0.05);
     beads.setMatrixAt(i, bm);
   }
-  body.add(beads);
+  beads.position.y = -hip.position.y;
+  hip.add(beads);
 
   // 바닥 그림자 (조명 그림자 대신 가벼운 원)
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
@@ -118,7 +123,7 @@ export function createAvatar(THREE, { color }) {
   shadow.position.y = 0.012;
   root.add(shadow);
 
-  let pose = "stand", poseT = 0, t = Math.random() * 10;
+  let pose = "stand", poseT = 0, poseAt = performance.now(), t = Math.random() * 10;
   let seated = false, sitK = 0, kneelK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
   const hands = {
     stand: [[-0.24, 0.05, -0.02], [0.24, 0.05, -0.02]],
@@ -126,14 +131,14 @@ export function createAvatar(THREE, { color }) {
     offer: [[-0.06, 0.3, -0.42], [0.06, 0.3, -0.42]],        // 두 손으로 초를 받쳐 앞으로
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
     sit: [[-0.09, -0.04, -0.24], [0.09, -0.04, -0.24]],     // 무릎 위에 포갠 손
-    knees: [[-0.2, -0.05, -0.12], [0.2, -0.05, -0.12]],      // 꿇어앉아 손은 허벅지 옆
-    floor: [[-0.2, -0.18, -0.42], [0.2, -0.18, -0.42]],      // 두 손을 앞바닥에
-    prone: [[-0.22, 0.34, -0.22], [0.22, 0.34, -0.22]],      // 이마 옆 바닥에 손바닥
-    lift: [[-0.2, 0.4, -0.06], [0.2, 0.4, -0.06]],           // 손바닥을 위로 귀까지
+    knees: [[-0.2, -0.17, -0.11], [0.2, -0.17, -0.11]],      // 꿇어앉아 손은 허벅지 위
+    floor: [[-0.2, 0.06, -0.33], [0.2, 0.06, -0.33]],        // 두 손을 앞바닥에 (몸통이 숙은 틀 기준)
+    prone: [[-0.24, 0.27, -0.19], [0.24, 0.27, -0.19]],      // 이마 옆 바닥에 손바닥
+    lift: [[-0.2, 0.26, -0.06], [0.2, 0.26, -0.06]],         // 손바닥을 위로 귀까지
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
-  function setPose(p) { if (p !== pose) { pose = p; poseT = 0; } }
+  function setPose(p) { if (p !== pose) { pose = p; poseT = 0; poseAt = performance.now(); } }
   function setSeated(on) { seated = on; }
 
   // 머리 위 이름표 ("연화보살"): 캔버스 글씨를 스프라이트로. 늘 화면을 본다.
@@ -172,27 +177,29 @@ export function createAvatar(THREE, { color }) {
   root.add(legs);
 
   function update(dt) {
-    t += dt; poseT += dt;
+    t += dt;
+    poseT = (performance.now() - poseAt) / 1000;   // 시계 기준: 화면이 느리거나 탭을 잠시 떠나도 108배 숫자와 몸짓이 어긋나지 않게
     const k = 1 - Math.exp(-dt * 6);
-    let tilt = 0, upperTilt = 0, bob = 0, target = hands.stand, swing = 0;
+    let tilt = 0, upperTilt = 0, hipTilt = 0, bob = 0, target = hands.stand, swing = 0;
     if (pose === "walk") { bob = Math.abs(Math.sin(t * 8)) * 0.04; swing = Math.sin(t * 8) * 0.12; }
     else if (pose === "stand") { bob = Math.sin(t * 1.6) * 0.008; }
     else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "lean") { tilt = -0.12; upperTilt = -0.28; target = hands.lean; bob = Math.sin(t * 1.2) * 0.006; }
-    else if (pose === "hapjang") { target = hands.hapjang; upperTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
+    else if (pose === "hapjang") { target = hands.hapjang; hipTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
     else if (pose === "light") {                                  // 초를 앞으로 내밀어 올리고(1.6초), 합장으로 마무리
       target = poseT < 2 ? hands.offer : hands.hapjang;
-      upperTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
+      hipTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
     }
     let kneel = 0, drop = 0;
     if (pose === "bow" || pose === "bow108") {
       const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
-      upperTilt = b.tilt; kneel = b.kneel; drop = b.drop;
+      hipTilt = b.tilt; kneel = b.kneel; drop = b.drop;
       const A = hands[b.from], B = hands[b.to];
       target = A.map((h, j) => h.map((v, n) => v + (B[j][n] - v) * b.e));
     }
     body.rotation.x = lerp(body.rotation.x, tilt, k);
     upper.rotation.x = lerp(upper.rotation.x, upperTilt, k);
+    hip.rotation.x = lerp(hip.rotation.x, hipTilt, k);           // 절·합장은 엉덩이부터 몸통째 숙인다
     sitK = lerp(sitK, seated ? 1 : 0, k);
     kneelK = lerp(kneelK, Math.max(kneel, seated ? 1 : 0), k * 1.5);
     // 앉은 자세: 몸통을 다리 위로 내리고(머리 높이 약 2/3), 치마 대신 포갠 다리가 드러난다
