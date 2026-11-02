@@ -110,6 +110,7 @@ export function createLandscape(THREE, { seaY, railZ, yard }) {
   };
   const terrain = new THREE.Mesh(geo, terrainMat);
   group.add(terrain);
+  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm }));
 
   /* 먼 바위섬: 가파른 바위에 꼭대기만 소나무 숲 */
   // 먼 섬은 안개를 반쯤만 먹는다: 아침·저녁 밝은 수평선 빛에 하얗게 떠 보이지 않고 어두운 바위 실루엣으로
@@ -177,4 +178,88 @@ export function boulderGeometry(THREE, seed) {
   g.setAttribute("color", new THREE.BufferAttribute(col, 3));
   g.computeVertexNormals();
   return g;
+}
+
+/* 가까운 산비탈의 숲: 둥근 단풍나무(주황·다홍·노랑, 무리 지어)와 짙은 소나무 수천 그루.
+   잎 덩어리는 정이십면체 세 개를 겹친 낮은 폴리곤에 둥근 법선을 줘서 부드러운 공처럼 보이게.
+   방향별 8묶음으로 나눠 등 뒤 묶음은 그리지 않는다. 멀수록 크게 심어 빈틈을 메운다. */
+function plantTrees(THREE, { height, seaY, railZ, yard, fbm }) {
+  const rnd = mulberry32(23);
+  // 잎 덩어리: 크기 1 언저리, 바닥이 y=0
+  const blobs = [[0, 0.62, 0, 0.55], [-0.28, 0.45, 0.12, 0.4], [0.27, 0.48, -0.1, 0.42]];
+  const crownParts = blobs.map(([x, y, z, r]) => {
+    const g = new THREE.IcosahedronGeometry(r, 0);
+    g.translate(x, y, z);
+    return g;
+  });
+  const crown = mergeParts(THREE, crownParts, (p) => p.clone().sub(new THREE.Vector3(0, 0.5, 0)).normalize());
+  const pine = new THREE.ConeGeometry(0.42, 1.25, 7, 1);
+  pine.translate(0, 0.62, 0);
+  const pineTop = new THREE.ConeGeometry(0.3, 0.8, 7, 1);
+  pineTop.translate(0, 1.05, 0);
+  const pineGeo = mergeParts(THREE, [pine, pineTop], null);
+
+  const autumn = [0x9c2f12, 0xb84a14, 0xc9701c, 0xd49a2a, 0xb9a23a, 0x7f2510].map((c) => new THREE.Color(c));
+  const pineCols = [0x3f5a30, 0x4a6436, 0x36502b].map((c) => new THREE.Color(c));
+  const SECTORS = 8, leaf = [], conifer = [];
+  for (let i = 0; i < SECTORS; i++) { leaf.push([]); conifer.push([]); }
+
+  const inYardZone = (x, z) => Math.abs(x) < yard.maxX + 12 && z > railZ - 3 && z < yard.maxZ + 14;   // 마당 둘레는 비워 바다·산이 보이게
+  for (let k = 0; k < 8000; k++) {                              // 폰에서도 가볍게: 나무 약 4,700그루
+    const a = rnd() * Math.PI * 2, r = 24 + 300 * Math.pow(rnd(), 1.5);
+    const x = Math.sin(a) * r, z = Math.cos(a) * r;
+    if (inYardZone(x, z)) continue;
+    const y = height(x, z);
+    if (y < seaY + 4) continue;                                     // 물가·바다
+    const sx = height(x + 2, z) - height(x - 2, z), sz = height(x, z + 2) - height(x, z - 2);
+    if (Math.hypot(sx, sz) / 4 > 0.9) continue;                     // 깎아지른 벼랑엔 안 자란다
+    const grow = 1.15 + Math.max(0, r - 40) / 80;                    // 멀수록 크게 (빈틈 없이), 가까운 나무는 실제 크기
+    const isPine = fbm(x / 40 - 7, z / 40 + 3, 3) < 0.3 || rnd() < 0.07;   // 단풍이 주인공, 소나무는 군데군데
+    const sector = Math.floor(((a / (Math.PI * 2)) * SECTORS) % SECTORS);
+    const t = { x, y: y - 0.3, z, s: (isPine ? 3.6 + rnd() * 2 : 2.6 + rnd() * 1.6) * grow, ry: rnd() * 6.28 };
+    if (isPine) { t.c = pineCols[Math.floor(rnd() * pineCols.length)]; conifer[sector].push(t); }
+    else {
+      const f = fbm(x / 18 + 11, z / 18 - 4, 3);                    // 같은 빛깔끼리 무리 지어
+      const i = Math.min(autumn.length - 1, Math.floor(Math.max(0, f - 0.25) * 2 * autumn.length + rnd() * 1.5));
+      t.c = autumn[i].clone().multiplyScalar(0.85 + rnd() * 0.3);
+      leaf[sector].push(t);
+    }
+  }
+
+  const g = new THREE.Group();
+  const leafMat = new THREE.MeshLambertMaterial(), pineMat = new THREE.MeshLambertMaterial();
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const build = (list, geo, mat, wide) => {
+    if (!list.length) return;
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((t, i) => {
+      mesh.setMatrixAt(i, m4.compose(v.set(t.x, t.y, t.z), q.setFromAxisAngle(up, t.ry), sc.set(t.s * wide, t.s, t.s * wide)));
+      mesh.setColorAt(i, t.c);
+    });
+    mesh.computeBoundingSphere();
+    g.add(mesh);
+  };
+  for (let i = 0; i < SECTORS; i++) { build(leaf[i], crown, leafMat, 1.25); build(conifer[i], pineGeo, pineMat, 0.9); }
+  g.userData.count = leaf.flat().length + conifer.flat().length;
+  return g;
+}
+
+// 여러 조각을 한 지오메트리로. normalFn이 있으면 법선을 그 방향으로 (둥근 잎 덩어리)
+function mergeParts(THREE, parts, normalFn) {
+  const pos = [], nrm = [], v = new THREE.Vector3();
+  for (const p of parts) {
+    const g = p.index ? p.toNonIndexed() : p;
+    g.computeVertexNormals();
+    const pa = g.attributes.position, na = g.attributes.normal;
+    for (let i = 0; i < pa.count; i++) {
+      v.fromBufferAttribute(pa, i);
+      pos.push(v.x, v.y, v.z);
+      const n = normalFn ? normalFn(v) : v.fromBufferAttribute(na, i);
+      nrm.push(n.x, n.y, n.z);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  return out;
 }

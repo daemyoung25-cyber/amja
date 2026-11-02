@@ -35,7 +35,18 @@ export function createCandleRack(THREE, { x, z }) {
     r.rotation.x = s * 0.42;
   }
   box(2.55, 0.08, 0.08, roofMat, 0, 2.15, 0);
-  box(0.5, 0.12, 0.02, gold, 0, 1.68, -0.4);                   // 현판 자리
+  // 현판: 검은 바탕에 금빛 글씨 '촛불 공양' (작게)
+  const sign = document.createElement("canvas"); sign.width = 512; sign.height = 128;
+  const sg = sign.getContext("2d");
+  sg.fillStyle = "#2a1a12"; sg.fillRect(0, 0, 512, 128);
+  sg.strokeStyle = "#b08a3a"; sg.lineWidth = 8; sg.strokeRect(6, 6, 500, 116);
+  sg.fillStyle = "#e2bf6a"; sg.font = '700 72px "Nanum Myeongjo","Batang","AppleMyungjo",serif';
+  sg.textAlign = "center"; sg.textBaseline = "middle"; sg.fillText("촛불 공양", 256, 68);
+  const signTex = new THREE.CanvasTexture(sign); signTex.colorSpace = THREE.SRGBColorSpace; signTex.anisotropy = 4;
+  const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.18), new THREE.MeshLambertMaterial({ map: signTex }));
+  signMesh.position.set(0, 1.66, -0.42);
+  signMesh.rotation.y = Math.PI;                                 // 앞(-z)을 본다
+  group.add(signMesh);
 
   /* 초: 컵(투명한 듯 연한 호박빛), 초, 불꽃은 칸 수만큼 인스턴스로 */
   const cupGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.1, 10);
