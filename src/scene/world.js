@@ -403,9 +403,9 @@ export function createWorld(THREE, scene) {
 
   /* 연등: 법당 앞부터 난간 가까이까지 마당 위로 줄줄이, 연꽃 모양 등. 해가 지면 불이 켜진 듯 밝아진다.
      해수관음 위는 줄을 걸지 않아 하늘이 트이고, 난간 앞 5m도 비워 바다를 가리지 않는다. */
-  const POLE_X = COURTYARD.maxX + 0.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
+  const POLE_X = COURTYARD.maxX + 0.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 1.2;
   const LANTERN_ROWS = [];
-  for (let z = 3.4; z >= RAIL_Z + 5; z -= 0.8) {
+  for (let z = 3.4; z >= RAIL_Z + 5; z -= 1.6) {   // 줄 사이 1.6m, 등 사이 1.2m
     if (Math.abs(z - STATUE.z) >= 2.2) LANTERN_ROWS.push({ z, x0: -POLE_X, x1: POLE_X });
   }
   const LANTERN_COLORS = [0xf28fb0, 0xf5a35c, 0xf3dd7a, 0x9fd38a, 0xe0574a, 0xf7f1e3];
