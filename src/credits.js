@@ -2,6 +2,10 @@
 export const CREDITS = [
   { what: "파도", title: "Ocean Surf Along the Coast of Maine", by: "be-steele", url: "https://freesound.org/people/be-steele/sounds/362414/", license: "CC0" },
   { what: "독경", title: "염불소리1 (반야심경)", by: "김용배 · 공유마당", url: "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13254274", license: "CC BY" },
+  { what: "고르는 염불: 서울 절 저녁예불", title: "JongsouTemple - Seoul South Korea (Evening Buddhist service)", by: "RTB45 · Freesound", url: "https://freesound.org/people/RTB45/sounds/232411/", license: "CC BY 4.0" },
+  { what: "고르는 염불: 천안 각원사", title: "Temple exterior.wav (Gakwonsa Temple, Cheonan)", by: "3bagbrew · Freesound", url: "https://freesound.org/people/3bagbrew/sounds/345027/", license: "CC0" },
+  { what: "고르는 염불: 경주 불국사", title: "Monk Chant (Bulguksa Temple, Gyeong-Ju) 1·2", by: "bondegi · Freesound", url: "https://freesound.org/people/bondegi/sounds/30199/", license: "CC BY 4.0" },
+  { what: "고르는 염불: 고창 선운사", title: "산_선운산 선운사_새, 샘물, 염불, 목탁", by: "JICA · (재)전주정보문화산업진흥원 · 공유마당", url: "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13372493", license: "공공누리 제1유형" },
   { what: "저녁예불", title: "산_선운산 선운사_저녁예불, 새소리, 범종, 목어, 운판, 목탁", by: "JICA · (재)전주정보문화산업진흥원 · 공유마당", url: "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13372495", license: "공공누리 제1유형" },
   { what: "풍경", title: "직접 합성한 소리", by: "", url: "", license: "" },
   { what: "불상", title: "서라벌 천년왕경 금동제여래좌상 3D 에셋", by: "국가유산청", url: "https://digital.khs.go.kr", license: "공공누리 제1유형" },

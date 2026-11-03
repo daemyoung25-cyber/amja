@@ -29,3 +29,18 @@ test("the monk's seat (with desk) is inside the hall, beside the altar, clear of
   const p = clampToWalkable({ x: MONK.x, z: MONK.z + 0.1 });
   assert.ok(Math.hypot(p.x - MONK.x, p.z - MONK.z) >= MONK.r - 1e-9, JSON.stringify(p));
 });
+
+test("every chant track exists, has a unique id, and its moktak hits fit inside it", async () => {
+  const { CHANTS, chantById } = await import("../src/logic/chants.js");
+  const { existsSync } = await import("node:fs");
+  assert.ok(CHANTS.length >= 5);
+  assert.equal(new Set(CHANTS.map((c) => c.id)).size, CHANTS.length);
+  for (const c of CHANTS) {
+    assert.ok(existsSync(new URL("../" + c.url, import.meta.url)), c.url);
+    for (let i = 0; i < c.hits.length; i++) {
+      assert.ok(c.hits[i][0] >= 0 && c.hits[i][0] < c.len);
+      if (i) assert.ok(c.hits[i][0] > c.hits[i - 1][0]);
+    }
+  }
+  assert.equal(chantById("nope").id, CHANTS[0].id);          // 모르는 값이 저장돼 있으면 첫 녹음
+});

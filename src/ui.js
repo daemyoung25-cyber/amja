@@ -224,6 +224,13 @@ export function createUI({ placeName }) {
     onBow: (cb) => btnBow.addEventListener("click", cb),
     onBow108: (cb) => btnBow108.addEventListener("click", cb), setBowing, setBowCount,
     onOpenSettings: (cb) => btnSound.addEventListener("click", cb),
+    // 들을 염불 고르기 (소리 시트 안)
+    setChantOptions: (list, current) => {
+      const sel = $("chant-pick");
+      sel.replaceChildren(...list.map((c) => { const o = document.createElement("option"); o.value = c.id; o.textContent = c.name; return o; }));
+      sel.value = current;
+    },
+    onChant: (cb) => $("chant-pick").addEventListener("change", (e) => cb(e.target.value)),
     // 소리 한 번에 끄기/켜기 버튼: 꺼져 있으면 '켜기'
     onMute: (cb) => $("btn-mute").addEventListener("click", cb),
     setMuted: (m) => { const b = $("btn-mute"); b.textContent = m ? "켜기" : "끄기"; b.setAttribute("aria-pressed", String(m)); b.setAttribute("aria-label", m ? "소리 다시 켜기" : "소리 모두 끄기"); },

@@ -21,7 +21,30 @@ export function createAudio({ urls }) {
     src.buffer = buffer; src.loop = true;
     src.connect(layers[name]);
     src.start(ctx.currentTime + 0.05, offset);
-    if (name === "chant") chantClock = { at: ctx.currentTime + 0.05, offset, len: buffer.duration };
+  }
+
+  // 염불 층: 고른 녹음 하나가 처음 구절부터 반복된다. 바꾸면 1.5초에 걸쳐 앞 녹음이 잦아들고 새 녹음이 들어온다
+  let chantTrack = null, chantSrc = null, chantGain = null, chantReq = 0;
+  const cache = new Map();
+  const loadCached = (url) => { if (!cache.has(url)) cache.set(url, load(url).catch((e) => { cache.delete(url); throw e; })); return cache.get(url); };
+  function playChant(track, buffer) {
+    const at = ctx.currentTime + 0.05;
+    if (chantSrc) {
+      const os = chantSrc, og = chantGain;
+      og.gain.setTargetAtTime(0, at, 0.4);
+      setTimeout(() => { try { os.stop(); } catch {} os.disconnect(); og.disconnect(); }, 2500);
+    }
+    chantGain = ctx.createGain(); chantGain.gain.value = 0; chantGain.connect(layers.chant);
+    chantGain.gain.setTargetAtTime(1, at, chantSrc ? 0.4 : 0.01);
+    chantSrc = ctx.createBufferSource(); chantSrc.buffer = buffer; chantSrc.loop = true;
+    chantSrc.connect(chantGain); chantSrc.start(at, 0);
+    chantClock = { at, offset: 0, len: buffer.duration, track };
+  }
+  async function setChant(track) {
+    chantTrack = track;
+    if (!ctx) return;
+    const req = ++chantReq;
+    try { const b = await loadCached(track.url); if (req === chantReq) playChant(track, b); } catch {}
   }
 
   function strike() {
@@ -74,8 +97,9 @@ export function createAudio({ urls }) {
     master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 1.2);    // 들어오면서 천천히 커진다
     apply();
     // 온라인 산사처럼 들어서면 불경이 먼저: 처음 구절부터 흐르고, 나머지 소리는 조금 뒤에 깔린다
-    const [w, c, ev] = await Promise.allSettled([load(urls.waves), load(urls.chant), load(urls.evening)]);
-    if (c.status === "fulfilled") startLoop("chant", c.value, 0);
+    const track = chantTrack || { url: urls.chant }, req = ++chantReq;
+    const [w, c, ev] = await Promise.allSettled([load(urls.waves), loadCached(track.url), load(urls.evening)]);
+    if (c.status === "fulfilled" && req === chantReq) playChant(track, c.value);
     if (w.status === "fulfilled") startLoop("waves", w.value);
     if (ev.status === "fulfilled") startLoop("evening", ev.value);
     setTimeout(bringInAmbient, c.status === "fulfilled" ? INTRO_S * 1000 : 0);
@@ -105,12 +129,12 @@ export function createAudio({ urls }) {
     if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.25);
   }
 
-  // 지금 들리는 염불의 자리(초). 꺼져 있거나 멈췄으면 null
-  function chantTime() {
+  // 지금 들리는 염불: { t: 녹음 안 자리(초), track }. 꺼져 있거나 멈췄으면 null
+  function chantNow() {
     if (!chantClock || !ctx || ctx.state !== "running" || muted || volume.chant <= 0) return null;
     const t = ctx.currentTime - chantClock.at;
-    return t < 0 ? null : (t + chantClock.offset) % chantClock.len;
+    return t < 0 ? null : { t: (t + chantClock.offset) % chantClock.len, track: chantClock.track };
   }
 
-  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, chantTime, state: () => (ctx ? ctx.state : "suspended") };
+  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, chantNow, setChant, state: () => (ctx ? ctx.state : "suspended") };
 }

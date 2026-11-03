@@ -7,6 +7,7 @@ import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
 import { strikeLift } from "./logic/moktak.js";
+import { CHANTS, chantById } from "./logic/chants.js";
 import { BOWS, bowsDone } from "./logic/bows.js";
 import { createCameraRig } from "./scene/camera.js";
 import { createUI } from "./ui.js";
@@ -288,6 +289,18 @@ ui.onMute(() => {
   if (!muted) audio.resumeIfNeeded();
   try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch {}
 });
+// 들을 염불 고르기 (이 폰에 기억)
+const CHANT_KEY = "amja-chant";
+let chantId = "yeombul";
+try { chantId = chantById(localStorage.getItem(CHANT_KEY) || "").id; } catch {}
+audio.setChant(chantById(chantId));
+ui.setChantOptions(CHANTS, chantId);
+ui.onChant((id) => {
+  chantId = chantById(id).id;
+  audio.setChant(chantById(chantId));
+  audio.resumeIfNeeded();
+  try { localStorage.setItem(CHANT_KEY, chantId); } catch {}
+});
 ui.onOpenSettings(() => ui.openSettings({ volumes }));
 ui.onOpenCredits(() => ui.openCredits(CREDITS));
 ui.onVolume((layer, v) => {
@@ -358,7 +371,8 @@ function frame(t) {
   me.root.rotation.y = state.yaw;
   me.setSeated(seated);
   me.update(dt);
-  monk.setStrike(strikeLift(audio.chantTime()));
+  const chantNow = audio.chantNow();
+  monk.setStrike(chantNow && chantNow.track ? strikeLift(chantNow.t, chantNow.track.hits, chantNow.track.len) : 0);
   monk.update(dt);
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);

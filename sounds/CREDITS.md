@@ -5,6 +5,10 @@
 | `waves.mp3` | [Ocean Surf Along the Coast of Maine](https://freesound.org/people/be-steele/sounds/362414/) | be-steele (Freesound) | CC0 1.0 | 100초부터 90초 잘라 반복 이음, 모노 80kbps |
 | `chant.mp3` | [염불소리1](https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13254274) — 공유마당, 키워드 반야심경·마하반야바라밀다심경 | 김용배 (한국저작권위원회 공유마당) | CC BY | 9초부터 108초 잘라 반복 이음, 모노 80kbps |
 | `evening.mp3` | [산_선운산 선운사_저녁예불, 새소리, 범종, 목어, 운판, 목탁](https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13372495) | JICA · (재)전주정보문화산업진흥원 (공유마당) | 공공누리 제1유형 (출처 표시) | 0초부터 96초 반복 이음, 모노 80kbps |
+| `chant-seoul.mp3` | [JongsouTemple - Seoul South Korea](https://freesound.org/people/RTB45/sounds/232411/) — 저녁예불 | RTB45 (Freesound) | CC BY 4.0 | 0~256초, chant.mp3과 같은 RMS, 끝 3초를 처음에 겹쳐 반복 이음, 모노 80kbps |
+| `chant-gakwon.mp3` | [Temple exterior.wav](https://freesound.org/people/3bagbrew/sounds/345027/) — 천안 각원사, 법당 밖 염불 | 3bagbrew (Freesound) | CC0 | 0~190초, 같은 처리 |
+| `chant-bulguk.mp3` | [Monk Chant](https://freesound.org/people/bondegi/sounds/30199/) + [Monk Chant2](https://freesound.org/people/bondegi/sounds/30200/) — 경주 불국사 | bondegi (Freesound) | CC BY 4.0 | 두 녹음을 1초 겹쳐 이음, 같은 처리 |
+| `chant-seonun.mp3` | [산_선운산 선운사_새, 샘물, 염불, 목탁](https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?menuNo=200020&wrtSn=13372493) | JICA · (재)전주정보문화산업진흥원 (공유마당) | 공공누리 제1유형 (출처 표시) | 0~237초, 3.2kHz 위를 눌러 샘물 소리를 줄이고 같은 처리 |
 
 풍경 소리는 음원 없이 Web Audio로 합성한다.
 
