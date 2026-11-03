@@ -5,6 +5,7 @@ import { ISLAND, BRIDGE, HERMITAGE } from "../logic/layout.js";
 import { pavingMaterial } from "./paving.js";
 import { dancheongBand, cofferTexture } from "./dancheong.js";
 import { createBuddha } from "./buddha.js";
+import { offeringKit } from "./offerings.js";
 import { createGongpo } from "./gongpo.js";
 
 export function createHermitage(THREE) {
@@ -131,6 +132,19 @@ export function createHermitage(THREE) {
   for (const sx of [-1, 1]) {                                                       // 촛대 한 쌍
     box(0.06, 0.28, 0.06, mat(0xd2a948), sx * 1.25, FY + ALTAR_H + 0.2, altarZ + 0.2);
     box(0.04, 0.06, 0.04, mat(0xffd27a, { emissive: 0xffb347 }), sx * 1.25, FY + ALTAR_H + 0.37, altarZ + 0.2);
+  }
+  // 불단 공양물: 큰 법당과 같이 향로 양옆으로 마지·다기·과일·(초)·떡·한과·국화 꽃병 (정면이 +z)
+  {
+    const o = offeringKit(THREE, hall), top = FY + ALTAR_H + 0.06, F = altarZ + 0.25;
+    o.censer(0, top, F + 0.05);
+    for (const sx of [-1, 1]) {
+      o.mazi(sx * 0.3, top, F);
+      o.dagi(sx * 0.58, top, F - 0.05);
+      o.fruitStack(sx * 0.92, top, F - 0.02, sx < 0 ? 0xe0802a : 0xc23a2a);          // 감, 사과
+      o.tteok(sx * 1.6, top, F - 0.02, sx < 0 ? "baek" : "siru");
+      o.hangwa(sx * 1.95, top, F - 0.02, sx < 0 ? "yakgwa" : "yugwa");
+      o.vase(sx * 2.22, top, F - 0.1);
+    }
   }
   // 부처님: 처음엔 코드로 만든 좌상, 큰 법당 스캔 불상을 다 받으면 그 복제본으로 바꾼다
   const BUDDHA_H = 1.35, buddhaY = FY + ALTAR_H + 0.06;
