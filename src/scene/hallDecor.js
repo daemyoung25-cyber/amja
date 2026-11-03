@@ -3,7 +3,8 @@
    - 왼쪽 벽: 지장보살·시왕도와 영단 / 오른쪽 벽: 신중탱화와 신중단 (각각 작은 단에 촛불·과일·향로)
    - 옆벽 앞쪽: 꽃살 창
    - 천장 아래: 이름표를 단 작은 연등(인등) 줄
-   - 불단 위: 향로와 과일 공양 / 불단 앞: 경상과 목탁 */
+   - 불단 위: 향로와 과일 공양 / 불단 왼쪽 앞: 스님 자리 방석과 경상 (스님은 main.js) */
+import { MONK } from "../logic/layout.js";
 export function decorateHall(THREE, hall, d) {
   const { FY, W_SIDE, W_FRONT, W_BACK, WT, CEILING_Y, ALTAR, altarTop, TH_W, TH_Y, TH_H, latticeMat, sumidanMat, gold } = d;
   const mat = (color, o = {}) => new THREE.MeshLambertMaterial({ color, flatShading: true, ...o });
@@ -103,12 +104,18 @@ export function decorateHall(THREE, hall, d) {
   /* 불단 위 향로·과일, 불단 앞 경상과 목탁 */
   censer(ALTAR.x, altarTop, ALTAR.z - 0.5);
   for (const sx of [-1, 1]) fruitStack(ALTAR.x + sx * 1.45, altarTop, ALTAR.z - 0.45, sx < 0 ? 0xe0802a : 0xc23a2a);
-  const deskX = -2.6, deskZ = ALTAR.z - 1.9;
-  box(0.9, 0.3, 0.45, deepRed, deskX, FY + 0.15, deskZ);
-  box(0.95, 0.04, 0.5, gold, deskX, FY + 0.32, deskZ);
-  box(0.36, 0.05, 0.26, mat(0xe8dcc0), deskX - 0.15, FY + 0.36, deskZ);              // 경전
-  const moktak = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), mat(0x8a4a24));
-  moktak.scale.set(1, 0.8, 0.9); moktak.position.set(deskX + 0.25, FY + 0.42, deskZ); add(moktak);
+  // 스님 자리: 방석과, 부처님 쪽 앞에 경상(펼친 경전). 예전엔 방석 줄과 겹쳤다
+  {
+    const fx = ALTAR.x - MONK.x, fz = ALTAR.z - MONK.z, L = Math.hypot(fx, fz), ux = fx / L, uz = fz / L;
+    box(0.74, 0.09, 0.74, mat(0x6e3b2a), MONK.x, FY + 0.045, MONK.z).rotation.y = Math.atan2(ux, uz);
+    const desk = new THREE.Group();
+    desk.position.set(MONK.x + ux * 0.66, FY, MONK.z + uz * 0.66);
+    desk.rotation.y = Math.atan2(ux, uz);                                             // 긴 쪽이 스님 앞을 가로지른다
+    for (const [w, h, dd, m, y] of [[0.9, 0.3, 0.42, deepRed, 0.15], [0.95, 0.04, 0.48, gold, 0.32], [0.42, 0.04, 0.28, mat(0xe8dcc0), 0.36]]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), m); b.position.y = y; desk.add(b);
+    }
+    add(desk);
+  }
 
   function fruitStack(x, y, z, color) {
     const fm = mat(color);

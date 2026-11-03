@@ -8,6 +8,7 @@ export function createAudio({ urls }) {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   let ctx = null, master = null;
   const layers = {}, volume = { waves: 1, chime: 1, chant: 1, evening: 1 };   // 사용자가 정한 크기 0..1
+  let chantClock = null;                                   // 염불이 몇 초째인지 (법당 스님 목탁을 맞추려고)
   let listener = { x: 0, z: 0 }, chimeTimer = 0, ambient = 0;   // ambient: 불경 말고 나머지 층 (0 → 1)
 
   async function load(url) {
@@ -20,6 +21,7 @@ export function createAudio({ urls }) {
     src.buffer = buffer; src.loop = true;
     src.connect(layers[name]);
     src.start(ctx.currentTime + 0.05, offset);
+    if (name === "chant") chantClock = { at: ctx.currentTime + 0.05, offset, len: buffer.duration };
   }
 
   function strike() {
@@ -103,5 +105,12 @@ export function createAudio({ urls }) {
     if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.25);
   }
 
-  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, state: () => (ctx ? ctx.state : "suspended") };
+  // 지금 들리는 염불의 자리(초). 꺼져 있거나 멈췄으면 null
+  function chantTime() {
+    if (!chantClock || !ctx || ctx.state !== "running" || muted || volume.chant <= 0) return null;
+    const t = ctx.currentTime - chantClock.at;
+    return t < 0 ? null : (t + chantClock.offset) % chantClock.len;
+  }
+
+  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, chantTime, state: () => (ctx ? ctx.state : "suspended") };
 }

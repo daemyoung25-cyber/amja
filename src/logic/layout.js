@@ -104,6 +104,8 @@ export const DOOR_IN = { x: 0, z: 7.1 };
 export const ALTAR = { x: 0, z: 13.9 };
 export const CUSHIONS = [-4, -2, 0, 2, 4].flatMap((x) => [{ x, z: 8.6 }, { x, z: 10.2 }, { x, z: 11.8 }]);
 export const FLOOR_Y = 0.5;
+// 스님 자리: 불단 왼쪽 앞, 방석 줄 밖. 늘 앉아 목탁을 치며 염불한다 (앞에 경상). r은 못 들어가는 반지름
+export const MONK = { x: -5.7, z: 12.5, r: 0.85 };
 export const CEILING_Y = FLOOR_Y + WALLS.height - 0.6;   // 바깥 처마 단청 상자(벽 위 0.45m부터)보다 아래
 // 법당 안에 있을 때 카메라가 머무를 상자 (벽·천장 안쪽). 문으로 빠져나가면 문틀에 걸려 깜빡인다.
 export const ROOM = { minX: -8.1, maxX: 8.1, minZ: 6.95, maxZ: 14.7, maxY: CEILING_Y - 0.2 };
@@ -157,7 +159,12 @@ export function clampToWalkable({ x, z }) {
   if (z > COURTYARD.maxZ && Math.abs(x - CAVE.x) <= STEP_HALF + 0.6) return { x: clamp(x, CAVE.x - STEP_HALF + 0.2, CAVE.x + STEP_HALF - 0.2), z };
   let p = { x: clamp(x, COURTYARD.minX, COURTYARD.maxX), z: clamp(z, COURTYARD.minZ, COURTYARD.maxZ) };
   // 법당을 누르면 안으로 들어간다 (불단 앞까지)
-  if (inHall(p)) return { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
+  if (inHall(p)) {
+    const q = { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
+    const dx = q.x - MONK.x, dz = q.z - MONK.z, d = Math.hypot(dx, dz);   // 스님 자리를 누르면 스님 옆(바깥쪽 둘레)으로
+    if (d < MONK.r) return d > 1e-6 ? { x: MONK.x + (dx / d) * MONK.r, z: MONK.z + (dz / d) * MONK.r } : { x: MONK.x, z: MONK.z - MONK.r };
+    return q;
+  }
   for (const o of ROUND) {
     const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), r = o.r + MARGIN;
     if (d < r) {

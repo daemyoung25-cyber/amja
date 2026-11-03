@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
+import { strikeLift } from "./logic/moktak.js";
 import { BOWS, bowsDone } from "./logic/bows.js";
 import { createCameraRig } from "./scene/camera.js";
 import { createUI } from "./ui.js";
@@ -54,6 +55,12 @@ const clockNow = () => Date.now() + timeOffset;
 const colorIndex = Math.floor(Math.random() * AVATAR_COLORS.length);
 const me = createAvatar(THREE, { color: AVATAR_COLORS[colorIndex] });
 scene.add(me.root);
+// 대웅전 스님: 늘 불단 왼쪽 앞 자리에 앉아 염불 녹음 속 목탁 박자에 맞춰 목탁을 친다
+const monk = createAvatar(THREE, { color: 0x9a968d, monk: true });
+monk.root.position.set(MONK.x, floorY(MONK), MONK.z);
+monk.root.rotation.y = faceAltar(MONK);
+monk.setSeated(true); monk.setPose("moktak");
+scene.add(monk.root);
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
 let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {} };
@@ -351,6 +358,8 @@ function frame(t) {
   me.root.rotation.y = state.yaw;
   me.setSeated(seated);
   me.update(dt);
+  monk.setStrike(strikeLift(audio.chantTime()));
+  monk.update(dt);
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
   ui.setNearStatue(inside || insideCave(p) || inHerm || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);

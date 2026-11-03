@@ -52,7 +52,7 @@ function bowAt(sec) {
   return { kneel: mix(a[1], b[1]), drop: mix(a[2], b[2]), tilt: mix(a[3], b[3]), from: a[4], to: b[4], e };
 }
 
-export function createAvatar(THREE, { color }) {
+export function createAvatar(THREE, { color, monk = false }) {
   const m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, transparent: true });
   const robeMat = m(color), skirtMat = m(color), skinMat = m(0xf0d6bd), hairMat = m(0x2a2522);
   robeMat.map = robeTexture(THREE);
@@ -81,6 +81,23 @@ export function createAvatar(THREE, { color }) {
   const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), skinMat);
   const handR = handL.clone();
   upper.add(head, hair, handL, handR);
+  // 스님: 민머리, 왼손에 목탁, 오른손에 목탁채
+  let setStrike = () => {}, strikeLift = 0;
+  if (monk) {
+    hairMat.color.set(0xb9a593);                 // 민머리: 깎은 머리빛 (눈썹도 옅게)
+    hair.rotation.x = 0.25;
+    const wood = m(0x8a4a24);
+    const mok = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), wood);
+    mok.scale.set(1.05, 0.82, 0.95); mok.position.set(0.07, 0.04, -0.03); handL.add(mok);
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.03), m(0x3a1e10));
+    slit.position.set(0.07, 0.03, -0.11); handL.add(slit);
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.2, 5), m(0x5a3a22));
+    stick.rotation.z = Math.PI / 2; stick.position.set(-0.09, 0.0, -0.02); handR.add(stick);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 5), m(0x5a3a22));
+    knob.position.set(-0.19, 0, -0.02); handR.add(knob);
+    materials.push(wood);
+    setStrike = (v) => { strikeLift = v; };
+  }
   robe.position.y -= hip.position.y;
   hip.add(robe, upper);
   body.add(skirt, hip);
@@ -135,6 +152,7 @@ export function createAvatar(THREE, { color }) {
     floor: [[-0.2, 0.06, -0.33], [0.2, 0.06, -0.33]],        // 두 손을 앞바닥에 (몸통이 숙은 틀 기준)
     prone: [[-0.24, 0.27, -0.19], [0.24, 0.27, -0.19]],      // 이마 옆 바닥에 손바닥
     lift: [[-0.2, 0.26, -0.06], [0.2, 0.26, -0.06]],         // 손바닥을 위로 귀까지
+    moktak: [[-0.1, -0.01, -0.3], [0.13, 0.05, -0.3]],       // 왼손에 목탁, 오른손 채는 목탁 위
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -184,6 +202,7 @@ export function createAvatar(THREE, { color }) {
     if (pose === "walk") { bob = Math.abs(Math.sin(t * 8)) * 0.04; swing = Math.sin(t * 8) * 0.12; }
     else if (pose === "stand") { bob = Math.sin(t * 1.6) * 0.008; }
     else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
+    else if (pose === "moktak") { target = hands.moktak; upperTilt = -0.1; bob = Math.sin(t * 1.1) * 0.004; }
     else if (pose === "lean") { tilt = -0.12; upperTilt = -0.28; target = hands.lean; bob = Math.sin(t * 1.2) * 0.006; }
     else if (pose === "hapjang") { target = hands.hapjang; hipTilt = poseT > 0.8 && poseT < 1.8 ? -0.35 : -0.05; }
     else if (pose === "light") {                                  // 초를 앞으로 내밀어 올리고(1.6초), 합장으로 마무리
@@ -213,6 +232,7 @@ export function createAvatar(THREE, { color }) {
     if (tag) tag.position.y = 1.55 + body.position.y;
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
+    if (pose === "moktak") handR.position.y = target[1][1] + 0.15 * strikeLift;   // 채질은 빠르니 따라가지 않고 바로
   }
 
   function setOpacity(o) {
@@ -223,7 +243,7 @@ export function createAvatar(THREE, { color }) {
   }
 
   update(0);
-  return { root, setPose, setSeated, setName, update, setOpacity, get pose() { return pose; } };
+  return { root, setPose, setSeated, setName, update, setOpacity, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;
