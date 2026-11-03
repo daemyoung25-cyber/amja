@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BRIDGE, ISLAND, RAIL_Z, COURTYARD, HALL, LEAN_Z, floorY, resolveTap, routeAround, clampToWalkable, nearestLeanSpot, onBridge, onIsland, bridgeAt } from "../src/logic/layout.js";
+import { BRIDGE, ISLAND, HERMITAGE, RAIL_Z, COURTYARD, HALL, LEAN_Z, floorY, resolveTap, routeAround, clampToWalkable, nearestLeanSpot, onBridge, onIsland, bridgeAt } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inYard = (p) => p.x >= COURTYARD.minX && p.x <= COURTYARD.maxX && p.z >= COURTYARD.minZ && p.z <= COURTYARD.maxZ;
@@ -69,4 +69,17 @@ test("leaning on the railing never stands in the bridge gap", () => {
   const s = nearestLeanSpot({ x: BRIDGE.a.x });
   assert.ok(Math.abs(s.x - BRIDGE.a.x) >= BRIDGE.w / 2 + 0.3, JSON.stringify(s));
   assert.equal(s.z, LEAN_Z);
+});
+
+test("the island hermitage sits at the back of the terrace facing the bridge; tapping it walks to its front yard", () => {
+  const toB = Math.hypot(HERMITAGE.x - BRIDGE.b.x, HERMITAGE.z - BRIDGE.b.z);
+  assert.ok(toB > ISLAND.r, "암자는 다리 반대쪽");
+  assert.ok(Math.hypot(HERMITAGE.x - ISLAND.x, HERMITAGE.z - ISLAND.z) + Math.hypot(HERMITAGE.w / 2 + 0.45, HERMITAGE.d / 2 + 0.45) < ISLAND.r, "기단이 터 안에");
+  const r = resolveTap({ x: HERMITAGE.x, z: HERMITAGE.z });
+  assert.equal(r.kind, "walk");
+  assert.ok(onIsland(r.to), JSON.stringify(r.to));
+  const s = (r.to.x - ISLAND.x) * HERMITAGE.u.x + (r.to.z - ISLAND.z) * HERMITAGE.u.z;
+  assert.ok(Math.abs(s - HERMITAGE.front) < 1e-9, String(s));
+  // 앞마당 어디로 가도 곧은 길이 기단(앞면 = 가운데에서 s 3.9 - d/2 - 0.45)에 닿지 않는다
+  assert.ok(HERMITAGE.front < 3.9 - HERMITAGE.d / 2 - 0.45);
 });

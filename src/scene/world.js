@@ -10,6 +10,8 @@ import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
 import { createWishRack } from "./wishes.js";
 import { createBridge } from "./bridge.js";
+import { pavingMaterial } from "./paving.js";
+import { createHermitage } from "./hermitage.js";
 import { createCave } from "./cave.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
@@ -156,26 +158,8 @@ export function createWorld(THREE, scene) {
   /* 절벽과 마당 */
   const rockDark = mat(0x463a32);
   const W = COURTYARD.maxX - COURTYARD.minX, D = COURTYARD.maxZ - COURTYARD.minZ;
-  // 마당: 막돌 박석 (10m마다 되풀이되는 무늬, 되풀이가 눈에 띄지 않게 넓은 얼룩을 위치 기준으로 덧입힘)
-  const yardTex = new THREE.TextureLoader().load("textures/yard-stone.webp");
-  yardTex.colorSpace = THREE.SRGBColorSpace; yardTex.wrapS = yardTex.wrapT = THREE.RepeatWrapping;
-  yardTex.repeat.set((W + 2) / 10, (D + 2) / 10); yardTex.anisotropy = 8;
-  // 높낮이: 돌마다 살짝 다른 높이·기울기, 닳은 모서리, 꺼진 줄눈 (빛 받는 쪽만 바꾸는 노멀맵이라 걷는 높이는 그대로)
-  const yardN = new THREE.TextureLoader().load("textures/yard-stone-n.webp");
-  yardN.wrapS = yardN.wrapT = THREE.RepeatWrapping; yardN.repeat.copy(yardTex.repeat); yardN.anisotropy = 8;
-  const yardMat = new THREE.MeshLambertMaterial({ map: yardTex, normalMap: yardN, normalScale: new THREE.Vector2(1.6, 1.6) });
-  yardMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vYardW;")
-      .replace("#include <project_vertex>", "#include <project_vertex>\nvYardW = (modelMatrix * vec4(transformed, 1.0)).xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", `#include <common>
-      varying vec2 vYardW;
-      float yh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      float yn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(yh(i), yh(i + vec2(1.0, 0.0)), f.x), mix(yh(i + vec2(0.0, 1.0)), yh(i + vec2(1.0, 1.0)), f.x), f.y); }`)
-      .replace("#include <map_fragment>", `#include <map_fragment>
-      float yv = yn(vYardW / 7.0) * 0.6 + yn(vYardW / 2.3 + 9.0) * 0.4;
-      diffuseColor.rgb *= 0.86 + 0.2 * yv;`);
-  };
+  // 마당: 막돌 박석 (paving.js, 섬 암자 터와 같은 바닥)
+  const yardMat = pavingMaterial(THREE, (W + 2) / 10, (D + 2) / 10);
   const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), yardMat), true);
   ground.position.set(0, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
   const rnd = mulberry32(7);
@@ -437,6 +421,11 @@ export function createWorld(THREE, scene) {
   scene.add(bridge.group);
   bridge.group.userData.noShadow = true;
   groundMeshes.push(...bridge.hits);
+  // 섬 암자 (홍련암 모티브): 다리 끝 터 뒤쪽에 앉아 다리·바다를 본다
+  const hermitage = createHermitage(THREE);
+  scene.add(hermitage.group);
+  hermitage.group.userData.noShadow = true;
+  hermitage.group.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { groundMeshes.push(o); obstacles.push(o); } });
 
   /* 연등: 법당 앞부터 난간 가까이까지 마당 위로 줄줄이, 연꽃 모양 등. 해가 지면 불이 켜진 듯 밝아진다.
      해수관음 위는 줄을 걸지 않아 하늘이 트이고, 난간 앞 5m도 비워 바다를 가리지 않는다. */

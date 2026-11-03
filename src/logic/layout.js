@@ -30,13 +30,23 @@ export const CAVE = (() => {
 // 섬과 출렁다리: 마당 왼쪽 앞바다의 섬 꼭대기를 마당 높이로 고른 터(ISLAND, 뒷날 작은 암자 자리)에
 // 왼쪽 앞 난간 틈(a)에서 출렁다리가 건너간다. 다리 끝(b)은 터 가장자리. 디딤판은 양끝이 마당 높이, 가운데가 sag만큼 처진다.
 // (2026-11-03) 곶 안쪽 숲 한가운데에서 바다 쪽 끝 숲자리로 옮김: 다리가 뭍 위가 아니라 바다 위로 건너가고, 터 둘레 숲은 비운다
-export const ISLAND = { x: -88, z: -112, r: 5 };
+// (2026-11-03) 터를 r 8로 넓히고 뒤쪽에 작은 암자(홍련암 모티브)를 앉힘
+export const ISLAND = { x: -88, z: -112, r: 8 };
 export const BRIDGE = (() => {
   const a = { x: -20, z: RAIL_Z };
   const dx = a.x - ISLAND.x, dz = a.z - ISLAND.z, L = Math.hypot(dx, dz);
   const b = { x: ISLAND.x + (dx / L) * ISLAND.r, z: ISLAND.z + (dz / L) * ISLAND.r };
   return { a, b, w: 1.4, sag: 2.5, head: { x: a.x, z: RAIL_Z + 0.8 } };
 })();
+// 섬 암자: 터 가운데에서 다리 반대쪽(u)으로 물러앉아 정면이 다리·바다·큰절을 본다.
+// 걸을 수 있는 곳은 터 둥근 판 가운데 '앞줄(front)'보다 다리 쪽만 (볼록해서 곧은 길이 암자를 뚫지 않는다).
+export const HERMITAGE = (() => {
+  const L = Math.hypot(ISLAND.x - BRIDGE.a.x, ISLAND.z - BRIDGE.a.z);
+  const u = { x: (ISLAND.x - BRIDGE.a.x) / L, z: (ISLAND.z - BRIDGE.a.z) / L };
+  const s = 3.9;                                       // 암자 가운데가 터 가운데에서 물러난 거리
+  return { u, x: ISLAND.x + u.x * s, z: ISLAND.z + u.z * s, yaw: Math.atan2(-u.x, -u.z), w: 5.4, d: 3.6, front: 0.6 };
+})();
+const islandS = (p) => (p.x - ISLAND.x) * HERMITAGE.u.x + (p.z - ISLAND.z) * HERMITAGE.u.z;
 export const bridgeAt = (t) => ({ x: BRIDGE.a.x + (BRIDGE.b.x - BRIDGE.a.x) * t, z: BRIDGE.a.z + (BRIDGE.b.z - BRIDGE.a.z) * t });
 const BR_LEN2 = (BRIDGE.b.x - BRIDGE.a.x) ** 2 + (BRIDGE.b.z - BRIDGE.a.z) ** 2;
 const bridgeT = (p) => ((p.x - BRIDGE.a.x) * (BRIDGE.b.x - BRIDGE.a.x) + (p.z - BRIDGE.a.z) * (BRIDGE.b.z - BRIDGE.a.z)) / BR_LEN2;
@@ -49,7 +59,9 @@ const inBridgeArea = (p) => onIsland(p) || onBridge(p);
 function clampToBridge(p) {
   if (Math.hypot(p.x - ISLAND.x, p.z - ISLAND.z) <= ISLAND.r + 3) {
     const dx = p.x - ISLAND.x, dz = p.z - ISLAND.z, d = Math.hypot(dx, dz), m = ISLAND.r - 0.3;
-    return d <= m ? { x: p.x, z: p.z } : { x: ISLAND.x + (dx / d) * m, z: ISLAND.z + (dz / d) * m };
+    const q = d <= m ? { x: p.x, z: p.z } : { x: ISLAND.x + (dx / d) * m, z: ISLAND.z + (dz / d) * m };
+    const over = islandS(q) - HERMITAGE.front;          // 암자 쪽을 누르면 암자 앞마당으로
+    return over > 0 ? { x: q.x - HERMITAGE.u.x * over, z: q.z - HERMITAGE.u.z * over } : q;
   }
   const t = bridgeT(p);
   if (p.z < RAIL_Z && t > 0 && t <= 1.02 && bridgeOff(p) <= 4) return bridgeAt(Math.min(1, Math.max(0.005, t)));

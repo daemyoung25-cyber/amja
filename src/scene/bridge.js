@@ -1,7 +1,7 @@
 /* 출렁다리: 마당 왼쪽 앞 난간 틈에서 섬 꼭대기 터까지. 양끝에 화강암 문기둥, 굵은 밧줄 손잡이 두 줄,
    그 아래 줄에 매단 나무 디딤판. 디딤판 높이는 layout.js의 bridgeDeckY를 그대로 따른다 (걷는 높이와 같게).
-   섬 터는 마당 높이의 둥근 박석 터 (뒷날 작은 암자 자리). */
-import { BRIDGE, ISLAND, bridgeAt, bridgeDeckY } from "../logic/layout.js";
+   섬 터와 암자는 hermitage.js. */
+import { BRIDGE, bridgeAt, bridgeDeckY } from "../logic/layout.js";
 
 export function createBridge(THREE) {
   const group = new THREE.Group();
@@ -75,11 +75,7 @@ export function createBridge(THREE) {
     seg.position.copy(p); seg.rotation.y = yaw; group.add(seg); hits.push(seg);
   }
 
-  /* 섬 터: 마당 높이의 둥근 박석 터와 낮은 돌테 */
-  const pad = new THREE.Mesh(new THREE.CylinderGeometry(ISLAND.r, ISLAND.r + 0.4, 1.2, 32), mat(0x9b8f7e));
-  pad.position.set(ISLAND.x, -0.6, ISLAND.z); group.add(pad); hits.push(pad);
-  const edge = new THREE.Mesh(new THREE.TorusGeometry(ISLAND.r - 0.1, 0.12, 6, 40), graniteDark);
-  edge.rotation.x = -Math.PI / 2; edge.position.set(ISLAND.x, 0.04, ISLAND.z); group.add(edge);
+  // 섬 터(박석 판·돌난간)와 암자는 hermitage.js
 
   return { group, hits };
 }
