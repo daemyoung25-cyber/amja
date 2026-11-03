@@ -172,7 +172,7 @@ ui.onBow108(() => {
 function stopBow108() {
   state.bow108 = null;
   ui.setBowing(false);
-  if (state.base !== "lean") ui.setLeaning(false);
+  ui.setLeaning(false);
   if (state.gestureUntil) { state.gestureUntil = 0; me.setPose(state.base); net.sendPose(state.base); }
 }
 const SOUND_KEY = "amja-sound";
@@ -228,11 +228,11 @@ function frame(t) {
       state.yaw = faceSeat(p);   // 법당에선 부처님, 기도 터에선 해수관음 쪽
       setBase("sit");
       rig.turnTo(state.yaw);
-      ui.setLeaning(false);             // 앉아 있어도 버튼은 그대로 (기댈 때만 물러난다)
+      ui.setLeaning(false);             // 앉아 있어도 버튼은 그대로
     } else if (state.leanOnArrive) {
       state.yaw = 0;
       setBase("lean");
-      ui.setLeaning(true);
+      ui.setLeaning(false);             // 기대 있어도 버튼은 그대로 (108배 할 때만 물러난다)
       rig.setLeaning(true);
     } else {
       if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
