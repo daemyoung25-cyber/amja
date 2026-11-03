@@ -1,16 +1,16 @@
 /* 암자 배치. 단위는 미터, z가 음수인 쪽이 바다(남쪽). yaw 0 = 바다를 바라봄. */
-// 앞마당(난간~법당)은 폭 36m, 깊이 23m: 처음(24m×11.5m)의 세 배쯤이라 답답하지 않다
-export const COURTYARD = { minX: -18, maxX: 18, minZ: -17.5, maxZ: 16.5 };
-export const RAIL_Z = -17.5;
+// 앞마당(난간~법당)은 폭 52m, 깊이 32.5m: 그 전(36m×23m)의 두 배. 법당은 그대로 두고 난간을 바다 쪽으로 물렸다
+export const COURTYARD = { minX: -26, maxX: 26, minZ: -27, maxZ: 16.5 };
+export const RAIL_Z = -27;
 export const LEAN_Z = RAIL_Z + 0.6;
 export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
 // 해수관음: 바다를 보고 섰을 때 왼쪽(9시). 앞(바다 쪽)에 기도 터가 있다.
-export const STATUE = { x: -12, z: -7, baseR: 1.2 };
+export const STATUE = { x: -17, z: -12, baseR: 1.2 };
 export const PRAYER = { minX: STATUE.x - 3.2, maxX: STATUE.x + 3.2, minZ: STATUE.z - 4.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
 export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
 export const PRAYER_SEATS = [-1.2, 0, 1.2].flatMap((dx) => [{ x: STATUE.x + dx, z: STATUE.z - 2.7 }, { x: STATUE.x + dx, z: STATUE.z - 3.7 }]);
 // 촛불 공양대: 마당 왼쪽, 해수관음과 법당 사이. 바다 쪽 앞에 서서 초를 켜 올린다.
-export const CANDLES = { x: -12.5, z: 2.0, r: 1.05, spot: { x: -12.5, z: 0.6 } };
+export const CANDLES = { x: -18, z: 0.5, r: 1.05, spot: { x: -18, z: -0.9 } };
 // 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 언덕 속. 마당 뒤끝(foot)에서 돌계단으로 1.6m 올라 굴 어귀(door)를 지나 안으로.
 export const CAVE = (() => {
   const x = -13.5;
@@ -30,8 +30,8 @@ export const YARD = [
   { kind: "pagoda", x: -9.5, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 9.5, z: 3.0, r: 0.95 },
   // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
   { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
-  ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -16.8, z, r: 0.35 }, { kind: "pot", x: 16.8, z, r: 0.35 }]),
-  { kind: "giwa", x: 13, z: -6, r: 0.8 },
+  ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -24.8, z, r: 0.35 }, { kind: "pot", x: 24.8, z, r: 0.35 }]),
+  { kind: "giwa", x: 19, z: -11, r: 0.8 },
   { kind: "candles", x: CANDLES.x, z: CANDLES.z, r: CANDLES.r },
 ];
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)

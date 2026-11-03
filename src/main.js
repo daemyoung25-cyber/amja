@@ -63,7 +63,7 @@ const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
   move: (() => {        // 들어오는 자리를 마당 앞쪽에 흩어 둔다 (여럿이 겹치지 않게)
-    const spawn = { x: (Math.random() - 0.5) * 8, z: -9 + Math.random() * 2 };
+    const spawn = { x: (Math.random() - 0.5) * 8, z: -13 + Math.random() * 2 };
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,

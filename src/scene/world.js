@@ -149,7 +149,7 @@ export function createWorld(THREE, scene) {
   const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), stone), true);
   ground.position.set(0, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
   // 마당 박석 줄눈
-  const lines = new THREE.GridHelper(Math.max(W, D) + 2, 18, 0x7e735f, 0x7e735f);
+  const lines = new THREE.GridHelper(Math.max(W, D) + 2, Math.round((Math.max(W, D) + 2) / 2), 0x7e735f, 0x7e735f);   // 줄눈 2m
   lines.position.set(0, 0.01, ground.position.z);
   lines.material.transparent = true; lines.material.opacity = 0.35;
   scene.add(lines);
@@ -194,7 +194,7 @@ export function createWorld(THREE, scene) {
   };
   pine(-11.2, 9, 5.5); pine(-11, 14.5, 4.6); pine(11.2, 10, 5); pine(11, 15.2, 4.2);
   // 넓어진 마당 양옆 담 따라 몇 그루 더
-  pine(-17, 9, 6); pine(17, 12, 5.6); pine(-17.2, -3, 4.8); pine(17.2, 1, 5.2); pine(17, -12, 4.4);
+  pine(-25, 9, 6); pine(25, 12, 5.6); pine(-25.2, -5, 4.8); pine(25.2, 0, 5.2); pine(25, -16, 4.4); pine(-25, -21, 4.6);
 
   /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. 크기는 layout.js의 WALLS를 따른다. */
   const hall = new THREE.Group();
@@ -518,13 +518,14 @@ export function createWorld(THREE, scene) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444033, 0.8);
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   scene.add(hemi, sun, sun.target);
-  // 해(달) 그림자: 마당과 법당 둘레 52m 네모만. 그림자 지도는 1초에 한 번만 다시 그린다 (main.js)
+  // 해(달) 그림자: 마당과 법당 둘레 72m 네모만 (가운데를 마당 가운데로). 그림자 지도는 1초에 한 번만 다시 그린다 (main.js)
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 40, far: 200 });
+  Object.assign(sun.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, near: 40, far: 200 });
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.04;
-  sun.target.position.set(0, 0, 0);
+  const SHADOW_MID = new THREE.Vector3(0, 0, (RAIL_Z + COURTYARD.maxZ) / 2);
+  sun.target.position.copy(SHADOW_MID);
   // 마당 둘레의 물건은 그림자를 드리우고 받는다. 늦게 불러오는 불상도 잡히게 1초마다 새로 온 것만 본다.
   // 사람(userData.noShadow)은 발밑 둥근 그림자로 대신한다 (움직이는 그림자는 매 프레임 비싸서)
   const shadowSeen = new WeakSet(), shBox = new THREE.Box3(), mid = new THREE.Vector3();
@@ -535,7 +536,7 @@ export function createWorld(THREE, scene) {
       if (!o.isMesh || o.material.isShaderMaterial || o.material.isMeshBasicMaterial) return;
       for (let a = o; a; a = a.parent) if (a.userData.noShadow) return;
       shBox.setFromObject(o).getCenter(mid);
-      if (Math.abs(mid.x) > 30 || mid.z < -22 || mid.z > 22) return;
+      if (Math.abs(mid.x) > COURTYARD.maxX + 4 || mid.z < RAIL_Z - 5 || mid.z > 22) return;
       o.castShadow = o.receiveShadow = true;
     });
   }
@@ -567,7 +568,7 @@ export function createWorld(THREE, scene) {
     if (isNight) { skyU.sunColor.value.setRGB(0.5, 0.52, 0.6); seaU.sunColor.value.setRGB(0.35, 0.38, 0.5); }
     else { skyU.sunColor.value.setRGB(...s.sun); seaU.sunColor.value.setRGB(...s.sun); }
 
-    sun.position.copy(dir).multiplyScalar(100);
+    sun.position.copy(dir).multiplyScalar(100).add(SHADOW_MID);
     sun.color.setRGB(...(isNight ? [0.55, 0.6, 0.8] : s.sun));
     sun.intensity = isNight ? 0.25 : 0.3 + 1.5 * s.light;              // 햇빛을 세게, 하늘빛(hemi)은 줄여 그림자가 또렷하게
     hemi.intensity = 0.25 + 0.5 * s.light;

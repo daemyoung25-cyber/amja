@@ -193,9 +193,11 @@ test("and the way back out from the door to the railing goes round them too", ()
 });
 
 const FORMER_YARD = (12 - -12) * (5.5 - -6);   // 처음 앞마당: 폭 24m, 난간~법당 11.5m
-test("the front yard is about three times as big as it first was", () => {
+const SECOND_YARD = 36 * 23;                   // 두 번째 앞마당: 폭 36m, 난간~법당 23m (처음의 세 배)
+test("the front yard is about twice as big as the 36 x 23 m yard (six times the first)", () => {
   const area = (COURTYARD.maxX - COURTYARD.minX) * (HALL.minZ - RAIL_Z);
-  assert.ok(area >= FORMER_YARD * 2.9 && area <= FORMER_YARD * 3.3, String(area / FORMER_YARD));
+  assert.ok(area >= SECOND_YARD * 1.9 && area <= SECOND_YARD * 2.2, String(area / SECOND_YARD));
+  assert.ok(area >= FORMER_YARD * 5.7, String(area / FORMER_YARD));
 });
 
 test("the sea-facing Gwaneum stands on the left (9 o'clock looking out to sea), between the railing and the hall", () => {

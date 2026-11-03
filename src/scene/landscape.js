@@ -50,7 +50,7 @@ export function createLandscape(THREE, { seaY, railZ, yard, flats = [] }) {
   // 바닷가 선: 절 앞은 난간 바로 아래 절벽, 옆으로 갈수록 바다 쪽으로 뻗어 곶이 된다
   const coastZ = (x) => {
     const ax = Math.abs(x);
-    return railZ - 1.2 - 0.5 * Math.max(0, ax - 30) * smooth(30, 120, ax) - 22 * (fbm(x / 70 + 3, 1.7, 3) - 0.5) * smooth(25, 60, ax);
+    return railZ - 1.2 - 0.5 * Math.max(0, ax - 38) * smooth(38, 130, ax) - 22 * (fbm(x / 70 + 3, 1.7, 3) - 0.5) * smooth(34, 70, ax);
   };
   const foamTimeRef = { value: 0 };
   let real = () => 0;                                                             // 실제 지형 (높이 지도를 받기 전엔 바다)
@@ -67,7 +67,7 @@ export function createLandscape(THREE, { seaY, railZ, yard, flats = [] }) {
     const lift = (-seaY + 6) * smooth(260, 40, near) * landK;
     // 높이 지도는 31m 간격이라 물가가 넓적한 판처럼 나온다: 2m 아래는 물에 잠기게 하고 물가를 가파르게
     const realY = seaY + Math.max(-30, (r - 2) * 1.25) + lift;
-    const w = smooth(30, 75, near);                                               // 마당·난간 벼랑만 다듬은 땅
+    const w = smooth(44, 92, near);                                               // 마당·난간 벼랑만 다듬은 땅
     if (w >= 1) return realY;
     return designed(x, z) * (1 - w) + realY * w;
   };
