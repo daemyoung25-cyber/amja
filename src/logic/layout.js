@@ -6,9 +6,9 @@ export const LEAN_Z = RAIL_Z + 0.6;
 export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
 // 해수관음: 바다를 보고 섰을 때 왼쪽(9시). 앞(바다 쪽)에 기도 터가 있다.
 export const STATUE = { x: -17, z: -12, baseR: 1.2 };
-export const PRAYER = { minX: STATUE.x - 3.2, maxX: STATUE.x + 3.2, minZ: STATUE.z - 4.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
+export const PRAYER = { minX: STATUE.x - 3.4, maxX: STATUE.x + 3.4, minZ: STATUE.z - 5.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
 export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
-export const PRAYER_SEATS = [-1.2, 0, 1.2].flatMap((dx) => [{ x: STATUE.x + dx, z: STATUE.z - 2.7 }, { x: STATUE.x + dx, z: STATUE.z - 3.7 }]);
+export const PRAYER_SEATS = [2.7, 3.7, 4.7].flatMap((dz) => [-2.4, -1.2, 0, 1.2, 2.4].map((dx) => ({ x: STATUE.x + dx, z: STATUE.z - dz })));   // 다섯 자리씩 세 줄, 15석
 // 촛불 공양대: 마당 왼쪽, 해수관음과 법당 사이. 바다 쪽 앞에 서서 초를 켜 올린다.
 export const CANDLES = { x: -18, z: 0.5, r: 1.05, spot: { x: -18, z: -0.9 } };
 // 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 언덕 속. 마당 뒤끝(foot)에서 돌계단으로 1.6m 올라 굴 어귀(door)를 지나 안으로.
@@ -27,7 +27,7 @@ const STEP_HALF = 0.9;
 // 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
 export const YARD = [
   { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
-  { kind: "pagoda", x: -9.5, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 9.5, z: 3.0, r: 0.95 },
+  { kind: "pagoda", x: -21, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 21, z: 3.0, r: 0.95 },   // 마당 양옆 담 가까이
   // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
   { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
   ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -24.8, z, r: 0.35 }, { kind: "pot", x: 24.8, z, r: 0.35 }]),

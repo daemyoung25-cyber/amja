@@ -119,7 +119,7 @@ test("a new tap while standing in the doorway steps straight in or out", () => {
   assert.equal(crosses(mid, out, inWall), null, JSON.stringify(out));
 });
 
-import { YARD, BAERYE } from "../src/logic/layout.js";
+import { YARD, BAERYE, PRAYER } from "../src/logic/layout.js";
 const inYardStone = (p) => YARD.some((o) => Math.hypot(p.x - o.x, p.z - o.z) < o.r);
 
 test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrored", () => {
@@ -129,6 +129,8 @@ test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrore
     assert.equal(two[0].x, -two[1].x);
     assert.equal(two[0].z, two[1].z);
   }
+  // 석탑은 법당 앞이 아니라 마당 양옆 담 가까이
+  for (const o of YARD.filter((y) => y.kind === "pagoda")) assert.ok(Math.abs(o.x) >= 18 && Math.abs(o.x) <= COURTYARD.maxX - 3, String(o.x));
 });
 
 test("walking straight across the front yard goes round the stones, not through them", () => {
@@ -206,10 +208,11 @@ test("the sea-facing Gwaneum stands on the left (9 o'clock looking out to sea), 
 });
 
 test("in front of the Gwaneum, on the sea side, there are prayer cushions to sit on facing her", () => {
-  assert.ok(PRAYER_SEATS.length >= 4);
+  assert.equal(PRAYER_SEATS.length, 15);         // 다섯 줄 세 열
   for (const c of PRAYER_SEATS) {
+    assert.ok(c.x > PRAYER.minX && c.x < PRAYER.maxX && c.z > PRAYER.minZ && c.z < PRAYER.maxZ, "박석 기도 터 위");
     assert.ok(c.z < STATUE.z - STATUE.baseR, JSON.stringify(c));
-    assert.ok(dist(c, STATUE) <= STATUE.baseR + 3, "합장할 수 있는 거리");
+    assert.ok(dist(c, STATUE) <= STATUE.baseR + 4.5, "합장할 수 있는 거리");
     const r = resolveTap({ x: c.x + 0.15, z: c.z + 0.1 });
     assert.equal(r.kind, "sit");
     assert.deepEqual(r.to, { x: c.x, z: c.z });

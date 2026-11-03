@@ -194,7 +194,7 @@ export function createWorld(THREE, scene) {
   };
   pine(-11.2, 9, 5.5); pine(-11, 14.5, 4.6); pine(11.2, 10, 5); pine(11, 15.2, 4.2);
   // 넓어진 마당 양옆 담 따라 몇 그루 더
-  pine(-25, 9, 6); pine(25, 12, 5.6); pine(-25.2, -5, 4.8); pine(25.2, 0, 5.2); pine(25, -16, 4.4); pine(-25, -21, 4.6);
+  pine(-25, 9, 6); pine(25, 12, 5.6); pine(-28, -5, 4.8); pine(28, 0, 5.2); pine(28, -16, 4.4); pine(-28, -21, 4.6);   // 연등 줄 아래는 담 밖으로
 
   /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. 크기는 layout.js의 WALLS를 따른다. */
   const hall = new THREE.Group();
@@ -401,10 +401,15 @@ export function createWorld(THREE, scene) {
   railHit.position.set(0, 0.7, RAIL_Z - 0.1);
   add(railHit, true);
 
-  /* 연등: 마당 위로 줄 세 가닥, 연꽃 모양 등이 줄줄이. 해가 지면 불이 켜진 듯 밝아진다. */
-  const LANTERN_ROWS = [-2.2, -1.4, -0.6, 0.2, 1.0, 1.8, 2.6, 3.4], POLE_X = COURTYARD.maxX + 0.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
+  /* 연등: 법당 앞부터 난간 가까이까지 마당 위로 줄줄이, 연꽃 모양 등. 해가 지면 불이 켜진 듯 밝아진다.
+     해수관음 위는 줄을 걸지 않아 하늘이 트이고, 난간 앞 5m도 비워 바다를 가리지 않는다. */
+  const POLE_X = COURTYARD.maxX + 0.2, STRING_Y = 5.3, SAG = 0.5, LANTERN_GAP = 0.85;
+  const LANTERN_ROWS = [];
+  for (let z = 3.4; z >= RAIL_Z + 5; z -= 0.8) {
+    if (Math.abs(z - STATUE.z) >= 2.2) LANTERN_ROWS.push({ z, x0: -POLE_X, x1: POLE_X });
+  }
   const LANTERN_COLORS = [0xf28fb0, 0xf5a35c, 0xf3dd7a, 0x9fd38a, 0xe0574a, 0xf7f1e3];
-  const stringY = (x) => STRING_Y - SAG * (1 - (x / POLE_X) ** 2);
+  const stringY = (x, row) => { const m = (row.x0 + row.x1) / 2, h = (row.x1 - row.x0) / 2; return STRING_Y - SAG * (h / POLE_X) * (1 - ((x - m) / h) ** 2); };
   // 꽃잎 끝이 위로 들린 연꽃 모양
   const lanternGeo = new THREE.LatheGeometry([[0, -0.15], [0.09, -0.14], [0.15, -0.07], [0.16, 0.02], [0.13, 0.1], [0.17, 0.15], [0.06, 0.12], [0, 0.13]].map(([r, h]) => new THREE.Vector2(r, h)), 8);
   const lanternMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
@@ -414,16 +419,18 @@ export function createWorld(THREE, scene) {
     sh.fragmentShader = "uniform float glow;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * glow;");
   };
   const lanterns = [];
-  for (const z of LANTERN_ROWS) {
-    for (const sx of [-1, 1]) {
-      const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, STRING_Y + 0.2, 6), wood));
-      pole.position.set(sx * POLE_X, (STRING_Y + 0.2) / 2, z);
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.08, STRING_Y + 0.2, 6), lineMat = new THREE.LineBasicMaterial({ color: 0x2a2622 });
+  LANTERN_ROWS.forEach((row, ri) => {
+    const { z, x0, x1 } = row;
+    for (const px of [x0, x1]) {
+      const pole = add(new THREE.Mesh(poleGeo, wood));
+      pole.position.set(px, (STRING_Y + 0.2) / 2, z);
     }
     const pts = [];
-    for (let i = 0; i <= 24; i++) { const x = -POLE_X + (2 * POLE_X * i) / 24; pts.push(new THREE.Vector3(x, stringY(x), z)); }
-    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2622 })));
-    for (let x = -(POLE_X - 0.8) + (LANTERN_ROWS.indexOf(z) % 2) * LANTERN_GAP / 2; x <= POLE_X - 0.79; x += LANTERN_GAP) lanterns.push({ x, y: stringY(x) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
-  }
+    for (let i = 0; i <= 24; i++) { const x = x0 + ((x1 - x0) * i) / 24; pts.push(new THREE.Vector3(x, stringY(x, row), z)); }
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+    for (let x = x0 + 0.8 + (ri % 2) * LANTERN_GAP / 2; x <= x1 - 0.79; x += LANTERN_GAP) lanterns.push({ x, y: stringY(x, row) - 0.2, z, phase: rnd() * 6.28, color: LANTERN_COLORS[Math.floor(rnd() * LANTERN_COLORS.length)] });
+  });
   const lanternMesh = new THREE.InstancedMesh(lanternGeo, lanternMat, lanterns.length);
   lanterns.forEach((l, i) => lanternMesh.setColorAt(i, new THREE.Color(l.color)));
   lanternMesh.userData.noShadow = true;            // 종이등은 빛이 비쳐 짙은 그림자를 안 만든다 (수백 개 점박이가 지저분하다)
