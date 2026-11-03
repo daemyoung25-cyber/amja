@@ -1,0 +1,25 @@
+# 바라는 점을 매일 아침 9시(한국)에 메일로. 새 글이 없으면 보내지 않는다. 손으로 돌리려면 Actions 탭에서 Run workflow
+name: notes-mail
+on:
+  schedule:
+    - cron: "0 0 * * *"        # UTC 0시 = 한국 9시
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: notes-mail
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet google-auth requests
+      - run: python .github/scripts/notes_mail.py
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: go831jps@gmail.com
+          MAIL_FROM: go831jps@gmail.com
