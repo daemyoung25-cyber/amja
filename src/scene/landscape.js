@@ -248,7 +248,7 @@ function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats }) {
     const a = rnd() * Math.PI * 2, r = 24 + 300 * Math.pow(rnd(), 1.5);
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
     if (inYardZone(x, z)) continue;
-    if (flats.some((f) => x > f.minX - 9 && x < f.maxX + 9 && z > f.minZ - 9 && z < f.maxZ + 9)) continue;   // 굴 둘레엔 큰 나무가 바위를 뚫지 않게
+    if (flats.some((f, g = f.treeGap ?? 9) => x > f.minX - g && x < f.maxX + g && z > f.minZ - g && z < f.maxZ + g)) continue;   // 굴 둘레엔 큰 나무가 바위를 뚫지 않게 (섬 터는 바로 둘레만 비운다)
     const y = height(x, z);
     if (y < seaY + 18 || (r > 150 && y < seaY + 32)) continue;   // 갯바위섬처럼 낮은 땅엔 나무 대신 바위와 풀빛만
                                       // 물가·바다, 낮은 갯바위섬엔 안 심는다

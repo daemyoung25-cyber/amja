@@ -27,6 +27,33 @@ export const CAVE = (() => {
     seats: [-1.1, 0, 1.1].map((dx) => ({ x: x + dx, z: 28.2 })),
   };
 })();
+// 섬과 출렁다리: 마당 왼쪽 앞바다의 섬 꼭대기를 마당 높이로 고른 터(ISLAND, 뒷날 작은 암자 자리)에
+// 왼쪽 앞 난간 틈(a)에서 출렁다리가 건너간다. 다리 끝(b)은 터 가장자리. 디딤판은 양끝이 마당 높이, 가운데가 sag만큼 처진다.
+export const ISLAND = { x: -113, z: -94, r: 5 };
+export const BRIDGE = (() => {
+  const a = { x: -20, z: RAIL_Z };
+  const dx = a.x - ISLAND.x, dz = a.z - ISLAND.z, L = Math.hypot(dx, dz);
+  const b = { x: ISLAND.x + (dx / L) * ISLAND.r, z: ISLAND.z + (dz / L) * ISLAND.r };
+  return { a, b, w: 1.4, sag: 2.5, head: { x: a.x, z: RAIL_Z + 0.8 } };
+})();
+export const bridgeAt = (t) => ({ x: BRIDGE.a.x + (BRIDGE.b.x - BRIDGE.a.x) * t, z: BRIDGE.a.z + (BRIDGE.b.z - BRIDGE.a.z) * t });
+const BR_LEN2 = (BRIDGE.b.x - BRIDGE.a.x) ** 2 + (BRIDGE.b.z - BRIDGE.a.z) ** 2;
+const bridgeT = (p) => ((p.x - BRIDGE.a.x) * (BRIDGE.b.x - BRIDGE.a.x) + (p.z - BRIDGE.a.z) * (BRIDGE.b.z - BRIDGE.a.z)) / BR_LEN2;
+const bridgeOff = (p) => { const t = bridgeT(p), c = bridgeAt(t); return Math.hypot(p.x - c.x, p.z - c.z); };
+export const onBridge = (p) => { const t = bridgeT(p); return t >= 0 && t <= 1 && bridgeOff(p) <= BRIDGE.w / 2 + 0.05; };
+export const onIsland = (p) => Math.hypot(p.x - ISLAND.x, p.z - ISLAND.z) <= ISLAND.r;
+export const bridgeDeckY = (t) => -BRIDGE.sag * 4 * t * (1 - t);
+const inBridgeArea = (p) => onIsland(p) || onBridge(p);
+// 다리 근처를 누르면 다리 가운데 줄 위로, 섬 둘레를 누르면 섬 터 안으로
+function clampToBridge(p) {
+  if (Math.hypot(p.x - ISLAND.x, p.z - ISLAND.z) <= ISLAND.r + 3) {
+    const dx = p.x - ISLAND.x, dz = p.z - ISLAND.z, d = Math.hypot(dx, dz), m = ISLAND.r - 0.3;
+    return d <= m ? { x: p.x, z: p.z } : { x: ISLAND.x + (dx / d) * m, z: ISLAND.z + (dz / d) * m };
+  }
+  const t = bridgeT(p);
+  if (p.z < RAIL_Z && t > 0 && t <= 1.02 && bridgeOff(p) <= 4) return bridgeAt(Math.min(1, Math.max(0.005, t)));
+  return null;
+}
 // 굴 안에 있을 때 카메라가 머무를 상자
 export const CAVE_ROOM = { minX: CAVE.inside.minX - 0.1, maxX: CAVE.inside.maxX + 0.1, minZ: CAVE.door.z, maxZ: CAVE.inside.maxZ + 0.5, maxY: CAVE.floor + 2.7 };
 const STEP_HALF = 0.9;
@@ -84,6 +111,8 @@ export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? f
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
 export function floorY({ x, z }) {
+  if (onIsland({ x, z })) return 0;
+  if (onBridge({ x, z })) return bridgeDeckY(bridgeT({ x, z }));
   if (insideCave({ x, z })) return CAVE.floor;
   if (onCaveSteps({ x, z })) return CAVE.floor * clamp((z - COURTYARD.maxZ) / (CAVE.door.z - COURTYARD.maxZ), 0, 1);
   if (x < BASE.minX || x > BASE.maxX || z < STEP_Z || z > BASE.maxZ) return 0;
@@ -91,6 +120,8 @@ export function floorY({ x, z }) {
 }
 
 export function clampToWalkable({ x, z }) {
+  const br = clampToBridge({ x, z });
+  if (br) return br;
   // 굴 둘레 바위를 누르면 굴 안으로, 돌계단 위면 계단 위로
   if (Math.abs(x - CAVE.x) <= 5 && z > CAVE.door.z - 0.5 && z < CAVE.inside.maxZ + 5) {
     const m = 0.3;
@@ -115,6 +146,8 @@ export { faceAltar };
 
 export function nearestLeanSpot({ x }) {
   let lx = clamp(x, -LEAN_X, LEAN_X);
+  const gap = BRIDGE.w / 2 + 0.3;                     // 다리 들머리 난간 틈엔 기대지 않는다
+  if (Math.abs(lx - BRIDGE.a.x) < gap) lx = lx <= BRIDGE.a.x ? BRIDGE.a.x - gap : BRIDGE.a.x + gap;
   const dz = LEAN_Z - STATUE.z, r = STATUE.baseR + MARGIN;
   if (Math.abs(dz) < r) {
     const half = Math.sqrt(r * r - dz * dz);
@@ -128,6 +161,8 @@ export function resolveTap(p) {
   if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
   if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
   if (Math.hypot(p.x - WISH.x, p.z - WISH.z) < WISH.r + 0.2) return { kind: "wish", to: { ...WISH.spot }, yaw: faceWish(WISH.spot) };
+  const br = clampToBridge(p);
+  if (br) return { kind: "walk", to: br };
   if (p.z < LEAN_TRIGGER_Z) {
     const s = nearestLeanSpot(p);
     return { kind: "lean", to: { x: s.x, z: s.z }, yaw: 0 };
@@ -152,6 +187,11 @@ const pathLen = (a, pts) => pts.reduce((s, p, i) => s + len(i ? pts[i - 1] : a, 
 const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, blockedByStatue) && !hits(i ? pts[i - 1] : a, p, blockedByHall));
 
 export function routeAround(from, to) {
+  // 섬과 다리로 오가는 길: 마당 안 들머리(head) - 난간 틈(a) - 다리 - 섬 쪽 끝(b) - 섬
+  const ba = inBridgeArea(from), bb = inBridgeArea(to);
+  if (ba && bb) return onIsland(from) === onIsland(to) ? [to] : [BRIDGE.b, to];
+  if (ba) return [...(onIsland(from) ? [BRIDGE.b] : []), BRIDGE.a, BRIDGE.head, ...routeAround(BRIDGE.head, to)];
+  if (bb) return [...routeAround(from, BRIDGE.head), BRIDGE.a, ...(onIsland(to) ? [BRIDGE.b] : []), to];
   // 굴로 오가는 길: 마당 뒤끝(foot) - 돌계단 - 굴 어귀(door) - 굴 안
   const ca = inCaveArea(from), cb = inCaveArea(to);
   if (ca && cb) return insideCave(from) === insideCave(to) ? [to] : [CAVE.door, to];

@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, WISH, CAVE, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, WISH, CAVE, BRIDGE, ISLAND, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -9,6 +9,7 @@ import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
 import { createWishRack } from "./wishes.js";
+import { createBridge } from "./bridge.js";
 import { createCave } from "./cave.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
@@ -140,7 +141,8 @@ export function createWorld(THREE, scene) {
   add(sea, true);
 
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
-  const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD, flats: [{ minX: CAVE.x - 9, maxX: CAVE.x + 9, minZ: COURTYARD.maxZ, maxZ: CAVE.altar.z + 4 }] });
+  const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD, flats: [{ minX: CAVE.x - 9, maxX: CAVE.x + 9, minZ: COURTYARD.maxZ, maxZ: CAVE.altar.z + 4 },
+    { minX: ISLAND.x - ISLAND.r - 1, maxX: ISLAND.x + ISLAND.r + 1, minZ: ISLAND.z - ISLAND.r - 1, maxZ: ISLAND.z + ISLAND.r + 1, treeGap: 3 }] });   // 섬 꼭대기 터 (둘레 나무가 터를 덮지 않게)
   scene.add(landscape.group);
   landscape.group.userData.noShadow = true;            // 먼 산은 그림자 지도 밖
 
@@ -392,18 +394,27 @@ export function createWorld(THREE, scene) {
 
   /* 난간 */
   const wood = mat(0x4a3426);
-  const railLen = W;
+  // 출렁다리 들머리는 난간을 틔운다 (gapL~gapR)
+  const gapL = BRIDGE.a.x - BRIDGE.w / 2 - 0.25, gapR = BRIDGE.a.x + BRIDGE.w / 2 + 0.25;
   for (let x = COURTYARD.minX; x <= COURTYARD.maxX + 0.01; x += 1.5) {
+    if (x > gapL - 0.1 && x < gapR + 0.1) continue;
     const post = add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), wood));
     post.position.set(x, 0.55, RAIL_Z + 0.1);
   }
-  for (const y of [1.05, 0.55]) {
-    const rail = add(new THREE.Mesh(new THREE.BoxGeometry(railLen, 0.08, 0.1), wood));
-    rail.position.set(0, y, RAIL_Z + 0.1);
+  const railHitMat = new THREE.MeshBasicMaterial({ visible: false });
+  for (const [x0, x1] of [[COURTYARD.minX, gapL], [gapR, COURTYARD.maxX]]) {
+    for (const y of [1.05, 0.55]) {
+      const rail = add(new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.08, 0.1), wood));
+      rail.position.set((x0 + x1) / 2, y, RAIL_Z + 0.1);
+    }
+    const railHit = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 1.4, 0.8), railHitMat);
+    railHit.position.set((x0 + x1) / 2, 0.7, RAIL_Z - 0.1);
+    add(railHit, true);
   }
-  const railHit = new THREE.Mesh(new THREE.BoxGeometry(railLen, 1.4, 0.8), new THREE.MeshBasicMaterial({ visible: false }));
-  railHit.position.set(0, 0.7, RAIL_Z - 0.1);
-  add(railHit, true);
+  const bridge = createBridge(THREE);
+  scene.add(bridge.group);
+  bridge.group.userData.noShadow = true;
+  groundMeshes.push(...bridge.hits);
 
   /* 연등: 법당 앞부터 난간 가까이까지 마당 위로 줄줄이, 연꽃 모양 등. 해가 지면 불이 켜진 듯 밝아진다.
      해수관음 위는 줄을 걸지 않아 하늘이 트이고, 난간 앞 5m도 비워 바다를 가리지 않는다. */
@@ -645,7 +656,7 @@ export function createWorld(THREE, scene) {
     }
   }
 
-  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces, setCandles: rack.setCandles, setWishes: wishRack.setWishes };
+  return { update, groundMeshes, obstacles, seaY: SEA_Y, landHeight: landscape.height, landReady: landscape.ready, setTraces, setCandles: rack.setCandles, setWishes: wishRack.setWishes };
 }
 
 export function mulberry32(a) {
