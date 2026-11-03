@@ -129,6 +129,9 @@ test("the hall front has a pair of stone lanterns and a pair of pagodas, mirrore
     assert.equal(two[0].x, -two[1].x);
     assert.equal(two[0].z, two[1].z);
   }
+  // 석등은 법당 양 끝 앞에 (입구는 비운다)
+  for (const o of YARD.filter((y) => y.kind === "lantern")) assert.ok(Math.abs(Math.abs(o.x) - HALL.maxX) < 1.5 && o.z < HALL.minZ, JSON.stringify(o));
+  assert.equal(YARD.filter((o) => o.kind === "gwaebul").length, 0, "괘불대는 뺐다");
   // 석탑은 법당 앞이 아니라 마당 양옆 담 가까이
   for (const o of YARD.filter((y) => y.kind === "pagoda")) assert.ok(Math.abs(o.x) >= 18 && Math.abs(o.x) <= COURTYARD.maxX - 3, String(o.x));
 });
@@ -159,8 +162,8 @@ test("the path from the courtyard into the hall still goes through the door past
   assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
 });
 
-test("the front yard also has a 괘불대 pair, lotus pots in mirrored pairs, and a wish-tile stand", () => {
-  for (const kind of ["gwaebul", "pot"]) {
+test("the front yard also has lotus pots in mirrored pairs and a wish-tile stand", () => {
+  for (const kind of ["pot"]) {
     const all = YARD.filter((o) => o.kind === kind);
     assert.ok(all.length >= 2 && all.length % 2 === 0, kind);
     for (const o of all) assert.ok(all.some((m) => m.x === -o.x && m.z === o.z), `${kind} mirror of ${o.x}`);

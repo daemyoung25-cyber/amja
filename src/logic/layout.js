@@ -24,12 +24,11 @@ export const CAVE = (() => {
 // 굴 안에 있을 때 카메라가 머무를 상자
 export const CAVE_ROOM = { minX: CAVE.inside.minX - 0.1, maxX: CAVE.inside.maxX + 0.1, minZ: CAVE.door.z, maxZ: CAVE.inside.maxZ + 0.5, maxY: CAVE.floor + 2.7 };
 const STEP_HALF = 0.9;
-// 대웅전 앞마당: 계단 양옆 석등 한 쌍, 그 바깥 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
+// 대웅전 앞마당: 법당 양 끝 앞에 석등 한 쌍, 마당 양옆에 삼층석탑 한 쌍 (r은 못 들어가는 반지름)
 export const YARD = [
-  { kind: "lantern", x: -2.4, z: 3.9, r: 0.6 }, { kind: "lantern", x: 2.4, z: 3.9, r: 0.6 },
+  { kind: "lantern", x: -8, z: 3.9, r: 0.6 }, { kind: "lantern", x: 8, z: 3.9, r: 0.6 },
   { kind: "pagoda", x: -21, z: 3.0, r: 0.95 }, { kind: "pagoda", x: 21, z: 3.0, r: 0.95 },   // 마당 양옆 담 가까이
-  // 괘불대 한 쌍(큰 불화를 거는 돌기둥), 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
-  { kind: "gwaebul", x: -4.6, z: 1.9, r: 0.45 }, { kind: "gwaebul", x: 4.6, z: 1.9, r: 0.45 },
+  // 양 끝 연꽃 화분 줄, 소원 기와 쌓은 단
   ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -24.8, z, r: 0.35 }, { kind: "pot", x: 24.8, z, r: 0.35 }]),
   { kind: "giwa", x: 19, z: -11, r: 0.8 },
   { kind: "candles", x: CANDLES.x, z: CANDLES.z, r: CANDLES.r },
