@@ -271,6 +271,16 @@ const volumes = (() => {
 })();
 const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3", evening: "sounds/evening.mp3" } });
 for (const [k, v] of Object.entries(volumes)) audio.setVolume(k, v);
+const MUTE_KEY = "amja-mute";
+let muted = false;
+try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch {}
+audio.setMuted(muted); ui.setMuted(muted);
+ui.onMute(() => {
+  muted = !muted;
+  audio.setMuted(muted); ui.setMuted(muted);
+  if (!muted) audio.resumeIfNeeded();
+  try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch {}
+});
 ui.onOpenSettings(() => ui.openSettings({ volumes }));
 ui.onOpenCredits(() => ui.openCredits(CREDITS));
 ui.onVolume((layer, v) => {

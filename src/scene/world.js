@@ -142,20 +142,39 @@ export function createWorld(THREE, scene) {
 
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
   const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD, flats: [{ minX: CAVE.x - 9, maxX: CAVE.x + 9, minZ: COURTYARD.maxZ, maxZ: CAVE.altar.z + 4 },
-    { minX: ISLAND.x - ISLAND.r - 1, maxX: ISLAND.x + ISLAND.r + 1, minZ: ISLAND.z - ISLAND.r - 1, maxZ: ISLAND.z + ISLAND.r + 1, treeGap: 3 }] });   // 섬 꼭대기 터 (둘레 나무가 터를 덮지 않게)
+    { minX: ISLAND.x - ISLAND.r - 1, maxX: ISLAND.x + ISLAND.r + 1, minZ: ISLAND.z - ISLAND.r - 1, maxZ: ISLAND.z + ISLAND.r + 1, treeGap: 3 }],   // 섬 꼭대기 터
+    // 섬 터 둘레 숲과 다리 밑·옆 나무는 비운다 (다리에 서면 앞이 트이게)
+    clear: (x, z) => {
+      if (Math.hypot(x - ISLAND.x, z - ISLAND.z) < 22) return true;
+      const ux = BRIDGE.b.x - BRIDGE.a.x, uz = BRIDGE.b.z - BRIDGE.a.z, L2 = ux * ux + uz * uz;
+      const t = Math.min(1, Math.max(0, ((x - BRIDGE.a.x) * ux + (z - BRIDGE.a.z) * uz) / L2));
+      return Math.hypot(x - BRIDGE.a.x - ux * t, z - BRIDGE.a.z - uz * t) < 12;
+    } });
   scene.add(landscape.group);
   landscape.group.userData.noShadow = true;            // 먼 산은 그림자 지도 밖
 
   /* 절벽과 마당 */
-  const rockDark = mat(0x463a32), stone = mat(0x9b8f7e);
+  const rockDark = mat(0x463a32);
   const W = COURTYARD.maxX - COURTYARD.minX, D = COURTYARD.maxZ - COURTYARD.minZ;
-  const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), stone), true);
+  // 마당: 막돌 박석 (10m마다 되풀이되는 무늬, 되풀이가 눈에 띄지 않게 넓은 얼룩을 위치 기준으로 덧입힘)
+  const yardTex = new THREE.TextureLoader().load("textures/yard-stone.webp");
+  yardTex.colorSpace = THREE.SRGBColorSpace; yardTex.wrapS = yardTex.wrapT = THREE.RepeatWrapping;
+  yardTex.repeat.set((W + 2) / 10, (D + 2) / 10); yardTex.anisotropy = 8;
+  const yardMat = new THREE.MeshLambertMaterial({ map: yardTex });
+  yardMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vYardW;")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvYardW = (modelMatrix * vec4(transformed, 1.0)).xz;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", `#include <common>
+      varying vec2 vYardW;
+      float yh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float yn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(yh(i), yh(i + vec2(1.0, 0.0)), f.x), mix(yh(i + vec2(0.0, 1.0)), yh(i + vec2(1.0, 1.0)), f.x), f.y); }`)
+      .replace("#include <map_fragment>", `#include <map_fragment>
+      float yv = yn(vYardW / 7.0) * 0.6 + yn(vYardW / 2.3 + 9.0) * 0.4;
+      diffuseColor.rgb *= 0.86 + 0.2 * yv;`);
+  };
+  const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), yardMat), true);
   ground.position.set(0, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
-  // 마당 박석 줄눈
-  const lines = new THREE.GridHelper(Math.max(W, D) + 2, Math.round((Math.max(W, D) + 2) / 2), 0x7e735f, 0x7e735f);   // 줄눈 2m
-  lines.position.set(0, 0.01, ground.position.z);
-  lines.material.transparent = true; lines.material.opacity = 0.35;
-  scene.add(lines);
   const rnd = mulberry32(7);
   // 난간 아래 절벽에 붙은 바위: 두 줄로 엇갈려, 꼭대기는 마당보다 낮게 (바다 보는 눈을 가리지 않게)
   const boulderMat = new THREE.MeshLambertMaterial({ vertexColors: true });

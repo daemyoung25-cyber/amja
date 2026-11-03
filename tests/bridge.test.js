@@ -21,7 +21,7 @@ test("a suspension bridge leaves the left front railing and reaches the island t
   const len = dist(BRIDGE.a, BRIDGE.b);
   assert.ok(len > 85 && len < 120, String(len));
   assert.ok(Math.abs(dist(BRIDGE.b, ISLAND) - ISLAND.r) < 0.01, "다리 끝은 섬 터 가장자리");
-  assert.ok(ISLAND.x < -100 && ISLAND.z < -85, JSON.stringify(ISLAND));
+  assert.ok(ISLAND.x < -80 && ISLAND.z < -100, JSON.stringify(ISLAND));   // 곶의 바다 쪽 끝 (예전 숲자리)
 });
 
 test("the deck is level with the yard at both ends and sags in the middle; the island terrace is level with the yard", () => {

@@ -29,7 +29,8 @@ export const CAVE = (() => {
 })();
 // 섬과 출렁다리: 마당 왼쪽 앞바다의 섬 꼭대기를 마당 높이로 고른 터(ISLAND, 뒷날 작은 암자 자리)에
 // 왼쪽 앞 난간 틈(a)에서 출렁다리가 건너간다. 다리 끝(b)은 터 가장자리. 디딤판은 양끝이 마당 높이, 가운데가 sag만큼 처진다.
-export const ISLAND = { x: -113, z: -94, r: 5 };
+// (2026-11-03) 곶 안쪽 숲 한가운데에서 바다 쪽 끝 숲자리로 옮김: 다리가 뭍 위가 아니라 바다 위로 건너가고, 터 둘레 숲은 비운다
+export const ISLAND = { x: -88, z: -112, r: 5 };
 export const BRIDGE = (() => {
   const a = { x: -20, z: RAIL_Z };
   const dx = a.x - ISLAND.x, dz = a.z - ISLAND.z, L = Math.hypot(dx, dz);

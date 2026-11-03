@@ -43,7 +43,7 @@ function capFog(mat, cap) {
 
 const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createLandscape(THREE, { seaY, railZ, yard, flats = [] }) {
+export function createLandscape(THREE, { seaY, railZ, yard, flats = [], clear = () => false }) {
   const { fbm, ridged } = makeNoise(11);
   const group = new THREE.Group();
 
@@ -147,7 +147,7 @@ export function createLandscape(THREE, { seaY, railZ, yard, flats = [] }) {
   };
   const terrain = new THREE.Mesh(geo, terrainMat);
   group.add(terrain);
-  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt: (x, z) => real(x, z), flats }));
+  group.add(plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt: (x, z) => real(x, z), flats, clear }));
   };
   const ready = new Promise((resolve) => {
     const img = new Image();
@@ -222,7 +222,7 @@ export function boulderGeometry(THREE, seed) {
 /* 가까운 산비탈의 숲: 둥근 단풍나무(주황·다홍·노랑, 무리 지어)와 짙은 소나무 수천 그루.
    잎 덩어리는 정이십면체 세 개를 겹친 낮은 폴리곤에 둥근 법선을 줘서 부드러운 공처럼 보이게.
    방향별 8묶음으로 나눠 등 뒤 묶음은 그리지 않는다. 멀수록 크게 심어 빈틈을 메운다. */
-function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats }) {
+function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats, clear }) {
   const rnd = mulberry32(23);
   // 잎 덩어리: 크기 1 언저리, 바닥이 y=0
   const blobs = [[0, 0.62, 0, 0.55], [-0.28, 0.45, 0.12, 0.4], [0.27, 0.48, -0.1, 0.42]];
@@ -247,7 +247,7 @@ function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats }) {
   for (let k = 0; k < 8000; k++) {                              // 폰에서도 가볍게: 나무 약 4,700그루
     const a = rnd() * Math.PI * 2, r = 24 + 300 * Math.pow(rnd(), 1.5);
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
-    if (inYardZone(x, z)) continue;
+    if (inYardZone(x, z) || clear(x, z)) continue;                 // 다리 길과 섬 터 둘레는 비운다
     if (flats.some((f, g = f.treeGap ?? 9) => x > f.minX - g && x < f.maxX + g && z > f.minZ - g && z < f.maxZ + g)) continue;   // 굴 둘레엔 큰 나무가 바위를 뚫지 않게 (섬 터는 바로 둘레만 비운다)
     const y = height(x, z);
     if (y < seaY + 18 || (r > 150 && y < seaY + 32)) continue;   // 갯바위섬처럼 낮은 땅엔 나무 대신 바위와 풀빛만

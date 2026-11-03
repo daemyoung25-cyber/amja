@@ -69,7 +69,7 @@ export function createAudio({ urls }) {
     master.connect(ctx.destination);
     for (const name of Object.keys(LEVEL)) { layers[name] = ctx.createGain(); layers[name].gain.value = 0; layers[name].connect(master); }
     ctx.resume();
-    master.gain.setTargetAtTime(1, ctx.currentTime, 1.2);                // 들어오면서 천천히 커진다
+    master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 1.2);    // 들어오면서 천천히 커진다
     apply();
     // 온라인 산사처럼 들어서면 불경이 먼저: 처음 구절부터 흐르고, 나머지 소리는 조금 뒤에 깔린다
     const [w, c, ev] = await Promise.allSettled([load(urls.waves), load(urls.chant), load(urls.evening)]);
@@ -96,5 +96,12 @@ export function createAudio({ urls }) {
 
   function suspend() { if (ctx && ctx.state === "running") ctx.suspend(); }
 
-  return { start, setListener, setVolume, resumeIfNeeded, suspend, state: () => (ctx ? ctx.state : "suspended") };
+  // 한 번에 끄고 켜기: 층마다 크기는 그대로 두고 전체만 줄인다
+  let muted = false;
+  function setMuted(m) {
+    muted = !!m;
+    if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.25);
+  }
+
+  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, state: () => (ctx ? ctx.state : "suspended") };
 }
