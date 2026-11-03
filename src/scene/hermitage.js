@@ -119,6 +119,15 @@ export function createHermitage(THREE) {
   const painting = new THREE.TextureLoader().load("textures/taenghwa.jpg"); painting.colorSpace = THREE.SRGBColorSpace;
   const th = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.5), mat(0xffffff, { map: painting }));
   th.position.set(0, FY + 1.45, -D / 2 + 0.15); hall.add(th);
+  // 옆벽 벽화: 왼쪽(부처님을 볼 때) 수월관음도, 오른쪽 아미타삼존도 (메트로폴리탄 미술관 고려 불화, 퍼블릭 도메인)를
+  // 가운데 두고 둘레를 비단빛 바탕·금선 구름·물결·단청 테두리로 채워 벽 전체를 덮는다
+  for (const [sx, url] of [[-1, "textures/herm-mural-l.webp"], [1, "textures/herm-mural-r.webp"]]) {
+    const tex = new THREE.TextureLoader().load(url); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(D - 0.3, WH - 0.04), mat(0xffffff, { map: tex, emissiveMap: tex, emissive: 0x5a5a5a }));   // 옆벽은 빛을 덜 받아 스스로 조금 밝게
+    m.rotation.y = -sx * Math.PI / 2;
+    m.position.set(sx * (W / 2 - 0.145), FY + WH / 2, 0);
+    hall.add(m);
+  }
   for (const sx of [-1, 1]) {                                                       // 촛대 한 쌍
     box(0.06, 0.28, 0.06, mat(0xd2a948), sx * 1.25, FY + ALTAR_H + 0.2, altarZ + 0.2);
     box(0.04, 0.06, 0.04, mat(0xffd27a, { emissive: 0xffb347 }), sx * 1.25, FY + ALTAR_H + 0.37, altarZ + 0.2);

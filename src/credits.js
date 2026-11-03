@@ -11,6 +11,8 @@ export const CREDITS = [
   { what: "바다 물결", title: "waternormals.jpg (three.js 예제 텍스처)", by: "three.js authors", url: "https://github.com/mrdoob/three.js", license: "MIT" },
   { what: "해수관음", title: "서라벌 천년왕경 분황사 석조관음보살입상 3D 에셋", by: "국가유산청", url: "https://digital.khs.go.kr", license: "공공누리 제1유형" },
   { what: "지장탱화", title: "Bodhisattva Jijang and the Ten Kings of Hell (조선)", by: "Los Angeles County Museum of Art", url: "https://commons.wikimedia.org/wiki/File:Bodhisattva_Jijang_(Kshitigarbha)_and_the_Ten_Kings_of_Hell_LACMA_AC1994.49.1_(1_of_9).jpg", license: "Public domain" },
+  { what: "섬 암자 벽화 (수월관음도)", title: "Water-Moon Avalokiteshvara (고려)", by: "The Metropolitan Museum of Art", url: "https://commons.wikimedia.org/wiki/File:Water-Moon_Avalokiteshvara_(Metropolitan_Museum_of_Art).jpg", license: "Public domain" },
+  { what: "섬 암자 벽화 (아미타삼존도)", title: "Amitabha Triad (고려)", by: "The Metropolitan Museum of Art", url: "https://commons.wikimedia.org/wiki/File:Amitabha_Triad_(Metropolitan_Museum_of_Art).jpg", license: "Public domain" },
   { what: "신중탱화", title: "Buddhist Deities (조선)", by: "Cleveland Museum of Art", url: "https://clevelandart.org/art/1999.119", license: "CC0" },
   { what: "후불탱화", title: "The Assembly of Tejaprabha Buddha (조선)", by: "Cleveland Museum of Art", url: "https://clevelandart.org/art/1998.120", license: "CC0" },
 ];
