@@ -9,10 +9,14 @@ export const STATUE = { x: -17, z: -12, baseR: 1.2 };
 export const PRAYER = { minX: STATUE.x - 3.4, maxX: STATUE.x + 3.4, minZ: STATUE.z - 5.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
 export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
 export const PRAYER_SEATS = [2.7, 3.7, 4.7].flatMap((dz) => [-2.4, -1.2, 0, 1.2, 2.4].map((dx) => ({ x: STATUE.x + dx, z: STATUE.z - dz })));   // 다섯 자리씩 세 줄, 15석
-// 촛불 공양대: 해수관음 맞은편 마당 오른쪽(법당을 보고 9시). 바다 쪽 앞에 서서 초를 켜 올린다.
-export const CANDLES = { x: 16, z: 0.5, r: 1.05, spot: { x: 16, z: -0.9 } };
-// 소원걸이: 공양대 앞에 서서 보면 그 왼쪽(+x). 소원패를 적어 건다.
-export const WISH = { x: 20, z: 0, r: 1.3, spot: { x: 20, z: -1.7 } };
+// 촛불 공양대와 소원걸이: 해수관음 맞은편 마당 끝(오른쪽 담)에 붙여, 앞면이 해수관음을 본다.
+// 앞에 서서 걸이를 마주 보면 소원걸이는 공양대 왼쪽(바다 쪽)이다. yaw는 걸이 앞면 방향(사람 yaw와 같은 규칙).
+const facingStatue = (x, z, r, gap) => {
+  const ux = STATUE.x - x, uz = STATUE.z - z, L = Math.hypot(ux, uz);
+  return { x, z, r, yaw: Math.atan2(-ux, -uz), spot: { x: x + (ux / L) * gap, z: z + (uz / L) * gap } };
+};
+export const CANDLES = facingStatue(24.6, -3.5, 1.05, 1.4);
+export const WISH = facingStatue(24.4, -8, 1.3, 1.7);
 // 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 언덕 속. 마당 뒤끝(foot)에서 돌계단으로 1.6m 올라 굴 어귀(door)를 지나 안으로.
 export const CAVE = (() => {
   const x = -13.5;

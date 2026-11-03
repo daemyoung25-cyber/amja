@@ -1,5 +1,5 @@
 /* 촛불 공양대: 돌 받침 위 붉은 나무 장, 네 단 계단 선반(단마다 12칸), 작은 기와지붕.
-   초는 유리컵 속 흰 초, 하루 동안 짧아진다. 불꽃은 깜빡이고 둘레에 빛무리. 앞(바다 쪽, -z)에서 올린다. */
+   초는 유리컵 속 흰 초, 하루 동안 짧아진다. 불꽃은 깜빡이고 둘레에 빛무리. 앞(모델의 -z, 해수관음 쪽)에서 올린다. */
 import { CANDLE_SLOTS } from "../logic/candles.js";
 
 const COLS = 12, TIERS = CANDLE_SLOTS / COLS;
@@ -11,9 +11,10 @@ function slotPos(slot) {
   return { x: (col - (COLS - 1) / 2) * 0.15, y: 0.78 + tier * 0.2, z: -0.22 + tier * 0.13 };
 }
 
-export function createCandleRack(THREE, { x, z }) {
+export function createCandleRack(THREE, { x, z, yaw = 0 }) {
   const group = new THREE.Group();
   group.position.set(x, 0, z);
+  group.rotation.y = yaw;                                      // 앞면(-z)이 yaw 쪽을 본다
   const mat = (color) => new THREE.MeshLambertMaterial({ color });
   const stone = mat(0x9a9285), wood = mat(0x7a2a1e), shelfMat = mat(0x5a3a26), roofMat = mat(0x2e3138), gold = mat(0xb08a3a);
   const box = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); group.add(o); return o; };

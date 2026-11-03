@@ -239,16 +239,26 @@ test("the censer is gone so nothing stands in the way of the steps, and the pago
   assert.deepEqual(path, [HALL.door]);
 });
 
+// 앞(패를 거는 쪽)이 해수관음을 본다: 서는 자리가 걸이와 관음상 사이, 서면 걸이를 마주 본다
+function faceTheStatue(o, face) {
+  const ux = STATUE.x - o.x, uz = STATUE.z - o.z, L = Math.hypot(ux, uz);
+  assert.ok(Math.abs(o.yaw - Math.atan2(-ux, -uz)) < 1e-9, "걸이 앞면이 관음상 쪽");
+  const sx = o.spot.x - o.x, sz = o.spot.z - o.z;
+  assert.ok((sx * ux + sz * uz) / (Math.hypot(sx, sz) * L) > 0.99, "서는 자리는 앞(관음상 쪽)");
+  const y = face(o.spot);
+  assert.ok(-Math.sin(y) * -ux / L + -Math.cos(y) * -uz / L > 0.99, "서면 걸이를 마주 본다");
+}
+
 test("on the right of the yard (9 o'clock facing the hall), opposite the Gwaneum, there is a candle rack with a place to stand in front", () => {
   const rack = YARD.find((o) => o.kind === "candles");
   assert.ok(rack, "촛대");
   assert.deepEqual({ x: rack.x, z: rack.z }, { x: CANDLES.x, z: CANDLES.z });
   assert.ok(rack.x > COURTYARD.maxX / 2 && rack.z > STATUE.z + STATUE.baseR + 2 && rack.z + rack.r < HALL.minZ, JSON.stringify(rack));
-  assert.ok(CANDLES.spot.z < rack.z - rack.r, "앞(바다 쪽)에 선다");
   assert.deepEqual(clampToWalkable(CANDLES.spot), CANDLES.spot);
   assert.equal(nearCandles(CANDLES.spot), true);
   assert.equal(nearCandles({ x: 0, z: -8 }), false);
-  assert.ok(Math.cos(faceCandles(CANDLES.spot)) < -0.95, "촛대(산 쪽)를 본다");
+  assert.ok(rack.x + rack.r >= COURTYARD.maxX - 1.5, "마당 끝(오른쪽 담)에 붙어 있다");
+  faceTheStatue(CANDLES, faceCandles);
 });
 
 test("tapping the candle rack walks to the place in front of it", () => {
@@ -314,15 +324,14 @@ test("left of the candle rack (seen from in front of it) there is a wish rack, w
   const rack = YARD.find((o) => o.kind === "wish");
   assert.ok(rack, "소원걸이");
   assert.deepEqual({ x: rack.x, z: rack.z }, { x: WISH.x, z: WISH.z });
-  assert.ok(WISH.x > CANDLES.x + 2, "공양대를 보고 섰을 때 왼쪽(+x)");
-  assert.ok(Math.abs(WISH.z - CANDLES.z) < 1.5, "공양대와 나란히");
+  assert.ok(WISH.z < CANDLES.z - 2, "관음상 쪽에서 공양대를 마주 보면 왼쪽은 바다 쪽(-z)");
+  assert.ok(Math.abs(WISH.x - CANDLES.x) < 1.5, "공양대와 나란히 담에 붙어");
   assert.ok(WISH.x + rack.r < COURTYARD.maxX, JSON.stringify(rack));
-  assert.ok(WISH.spot.z < rack.z - rack.r, "앞(바다 쪽)에 선다");
   assert.deepEqual(clampToWalkable(WISH.spot), WISH.spot);
   assert.equal(nearWish(WISH.spot), true);
   assert.equal(nearWish(CANDLES.spot), false);
   assert.equal(nearCandles(WISH.spot), false);
-  assert.ok(Math.cos(faceWish(WISH.spot)) < -0.95, "소원걸이(산 쪽)를 본다");
+  faceTheStatue(WISH, faceWish);
 });
 
 test("tapping the wish rack walks to the place in front of it, round the stones", () => {

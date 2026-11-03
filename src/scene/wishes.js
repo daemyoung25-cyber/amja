@@ -1,5 +1,5 @@
 /* 소원걸이: 나무 기둥 두 개에 가로대 세 줄, 작은 기와지붕. 소원패(작은 나무패)를 붉은 끈으로 가로대에 건다.
-   앞(바다 쪽, -z)에서 건다. 패는 바람에 살짝 흔들린다. 글은 그리지 않는다 (적은 사람 폰에만 있다). */
+   앞(모델의 -z, 해수관음 쪽)에서 건다. 패는 바람에 살짝 흔들린다. 글은 그리지 않는다 (적은 사람 폰에만 있다). */
 import { WISH_SLOTS } from "../logic/wishes.js";
 
 const ROWS = 3, PER_ROW = WISH_SLOTS / ROWS, WIDTH = 2.5, BAR_Y = [1.85, 1.4, 0.95];
@@ -10,9 +10,10 @@ function slotPos(slot) {
   return { x: (col - (PER_ROW - 1) / 2) * (WIDTH - 0.2) / PER_ROW, y: BAR_Y[row], z: -0.02 + (col % 2) * 0.03 };
 }
 
-export function createWishRack(THREE, { x, z }) {
+export function createWishRack(THREE, { x, z, yaw = 0 }) {
   const group = new THREE.Group();
   group.position.set(x, 0, z);
+  group.rotation.y = yaw;                                      // 앞면(-z)이 yaw 쪽을 본다
   const mat = (color) => new THREE.MeshLambertMaterial({ color });
   const stone = mat(0x9a9285), wood = mat(0x6e4a32), barMat = mat(0x5a3a26), roofMat = mat(0x2e3138);
   const box = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); group.add(o); return o; };
