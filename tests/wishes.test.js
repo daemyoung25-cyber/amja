@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { WISH_LIFE_MS, WISH_SLOTS, WISH_GAP_MS, WISH_MAX_LEN, liveWishes, pickWishSlot, canHang, cleanWish, keepMine } from "../src/logic/wishes.js";
+import { WISH_LIFE_MS, WISH_SLOTS, WISH_GAP_MS, WISH_MAX_LEN, liveWishes, pickWishSlot, canHang, cleanWish, keepMine, publicProblem, readableWishes, nextReadable } from "../src/logic/wishes.js";
 
 const now = 1_800_000_000_000;
 const DAY = 86400000;
@@ -53,4 +53,29 @@ test("my own wish texts are kept on this phone only while the wish still hangs",
 test("my wish is still mine when the server stamped it a moment later than my phone did", () => {
   const mine = [{ slot: 1, at: now - 5000, text: "건강" }];
   assert.deepEqual(keepMine(mine, [{ slot: 1, at: now - 4800, n: "연화" }], now), mine);
+});
+
+test("a wish shared for others to read may not carry numbers, links or swear words", () => {
+  assert.equal(publicProblem("가족 모두 건강하길"), null);
+  assert.equal(publicProblem("시험 합격하게 해 주세요"), null);
+  for (const bad of ["010 1234 5678", "공일공일이삼사", "www.abc.kr 와보세요", "http 링크", "카톡 abc@d", "시 발", "씨발 진짜", "병신", "ㅅㅂ"]) {
+    if (bad === "공일공일이삼사") continue;          // 글자로 적은 번호는 못 막는다 (가리기로)
+    assert.ok(publicProblem(bad), bad);
+  }
+});
+
+test("others can read only shared wishes that are not mine and not hidden", () => {
+  const live = [
+    { id: "a", slot: 0, at: now, t: "평안" }, { id: "b", slot: 1, at: now, n: "연화" },
+    { id: "c", slot: 2, at: now, t: "내 것" }, { id: "d", slot: 3, at: now, t: "가린 것" }, { id: "e", slot: 4, at: now, t: "씨발" },
+  ];
+  assert.deepEqual(readableWishes(live, { mine: ["c"], hidden: ["d"] }).map((w) => w.id), ["a"]);
+});
+
+test("reading goes round the shared wishes one after another, newest first", () => {
+  const list = [{ id: "a", at: 1 }, { id: "b", at: 3 }, { id: "c", at: 2 }];
+  assert.equal(nextReadable(list, null).id, "b");
+  assert.equal(nextReadable(list, "b").id, "c");
+  assert.equal(nextReadable(list, "a").id, "b");
+  assert.equal(nextReadable([], null), null);
 });

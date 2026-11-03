@@ -42,3 +42,29 @@ export function keepMine(mine, live, nowMs) {
     return !w || w.at <= m.at + 60000;          // 서버 시각은 폰보다 조금 늦을 수 있다 (남의 패가 내 자리를 가져가는 건 다 찬 뒤, 훨씬 나중)
   });
 }
+
+/* 함께 읽는 소원: 적은 사람이 "다른 분도 읽을 수 있게"를 고른 패만, 이름 없이 글(t)만 서버에 둔다.
+   번호·링크·욕설은 막는다 (서버 규칙은 숫자와 링크를, 여기선 욕설까지). 그래도 남는 것은 '가리기'로. */
+const SWEARS = ["시발", "씨발", "씨바", "시바", "씨빨", "ㅅㅂ", "ㅆㅂ", "병신", "ㅂㅅ", "븅신", "개새", "개색", "새끼", "좆", "존나", "졸라", "지랄", "ㅈㄹ", "미친놈", "미친년", "썅", "엿먹", "닥쳐", "꺼져", "니미", "느금", "섹스", "fuck", "shit", "bitch"];
+const squash = (t) => t.toLowerCase().replace(/[\s.,!?~·*_\-]+/g, "");
+const LINKISH = /[0-9０-９]|https?|www|\.(com|net|kr|org|io|me|ly)|@|t\.me|open\.kakao/i;
+
+export function publicProblem(text) {
+  if (LINKISH.test(text)) return "다른 분이 읽는 소원엔 숫자와 링크를 넣을 수 없어요";
+  const s = squash(text);
+  if (SWEARS.some((w) => s.includes(w))) return "고운 말로 적어 주세요";
+  return null;
+}
+
+// 남이 읽을 수 있는 패: 글이 있고, 내 것이 아니고, 내가 가리지 않았고, 욕설이 아닌 것. 새것부터.
+export function readableWishes(live, { mine = [], hidden = [] } = {}) {
+  const skip = new Set([...mine, ...hidden]);
+  return live.filter((w) => typeof w.t === "string" && w.t && !skip.has(w.id) && !publicProblem(w.t)).sort((a, b) => b.at - a.at);
+}
+
+export function nextReadable(list, currentId) {
+  if (!list.length) return null;
+  const sorted = [...list].sort((a, b) => b.at - a.at);
+  const i = sorted.findIndex((w) => w.id === currentId);
+  return sorted[(i + 1) % sorted.length];
+}

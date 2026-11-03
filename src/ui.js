@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnWish = $("btn-wish");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -61,7 +61,11 @@ export function createUI({ placeName }) {
   }
   function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
-  function setNearWish(near) { btnWish.hidden = !near; if (!near) wishSheet.hidden = true; }
+  function setNearWish(near, canRead = false) {
+    btnWish.hidden = !near;
+    btnWishRead.hidden = !near || !canRead;
+    if (!near) wishSheet.hidden = readSheet.hidden = true;
+  }
 
   function setLeaning(on) {
     leaning = on;
@@ -106,25 +110,33 @@ export function createUI({ placeName }) {
 
   const sheet = $("sheet"), creditsSheet = $("credits-sheet"), resume = $("sound-resume");
   // 소원 적기 시트: 한 줄 적어 걸고, 아래에 아직 걸려 있는 내 소원이 보인다 (글은 이 폰에만)
-  const wishSheet = $("wish-sheet"), wishText = $("wish-text"), wishError = $("wish-error"), myWishList = $("my-wishes");
+  const wishSheet = $("wish-sheet"), wishText = $("wish-text"), wishError = $("wish-error"), myWishList = $("my-wishes"), wishPub = $("wish-pub"), wishNote = $("wish-note");
+  const showPubNote = () => {
+    wishNote.textContent = wishPub.checked
+      ? "이름 없이 글만 다른 분께 보여요. 숫자·링크는 넣을 수 없어요. 소원패는 이레 동안 걸려 있어요"
+      : "적은 글은 이 폰에만 남아요. 다른 분께는 소원패만 보여요. 소원패는 이레 동안 걸려 있어요";
+  };
+  wishPub.addEventListener("change", () => { wishError.hidden = true; showPubNote(); });
   let wishSubmit = () => null;
   $("wish-close").addEventListener("click", () => (wishSheet.hidden = true));
   wishText.addEventListener("input", () => (wishError.hidden = true));
   $("wish-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const err = wishSubmit(wishText.value);
+    const err = wishSubmit(wishText.value, wishPub.checked);
     if (err) { wishError.textContent = err; wishError.hidden = false; return; }
     wishText.value = "";
+    wishPub.checked = false;
+    showPubNote();
     wishText.blur();
     wishSheet.hidden = true;
   });
   function openWishSheet(mine) {
-    sheet.hidden = creditsSheet.hidden = true;
+    sheet.hidden = creditsSheet.hidden = readSheet.hidden = true;
     wishError.hidden = true;
     myWishList.replaceChildren(...mine.map((m) => {
       const li = document.createElement("li");
       const left = document.createElement("span");
-      left.textContent = `${m.daysLeft}일 남음`;
+      left.textContent = (m.pub ? (m.joins ? `${m.joins}분이 함께 빌었어요 · ` : "함께 읽는 소원 · ") : "") + `${m.daysLeft}일 남음`;
       li.append(m.text, left);
       return li;
     }));
@@ -155,7 +167,7 @@ export function createUI({ placeName }) {
   }
 
   function openSettings({ volumes }) {
-    creditsSheet.hidden = wishSheet.hidden = true;
+    creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = true;
     for (const row of rows) {
       const level = Math.round((volumes[row.dataset.layer] ?? 1) * 100);
       row.dataset.level = level;
@@ -164,9 +176,25 @@ export function createUI({ placeName }) {
     sheet.hidden = false;
   }
 
+  // 소원 읽기 시트: 남이 함께 읽게 건 소원 하나 (이름 없이). 함께 빌기 · 다음 · 가리기
+  const readSheet = $("read-sheet"), readText = $("read-text"), readJoin = $("read-join");
+  const readCbs = { join: () => {}, next: () => {}, hide: () => {} };
+  $("read-close").addEventListener("click", () => (readSheet.hidden = true));
+  readJoin.addEventListener("click", () => readCbs.join());
+  $("read-next").addEventListener("click", () => readCbs.next());
+  $("read-hide").addEventListener("click", () => readCbs.hide());
+  function showWishRead(w) {                   // w: { text, joined } 또는 null (더 읽을 것이 없음)
+    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = true;
+    if (!w) { readSheet.hidden = true; return; }
+    readText.textContent = w.text;
+    readJoin.disabled = w.joined;
+    readJoin.textContent = w.joined ? "함께 빌었어요" : "함께 빌기";
+    readSheet.hidden = false;
+  }
+
   // 출처 시트: 오른쪽 위 [출처] 버튼
   function openCredits(credits) {
-    sheet.hidden = wishSheet.hidden = true;
+    sheet.hidden = wishSheet.hidden = readSheet.hidden = true;
     const list = $("credits");
     list.replaceChildren(...credits.map((c) => {
       const li = document.createElement("li");
@@ -190,7 +218,8 @@ export function createUI({ placeName }) {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
     onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb),
-    setNearWish, openWishSheet, onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
+    setNearWish, openWishSheet, onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
+    showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
     onBow108: (cb) => btnBow108.addEventListener("click", cb), setBowing, setBowCount,

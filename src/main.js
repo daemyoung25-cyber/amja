@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
 import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM } from "./logic/layout.js";
-import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS } from "./logic/wishes.js";
+import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
@@ -66,6 +66,10 @@ const MY_WISHES_KEY = "amja-wishes";
 let myWishes = [];
 try { myWishes = JSON.parse(localStorage.getItem(MY_WISHES_KEY) || "[]"); } catch {}
 const saveMyWishes = () => { try { localStorage.setItem(MY_WISHES_KEY, JSON.stringify(myWishes)); } catch {} };
+// 내가 가린 소원, 함께 빈 소원 (id 목록, 이 폰에만)
+const loadIds = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
+const saveIds = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v.slice(-200))); } catch {} };
+let hiddenWishes = loadIds("amja-wish-hidden"), joinedWishes = loadIds("amja-wish-joined"), readingId = null;
 const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
@@ -162,11 +166,12 @@ ui.onCandle(() => {
 const myLiveWishes = () => (myWishes = keepMine(myWishes, liveWishes(wishRecords, net.now()), net.now()));
 ui.onWishButton(() => {
   const now = net.now();
-  ui.openWishSheet(myLiveWishes().map((m) => ({ text: m.text, daysLeft: Math.max(1, Math.ceil((m.at + WISH_LIFE_MS - now) / 86400000)) })));
+  ui.openWishSheet(myLiveWishes().map((m) => ({ text: m.text, pub: !!m.pub, joins: m.joins || 0, daysLeft: Math.max(1, Math.ceil((m.at + WISH_LIFE_MS - now) / 86400000)) })));
 });
-ui.onWishSubmit((raw) => {
+ui.onWishSubmit((raw, pub) => {
   const text = cleanWish(raw);
   if (!text) return "한 줄로 30자까지 적어 주세요";
+  if (pub) { const why = publicProblem(text); if (why) return why; }
   const now = net.now();
   if (!canHang(lastWishAt, now)) return "조금 뒤에 또 걸 수 있어요";
   if (state.base === "walk") return "소원걸이 앞에 서서 걸어요";
@@ -177,15 +182,56 @@ ui.onWishSubmit((raw) => {
   gesture("light");
   setTimeout(() => {
     const at = net.now(), slot = pickWishSlot(liveWishes(wishRecords, at), at);
-    wishRecords = [...wishRecords, { slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
-    net.hangWish({ slot, n: myName, h: mySex });
-    myWishes = [...myLiveWishes(), { slot, at, text }];
+    const id = net.hangWish({ slot, n: myName, h: mySex, text, pub });
+    wishRecords = [...wishRecords, pub ? { id, slot, t: text, at } : { id, slot, n: myName, h: mySex, at }];   // 연결이 없어도 내 화면엔 바로
+    myWishes = [...myLiveWishes(), { slot, at, text, ...(pub ? { pub: true } : {}), ...(id ? { id } : {}) }];
     saveMyWishes();
+    listenJoins();
     redrawWishes();
     ui.showWhisper("소원을 걸었어요");
   }, 1600);
   return null;
 });
+// 소원 읽기: 남이 함께 읽게 건 소원을 하나씩 (새것부터). 함께 빌면 적은 분께 알림이 간다
+const readable = () => readableWishes(liveWishes(wishRecords, net.now()), { mine: myWishes.map((m) => m.id).filter(Boolean), hidden: hiddenWishes });
+function showReading(w) {
+  readingId = w ? w.id : null;
+  ui.showWishRead(w ? { text: w.t, joined: joinedWishes.includes(w.id) } : null);
+}
+ui.onWishRead(() => showReading(nextReadable(readable(), null)));
+ui.onReadNext(() => showReading(nextReadable(readable(), readingId)));
+ui.onReadHide(() => {
+  if (!readingId) return;
+  hiddenWishes = [...hiddenWishes, readingId];
+  saveIds("amja-wish-hidden", hiddenWishes);
+  showReading(nextReadable(readable(), null));
+  ui.showWhisper("내 화면에서 가렸어요");
+});
+ui.onReadJoin(() => {
+  if (!readingId || joinedWishes.includes(readingId)) return;
+  net.joinWish(readingId);
+  joinedWishes = [...joinedWishes, readingId];
+  saveIds("amja-wish-joined", joinedWishes);
+  gesture("hapjang");
+  showReading(readable().find((w) => w.id === readingId) || null);
+});
+// 내 함께 읽는 소원에 누가 함께 빌면: 들어와 있을 땐 바로, 나가 있던 동안의 것은 들어올 때 한 번에
+const joinWatch = new Set();
+function listenJoins() {
+  if (net.mode !== "shared") return;
+  for (const m of myWishes) {
+    if (!m.pub || !m.id || joinWatch.has(m.id)) continue;
+    joinWatch.add(m.id);
+    net.onWishJoins(m.id, (n) => {
+      const mine = myWishes.find((x) => x.id === m.id);
+      if (!mine) return;
+      const before = mine.joins || 0;
+      if (n > before) ui.notify(n - before === 1 ? "누군가 당신의 소원에 함께 빌었어요 🙏" : `${n - before}분이 당신의 소원에 함께 빌었어요 🙏`);
+      mine.joins = n;
+      saveMyWishes();
+    });
+  }
+}
 function faceBuddha() {
   const p = positionAt(state.move, net.now());
   state.yaw = insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
@@ -298,7 +344,7 @@ function frame(t) {
   const inside = insideHall(p);
   ui.setNearStatue(inside || insideCave(p) || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
   ui.setNearCandles(state.base !== "walk" && nearCandles(p));
-  ui.setNearWish(state.base !== "walk" && nearWish(p));
+  ui.setNearWish(state.base !== "walk" && nearWish(p), readable().length > 0);
   const inCave = insideCave(p);
   rig.setIndoor(inside || inCave, inCave ? faceCaveAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : ROOM);
 
@@ -413,7 +459,7 @@ function adopt(p) {
     if (wishesSeen) {
       for (const w of recs) {
         const key = `${w.slot}:${w.at}`;
-        if (!wishesSeen.has(key) && w.n !== myName && net.now() - w.at < 30000) ui.notify(`${nameTag(w.n, w.h)}님이 소원을 걸었어요`);
+        if (!wishesSeen.has(key) && !w.mine && !myWishes.some((m) => m.id === w.id) && w.n !== myName && net.now() - w.at < 30000) ui.notify(w.n ? `${nameTag(w.n, w.h)}님이 소원을 걸었어요` : "누군가 소원을 걸었어요");
       }
     }
     wishesSeen = new Set(recs.map((w) => `${w.slot}:${w.at}`));
@@ -421,6 +467,7 @@ function adopt(p) {
     redrawWishes();
     myLiveWishes();
     saveMyWishes();
+    listenJoins();
   });
   net.cleanup();
 }

@@ -14,7 +14,7 @@ export function fakeSdk() {
       set: async (r, v) => { log.set.push({ path: r.path, v }); },
       update: async (r, v) => { log.update.push({ path: r.path, v }); },
       remove: async (r) => { log.remove.push(r.path); },
-      push: async (r, v) => { log.push.push({ path: r.path, v }); }, get: async () => ({ val: () => null }), limits: [],
+      push: (r, v) => { const key = `k${log.push.length}`; log.push.push({ path: r.path, v, key }); return Object.assign(Promise.resolve(), { key, path: `${r.path}/${key}` }); }, get: async () => ({ val: () => null }), limits: [],
       query: (r) => r, orderByChild: () => ({}), startAt: () => ({}), endAt: () => ({}), limitToFirst: () => ({}), limitToLast: (n) => { sdk.db.limits.push(n); return {}; },
     },
   };

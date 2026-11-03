@@ -128,10 +128,39 @@ test("hanging a wish writes only slot, name and server time under wishes/ (never
   p.close();
 });
 
+test("a wish shared for reading is written with its text but without name, and returns its id", async () => {
+  const { sdk, log } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
+  const id = p.hangWish({ slot: 2, n: "법운", h: "m", text: "평안하길", pub: true });
+  assert.equal(log.push.at(-1).path, "wishes");
+  assert.deepEqual({ ...log.push.at(-1).v, at: 0 }, { slot: 2, t: "평안하길", at: 0 });
+  assert.equal(id, log.push.at(-1).key);
+  p.close();
+});
+
+test("praying along with a wish writes my uid under wishJoins/{wish}, and wishes come with their ids", async () => {
+  const { sdk, log, fire } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
+  p.joinWish("w1");
+  assert.equal(log.set.at(-1).path, "wishJoins/w1/me");
+  assert.equal(typeof log.set.at(-1).v, "number");
+  let got = null;
+  p.onWishes((list) => { got = list; });
+  fire("wishes", { w9: { slot: 1, at: 5, t: "x" } });
+  assert.deepEqual(got, [{ id: "w9", slot: 1, at: 5, t: "x" }]);
+  let joins = null;
+  p.onWishJoins("w9", (n) => { joins = n; });
+  fire("wishJoins/w9", { u1: 1, u2: 2 });
+  assert.equal(joins, 2);
+  p.close();
+});
+
 test("solo mode can hang a wish without a connection", async () => {
   const p = await createPresence({ config: { apiKey: "" } });
   p.hangWish({ slot: 0, n: "연화" });
   p.onWishes(() => {});
+  p.joinWish("x");
+  p.onWishJoins("x", () => {});
 });
 
 test("solo mode can light a candle without a connection", async () => {

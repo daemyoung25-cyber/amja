@@ -72,3 +72,23 @@ test("a wish record holds only place, name and time: a wish text is refused", op
   assert.notEqual(await put(`wishes/c${now}`, { slot: 60, n: "연화", at: now }, me.token), 200);
   assert.notEqual(await put(`wishes/a${now}`, { slot: 4, n: "남", at: now }, me.token), 200, "걸린 소원은 이레 동안 남이 바꿀 수 없다");
 });
+
+test("a shared wish carries its text but no name; numbers and links are refused", opts, async () => {
+  const me = await signIn();
+  assert.equal(await put(`wishes/p${now}`, { slot: 5, t: "평안하길", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/q${now}`, { slot: 5, t: "평안", n: "연화", at: now }, me.token), 200, "글과 이름을 같이 두지 않는다");
+  assert.notEqual(await put(`wishes/r${now}`, { slot: 5, t: "010 1234", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/s${now}`, { slot: 5, t: "www.x.kr", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/t${now}`, { slot: 5, t: "Http 링크", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/u${now}`, { slot: 5, t: "가".repeat(31), at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/v${now}`, { slot: 5, at: now }, me.token), 200, "글도 이름도 없으면 안 된다");
+});
+
+test("praying along: only under my own uid, only for a wish that hangs", opts, async () => {
+  const me = await signIn(), other = await signIn();
+  await put(`wishes/j${now}`, { slot: 6, t: "합격", at: now }, me.token);
+  assert.equal(await put(`wishJoins/j${now}/${other.uid}`, now, other.token), 200);
+  assert.notEqual(await put(`wishJoins/j${now}/${me.uid}`, now, other.token), 200, "남의 이름으로는 못 빈다");
+  assert.notEqual(await put(`wishJoins/nowish${now}/${other.uid}`, now, other.token), 200, "없는 소원엔 못 빈다");
+  assert.notEqual(await put(`wishJoins/j${now}/${other.uid}`, "x", other.token), 200);
+});

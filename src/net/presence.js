@@ -18,7 +18,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, hangWish: noop, onWishes: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, hangWish: () => null, onWishes: noop, joinWish: noop, onWishJoins: noop,
   };
 }
 
@@ -120,12 +120,20 @@ async function connect(config, loadSdk, me) {
       const q = db.query(db.ref(database, "candles"), db.orderByChild("at"), db.startAt(now() - DAY), db.limitToLast(CANDLE_READ_MAX));
       db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
     },
-    // 소원걸이: wishes/{id} = { slot, n, h, at } — 소원 글은 보내지 않는다 (적은 사람 폰에만)
-    hangWish({ slot, n, h }) { db.push(db.ref(database, "wishes"), { slot, n, ...(h ? { h } : {}), at: now() }); },
+    // 소원걸이: wishes/{id}
+    //   나만 보는 소원 = { slot, n, h, at }  (글은 적은 사람 폰에만)
+    //   함께 읽는 소원 = { slot, t, at }     (이름 없이 글만)
+    hangWish({ slot, n, h, text, pub }) {
+      const v = pub ? { slot, t: text, at: now() } : { slot, n, ...(h ? { h } : {}), at: now() };
+      return db.push(db.ref(database, "wishes"), v).key;
+    },
     onWishes(cb) {
       const q = db.query(db.ref(database, "wishes"), db.orderByChild("at"), db.startAt(now() - WISH_LIFE), db.limitToLast(WISH_READ_MAX));
-      db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
+      db.onValue(q, (snap) => cb(Object.entries(snap.val() || {}).map(([id, v]) => ({ id, ...v }))));
     },
+    // 함께 빌기: wishJoins/{소원 id}/{내 uid} = 시각. 소원을 건 사람은 제 소원의 수를 듣는다
+    joinWish(id) { db.set(db.ref(database, `wishJoins/${id}/${uid}`), now()); },
+    onWishJoins(id, cb) { db.onValue(db.ref(database, `wishJoins/${id}`), (snap) => cb(Object.keys(snap.val() || {}).length)); },
     async cleanup() {                // 들어올 때 한 번: 두 시간 넘은 기록(촛불은 하루 넘은 것)을 조금씩 지운다
       for (const [path, age] of [["traces", CLEANUP_AGE], ["visits", CLEANUP_AGE], ["candles", DAY + HOUR], ["wishes", WISH_LIFE + HOUR]]) {
         try {
@@ -134,6 +142,12 @@ async function connect(config, loadSdk, me) {
           await Promise.all(Object.keys(snap.val() || {}).map((id) => db.remove(db.ref(database, `${path}/${id}`))));
         } catch (e) { console.warn("오래된 기록 정리 실패", e); }
       }
+      try {                          // 내려간 소원에 남은 '함께 빌기' 기록
+        const [joins, wishes] = await Promise.all([db.get(db.ref(database, "wishJoins")), db.get(db.ref(database, "wishes"))]);
+        const hanging = new Set(Object.keys(wishes.val() || {}));
+        const gone = Object.keys(joins.val() || {}).filter((id) => !hanging.has(id)).slice(0, CLEANUP_BATCH);
+        await Promise.all(gone.map((id) => db.remove(db.ref(database, `wishJoins/${id}`))));
+      } catch (e) { console.warn("함께 빌기 기록 정리 실패", e); }
     },
   };
 }

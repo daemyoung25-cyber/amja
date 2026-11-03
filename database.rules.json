@@ -60,12 +60,23 @@
       ".indexOn": ["at"],
       "$id": {
         ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 608400000)",
-        ".validate": "newData.hasChildren(['slot','n','at'])",
+        ".validate": "newData.hasChildren(['slot','at']) && (newData.hasChild('t') ? !newData.hasChild('n') && !newData.hasChild('h') : newData.hasChild('n'))",
         "slot": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 60 && newData.val() % 1 === 0" },
+        "t": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30 && !newData.val().matches(/.*([0-9]|[０-９]|[Hh][Tt][Tt][Pp]|[Ww][Ww][Ww]|@|[.][A-Za-z]).*/)" },
         "h": { ".validate": "newData.isString() && newData.val().matches(/^(m|f)$/)" },
         "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
         "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
         "$other": { ".validate": false }
+      }
+    },
+    "wishJoins": {
+      ".read": "auth != null",
+      "$wid": {
+        ".write": "auth != null && !newData.exists() && !root.child('wishes/' + $wid).exists()",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('wishes/' + $wid).exists()",
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        }
       }
     },
     "visits": {
