@@ -67,6 +67,33 @@ export function createUI({ placeName }) {
     if (!near) wishSheet.hidden = readSheet.hidden = true;
   }
 
+  // 바라는 점 시트: 방명록 앞에 서면 열린다. 아래에 내가 남긴 글
+  const noteSheet = $("note-sheet"), noteText = $("note-text"), noteError = $("note-error"), myNoteList = $("my-notes");
+  let noteSubmit = async () => null;
+  $("note-close").addEventListener("click", () => (noteSheet.hidden = true));
+  noteText.addEventListener("input", () => (noteError.hidden = true));
+  $("note-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.submitter || $("note-form").querySelector("button");
+    btn.disabled = true;
+    const err = await noteSubmit(noteText.value);
+    btn.disabled = false;
+    if (err) { noteError.textContent = err; noteError.hidden = false; return; }
+    noteText.value = ""; noteText.blur(); noteSheet.hidden = true;
+  });
+  function openNoteSheet(mine) {
+    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
+    noteError.hidden = true;
+    myNoteList.replaceChildren(...mine.map((m) => {
+      const li = document.createElement("li"), when = document.createElement("span");
+      const d = new Date(m.at); when.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+      li.append(m.text, when); return li;
+    }));
+    myNoteList.hidden = !mine.length;
+    noteSheet.hidden = false;
+  }
+  function setNearNote(near) { if (!near) noteSheet.hidden = true; }
+
   function setLeaning(on) {
     leaning = on;
     if (on) fadeSoon(1500);
@@ -131,7 +158,7 @@ export function createUI({ placeName }) {
     wishSheet.hidden = true;
   });
   function openWishSheet(mine) {
-    sheet.hidden = creditsSheet.hidden = readSheet.hidden = true;
+    sheet.hidden = creditsSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
     wishError.hidden = true;
     myWishList.replaceChildren(...mine.map((m) => {
       const li = document.createElement("li");
@@ -143,7 +170,7 @@ export function createUI({ placeName }) {
     myWishList.hidden = !mine.length;
     wishSheet.hidden = false;
   }
-  const volumeCbs = [];
+  const volumeCbs = [], layerToggleCbs = [];
   $("sheet-close").addEventListener("click", () => (sheet.hidden = true));
   $("credits-close").addEventListener("click", () => (creditsSheet.hidden = true));
   // 소리 시트: 층마다 [−] 숫자 [+], 10씩. 0이면 꺼짐.
@@ -166,8 +193,13 @@ export function createUI({ placeName }) {
     }
   }
 
-  function openSettings({ volumes }) {
-    creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = true;
+  for (const row of rows) {
+    const sw = row.querySelector(".layer-on");
+    sw.addEventListener("change", () => { row.classList.toggle("off", !sw.checked); layerToggleCbs.forEach((cb) => cb(row.dataset.layer, sw.checked)); });
+  }
+  function openSettings({ volumes, offs = {} }) {
+    for (const row of rows) { const on = !offs[row.dataset.layer]; row.querySelector(".layer-on").checked = on; row.classList.toggle("off", !on); }
+    creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
     for (const row of rows) {
       const level = Math.round((volumes[row.dataset.layer] ?? 1) * 100);
       row.dataset.level = level;
@@ -184,7 +216,7 @@ export function createUI({ placeName }) {
   $("read-next").addEventListener("click", () => readCbs.next());
   $("read-hide").addEventListener("click", () => readCbs.hide());
   function showWishRead(w) {                   // w: { text, joined } 또는 null (더 읽을 것이 없음)
-    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = true;
+    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = noteSheet.hidden = true;
     if (!w) { readSheet.hidden = true; return; }
     readText.textContent = w.text;
     readJoin.disabled = w.joined;
@@ -194,7 +226,7 @@ export function createUI({ placeName }) {
 
   // 출처 시트: 오른쪽 위 [출처] 버튼
   function openCredits(credits) {
-    sheet.hidden = wishSheet.hidden = readSheet.hidden = true;
+    sheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
     const list = $("credits");
     list.replaceChildren(...credits.map((c) => {
       const li = document.createElement("li");
@@ -218,7 +250,7 @@ export function createUI({ placeName }) {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
     onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb),
-    setNearWish, openWishSheet, onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
+    setNearWish, openWishSheet, openNoteSheet, setNearNote, onNoteSubmit: (cb) => (noteSubmit = cb), onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
     showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
@@ -232,7 +264,6 @@ export function createUI({ placeName }) {
     },
     onChant: (cb) => $("chant-pick").addEventListener("change", (e) => cb(e.target.value)),
     // 소리 한 번에 끄기/켜기 버튼: 꺼져 있으면 '켜기'
-    onMute: (cb) => $("sound-all").addEventListener("change", cb),           // 소리 시트 맨 위 '모든 소리' 스위치
-    setMuted: (m) => { $("sound-all").checked = !m; },
+    onLayerToggle: (cb) => layerToggleCbs.push(cb),                          // 소리마다 이름 오른쪽 켜기·끄기 스위치
   };
 }

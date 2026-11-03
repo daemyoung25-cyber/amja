@@ -144,10 +144,10 @@ export function createWorld(THREE, scene) {
 
   /* 둘레 땅: 절이 앉은 만, 양옆 곶, 뒤로 겹겹 산, 먼 바위섬 */
   const landscape = createLandscape(THREE, { seaY: SEA_Y, railZ: RAIL_Z, yard: COURTYARD, flats: [{ minX: CAVE.x - 9, maxX: CAVE.x + 9, minZ: COURTYARD.maxZ, maxZ: CAVE.altar.z + 4 },
-    { minX: ISLAND.x - ISLAND.r - 1, maxX: ISLAND.x + ISLAND.r + 1, minZ: ISLAND.z - ISLAND.r - 1, maxZ: ISLAND.z + ISLAND.r + 1, treeGap: 3 }],   // 섬 꼭대기 터
+    ],   // 섬 터는 바다 위 바위섬이라 땅을 고르지 않는다 (hermitage.js)
     // 섬 터 둘레 숲과 다리 밑·옆 나무는 비운다 (다리에 서면 앞이 트이게)
     clear: (x, z) => {
-      if (Math.hypot(x - ISLAND.x, z - ISLAND.z) < 22) return true;
+      if (Math.hypot(x - ISLAND.x, z - ISLAND.z) < 14) return true;
       const ux = BRIDGE.b.x - BRIDGE.a.x, uz = BRIDGE.b.z - BRIDGE.a.z, L2 = ux * ux + uz * uz;
       const t = Math.min(1, Math.max(0, ((x - BRIDGE.a.x) * ux + (z - BRIDGE.a.z) * uz) / L2));
       return Math.hypot(x - BRIDGE.a.x - ux * t, z - BRIDGE.a.z - uz * t) < 12;

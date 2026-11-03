@@ -62,13 +62,12 @@
 
 <section id="sheet" class="sheet" hidden aria-labelledby="sheet-title">
   <div class="sheet-head"><h2 id="sheet-title">소리</h2><button id="sheet-close" type="button" aria-label="닫기">닫기</button></div>
-  <div class="row"><label for="sound-all">모든 소리</label><input id="sound-all" type="checkbox" role="switch" checked aria-label="모든 소리 켜기·끄기"></div>
-  <div class="row" data-layer="waves"><span>파도와 바람</span><div class="stepper"><button type="button" data-step="-1" aria-label="파도와 바람 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="파도와 바람 크게">+</button></div></div>
-  <div class="row" data-layer="chime"><span>풍경</span><div class="stepper"><button type="button" data-step="-1" aria-label="풍경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="풍경 크게">+</button></div></div>
-  <div class="row" data-layer="chant"><span>불경</span><div class="stepper"><button type="button" data-step="-1" aria-label="불경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="불경 크게">+</button></div></div>
+  <div class="row" data-layer="waves"><span>파도와 바람</span><input class="layer-on" type="checkbox" role="switch" checked aria-label="파도와 바람 켜기·끄기"><div class="stepper"><button type="button" data-step="-1" aria-label="파도와 바람 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="파도와 바람 크게">+</button></div></div>
+  <div class="row" data-layer="chime"><span>풍경</span><input class="layer-on" type="checkbox" role="switch" checked aria-label="풍경 켜기·끄기"><div class="stepper"><button type="button" data-step="-1" aria-label="풍경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="풍경 크게">+</button></div></div>
+  <div class="row" data-layer="chant"><span>불경</span><input class="layer-on" type="checkbox" role="switch" checked aria-label="불경 켜기·끄기"><div class="stepper"><button type="button" data-step="-1" aria-label="불경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="불경 크게">+</button></div></div>
   <div class="row pick"><label for="chant-pick">들을 염불</label><select id="chant-pick"></select></div>
-  <div class="row" data-layer="evening"><span>산사 저녁예불</span><div class="stepper"><button type="button" data-step="-1" aria-label="산사 저녁예불 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="산사 저녁예불 크게">+</button></div></div>
-  <p class="sheet-note">10씩 커지고 작아져요. 0이면 꺼져요</p>
+  <div class="row" data-layer="evening"><span>산사 저녁예불</span><input class="layer-on" type="checkbox" role="switch" checked aria-label="산사 저녁예불 켜기·끄기"><div class="stepper"><button type="button" data-step="-1" aria-label="산사 저녁예불 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="산사 저녁예불 크게">+</button></div></div>
+  <p class="sheet-note">스위치로 소리마다 끄고 켜요. 크기는 10씩</p>
 </section>
 <section id="credits-sheet" class="sheet" hidden aria-labelledby="credits-title">
   <div class="sheet-head"><h2 id="credits-title">출처</h2><button id="credits-close" type="button" aria-label="닫기">닫기</button></div>
@@ -81,6 +80,13 @@
   <p id="wish-error" class="enter-error" role="alert" hidden></p>
   <p id="wish-note" class="sheet-note">적은 글은 이 폰에만 남아요. 다른 분께는 소원패만 보여요. 소원패는 이레 동안 걸려 있어요</p>
   <ul id="my-wishes" class="my-wishes" aria-label="내 소원"></ul>
+</section>
+<section id="note-sheet" class="sheet" hidden aria-labelledby="note-title">
+  <div class="sheet-head"><h2 id="note-title">바라는 점</h2><button id="note-close" type="button" aria-label="닫기">닫기</button></div>
+  <p class="sheet-note">해조암에 바라는 점을 적어 주세요. 하나씩 읽고 고쳐 나갈게요. 적은 글은 만드는 사람만 읽어요</p>
+  <form id="note-form" class="note-form"><textarea id="note-text" maxlength="300" rows="3" placeholder="이런 게 있으면 좋겠어요 (300자까지)" lang="ko" aria-label="바라는 점"></textarea><button type="submit">남기기</button></form>
+  <p id="note-error" class="enter-error" role="alert" hidden></p>
+  <ul id="my-notes" class="my-wishes" hidden aria-label="내가 남긴 글"></ul>
 </section>
 <section id="read-sheet" class="sheet" hidden aria-labelledby="read-title">
   <div class="sheet-head"><h2 id="read-title">누군가의 소원</h2><button id="read-close" type="button" aria-label="닫기">닫기</button></div>

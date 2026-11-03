@@ -18,7 +18,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, hangWish: () => null, onWishes: noop, joinWish: noop, onWishJoins: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop,
   };
 }
 
@@ -130,6 +130,11 @@ async function connect(config, loadSdk, me) {
     onWishes(cb) {
       const q = db.query(db.ref(database, "wishes"), db.orderByChild("at"), db.startAt(now() - WISH_LIFE), db.limitToLast(WISH_READ_MAX));
       db.onValue(q, (snap) => cb(Object.entries(snap.val() || {}).map(([id, v]) => ({ id, ...v }))));
+    },
+    // 바라는 점: notes/{id} = { t, at } (읽기는 규칙이 막아 만든 사람만), noteLast/{uid}로 1분에 한 번
+    async writeNote(text) {
+      const key = db.push(db.ref(database, "notes")).key, at = now();
+      try { await db.update(db.ref(database), { [`notes/${key}`]: { t: text, at }, [`noteLast/${uid}`]: at }); return true; } catch { return false; }
     },
     // 함께 빌기: wishJoins/{소원 id}/{내 uid} = 시각. 소원을 건 사람은 제 소원의 수를 듣는다
     joinWish(id) { db.set(db.ref(database, `wishJoins/${id}/${uid}`), now()); },

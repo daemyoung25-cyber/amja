@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
@@ -8,6 +8,7 @@ import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
 import { strikeLift } from "./logic/moktak.js";
 import { CHANTS, chantById } from "./logic/chants.js";
+import { cleanNote, canSendNote } from "./logic/notes.js";
 import { BOWS, bowsDone } from "./logic/bows.js";
 import { createCameraRig } from "./scene/camera.js";
 import { createUI } from "./ui.js";
@@ -89,6 +90,7 @@ const state = {
   sitOnArrive: false,
   candleOnArrive: false,
   wishOnArrive: false,
+  noteOnArrive: false,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -123,6 +125,7 @@ function goTo(point) {
   state.sitOnArrive = r.kind === "sit";
   state.candleOnArrive = r.kind === "candle";
   state.wishOnArrive = r.kind === "wish";
+  state.noteOnArrive = r.kind === "note";
   net.sendMove(state.move);
   setBase("walk");
 }
@@ -198,6 +201,24 @@ ui.onWishSubmit((raw, pub) => {
     redrawWishes();
     ui.showWhisper("소원을 걸었어요");
   }, 1600);
+  return null;
+});
+// 바라는 점: 방명록에 적으면 notes/에 남고(만든 사람만 읽음), 내 폰엔 내가 남긴 글 (최근 20개)
+const NOTES_KEY = "amja-notes";
+let myNotes = [];
+try { myNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]").filter((m) => m && typeof m.text === "string" && m.at > 0).slice(-20); } catch {}
+let lastNoteAt = myNotes.length ? myNotes[myNotes.length - 1].at : 0;
+ui.onNoteSubmit(async (raw) => {
+  const text = cleanNote(raw);
+  if (!text) return "한 글자부터 300자까지 적어 주세요";
+  if (!canSendNote(lastNoteAt, Date.now())) return "조금 뒤에 또 남길 수 있어요";
+  if (net.mode !== "shared") return "지금은 연결이 안 돼 보낼 수 없어요. 조금 뒤에 다시 해 주세요";
+  const ok = await net.writeNote(text);
+  if (!ok) return "보내지 못했어요. 조금 뒤에 다시 해 주세요";
+  lastNoteAt = Date.now();
+  myNotes = [...myNotes, { text, at: lastNoteAt }].slice(-20);
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(myNotes)); } catch {}
+  ui.showWhisper("고맙습니다. 잘 읽어 볼게요");
   return null;
 });
 // 소원 읽기: 남이 함께 읽게 건 소원을 하나씩 (새것부터). 함께 빌면 적은 분께 알림이 간다
@@ -278,16 +299,17 @@ const volumes = (() => {
   return v;
 })();
 const audio = createAudio({ urls: { waves: "sounds/waves.mp3", chant: "sounds/chant.mp3", evening: "sounds/evening.mp3" } });
-for (const [k, v] of Object.entries(volumes)) audio.setVolume(k, v);
-const MUTE_KEY = "amja-mute";
-let muted = false;
-try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch {}
-audio.setMuted(muted); ui.setMuted(muted);
-ui.onMute(() => {
-  muted = !muted;
-  audio.setMuted(muted); ui.setMuted(muted);
-  if (!muted) audio.resumeIfNeeded();
-  try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch {}
+// 층마다 켜기·끄기 (이름 오른쪽 스위치). 끄면 크기는 그대로 두고 그 층만 조용히. 이 폰에 기억
+const OFF_KEY = "amja-sound-off";
+const offs = { waves: false, chime: false, chant: false, evening: false };
+try { for (const [k, x] of Object.entries(JSON.parse(localStorage.getItem(OFF_KEY) || "{}"))) if (k in offs) offs[k] = x === true; } catch {}
+const applyLayer = (k) => audio.setVolume(k, offs[k] ? 0 : volumes[k]);
+for (const k of Object.keys(volumes)) applyLayer(k);
+ui.onLayerToggle((layer, on) => {
+  offs[layer] = !on;
+  applyLayer(layer);
+  if (on) audio.resumeIfNeeded();
+  try { localStorage.setItem(OFF_KEY, JSON.stringify(offs)); } catch {}
 });
 // 들을 염불 고르기 (이 폰에 기억)
 const CHANT_KEY = "amja-chant";
@@ -301,11 +323,11 @@ ui.onChant((id) => {
   audio.resumeIfNeeded();
   try { localStorage.setItem(CHANT_KEY, chantId); } catch {}
 });
-ui.onOpenSettings(() => ui.openSettings({ volumes }));
+ui.onOpenSettings(() => ui.openSettings({ volumes, offs }));
 ui.onOpenCredits(() => ui.openCredits(CREDITS));
 ui.onVolume((layer, v) => {
   volumes[layer] = v;
-  audio.setVolume(layer, v);
+  applyLayer(layer);
   try { localStorage.setItem(SOUND_KEY, JSON.stringify(volumes)); } catch {}
 });
 document.addEventListener("visibilitychange", async () => {
@@ -350,6 +372,7 @@ function frame(t) {
     } else {
       if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
       if (state.wishOnArrive) { state.yaw = faceWish(p); rig.turnTo(state.yaw); }        // 소원걸이를 마주 선다
+      if (state.noteOnArrive) { state.noteOnArrive = false; state.yaw = faceNote(p); rig.turnTo(state.yaw); ui.openNoteSheet(myNotes); }   // 방명록 앞에 서면 적는 칸이 열린다
       setBase("stand");
     }
   }
@@ -379,6 +402,7 @@ function frame(t) {
   ui.setNearStatue(inside || insideCave(p) || inHerm || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
   ui.setNearCandles(state.base !== "walk" && nearCandles(p));
   ui.setNearWish(state.base !== "walk" && nearWish(p), readable().length > 0);
+  ui.setNearNote(nearNote(p));
   const inCave = insideCave(p);
   rig.setIndoor(inside || inCave || inHerm, inCave ? faceCaveAltar(p) : inHerm ? faceHermAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : inHerm ? HERM_ROOM : ROOM);
 

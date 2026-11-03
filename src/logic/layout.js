@@ -31,12 +31,13 @@ export const CAVE = (() => {
 // 왼쪽 앞 난간 틈(a)에서 출렁다리가 건너간다. 다리 끝(b)은 터 가장자리. 디딤판은 양끝이 마당 높이, 가운데가 sag만큼 처진다.
 // (2026-11-03) 곶 안쪽 숲 한가운데에서 바다 쪽 끝 숲자리로 옮김: 다리가 뭍 위가 아니라 바다 위로 건너가고, 터 둘레 숲은 비운다
 // (2026-11-03) 터를 r 8로 넓히고 뒤쪽에 작은 암자(홍련암 모티브)를 앉힘
-export const ISLAND = { x: -88, z: -112, r: 8 };
+// (2026-11-03) 다리가 길어 건너는 데 한참 걸려서 거리를 절반으로: 곶 끝에서 바다 위 바위섬(hermitage.js가 바다에서 솟은 바위를 만든다)으로
+export const ISLAND = { x: -54, z: -69.5, r: 8 };
 export const BRIDGE = (() => {
   const a = { x: -20, z: RAIL_Z };
   const dx = a.x - ISLAND.x, dz = a.z - ISLAND.z, L = Math.hypot(dx, dz);
   const b = { x: ISLAND.x + (dx / L) * ISLAND.r, z: ISLAND.z + (dz / L) * ISLAND.r };
-  return { a, b, w: 1.4, sag: 2.5, head: { x: a.x, z: RAIL_Z + 0.8 } };
+  return { a, b, w: 1.4, sag: 1.6, head: { x: a.x, z: RAIL_Z + 0.8 } };
 })();
 // 섬 암자: 터 서쪽(뭍 쪽)에 물러앉아 정면이 동쪽 바다(+x)를 본다. 정면 세 칸, 가운데 칸이 문.
 // 바깥에서 걸을 수 있는 곳은 터 둥근 판 가운데 '앞줄(front)'보다 바다 쪽만 (볼록해서 곧은 길이 암자를 뚫지 않는다).
@@ -92,6 +93,11 @@ export const YARD = [
   { kind: "candles", x: CANDLES.x, z: CANDLES.z, r: CANDLES.r },
   { kind: "wish", x: WISH.x, z: WISH.z, r: WISH.r },
 ];
+// 바라는 점 방명록: 대웅전 문 오른쪽 중간(마당에서 법당을 볼 때 오른쪽 = -x), 법당 앞 디딤 자리 앞. 앞에 서서 법당 쪽을 보며 적는다
+export const GUESTBOOK = { x: -4.0, z: 3.6, r: 0.55, spot: { x: -4.0, z: 2.65 } };   // 법당 앞을 돌아가는 길(z 4.8)과 석등 옆은 비운다
+YARD.push({ kind: "guestbook", x: GUESTBOOK.x, z: GUESTBOOK.z, r: GUESTBOOK.r });
+export const faceNote = (p) => Math.atan2(-(GUESTBOOK.x - p.x), -(GUESTBOOK.z - p.z));
+export const nearNote = (p) => Math.hypot(p.x - GUESTBOOK.spot.x, p.z - GUESTBOOK.spot.z) <= 1.2;
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
 const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
@@ -196,6 +202,7 @@ export function resolveTap(p) {
   if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
   if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
   if (Math.hypot(p.x - WISH.x, p.z - WISH.z) < WISH.r + 0.2) return { kind: "wish", to: { ...WISH.spot }, yaw: faceWish(WISH.spot) };
+  if (Math.hypot(p.x - GUESTBOOK.x, p.z - GUESTBOOK.z) < GUESTBOOK.r + 0.3) return { kind: "note", to: { ...GUESTBOOK.spot }, yaw: faceNote(GUESTBOOK.spot) };
   const br = clampToBridge(p);
   if (br) return { kind: "walk", to: br };
   if (p.z < LEAN_TRIGGER_Z) {

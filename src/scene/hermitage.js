@@ -37,6 +37,26 @@ export function createHermitage(THREE) {
   const WALL_H = 3;
   masonry.repeat.set(Math.round((2 * Math.PI * R) / 2.4), WALL_H / 1.5);
   const top = pavingMaterial(THREE, (2 * R) / 10, (2 * R) / 10);
+  /* 바위섬: 바다(-28m)에서 솟아 축대 밑(-3m)까지, 아래로 갈수록 넓고 둘레가 울퉁불퉁한 바위 기둥 */
+  {
+    const TOP = -WALL_H + 0.2, BOT = -34, RADIAL = 48, ROWS = 18;
+    const geo = new THREE.CylinderGeometry(R + 0.9, R + 7, TOP - BOT, RADIAL, ROWS, true);
+    const pos = geo.attributes.position;
+    const n = (a, b) => Math.sin(a * 3.1 + b * 0.7) * 0.5 + Math.sin(a * 7.3 - b * 1.9) * 0.3 + Math.sin(a * 13.7 + b * 3.3) * 0.2;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), a = Math.atan2(z, x), r = Math.hypot(x, z);
+      const t = (y + (TOP - BOT) / 2) / (TOP - BOT);                       // 0 바닥 ~ 1 꼭대기
+      const k = 1 + 0.16 * n(a, y * 0.35) * (0.4 + 0.6 * (1 - t)) + 0.05 * Math.sin(y * 1.7 + a * 5);
+      pos.setXYZ(i, (x / r) * r * k, y, (z / r) * r * k);
+    }
+    geo.computeVertexNormals();
+    const rock = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x5f564c, flatShading: true }));
+    rock.position.set(ISLAND.x, (TOP + BOT) / 2, ISLAND.z);
+    group.add(rock);
+    // 꼭대기 둘레를 덮는 이끼 낀 바위 테 (축대 밑동이 뜨지 않게)
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.4, R + 1.1, 0.9, RADIAL), new THREE.MeshLambertMaterial({ color: 0x4f5a3c, flatShading: true }));
+    cap.position.set(ISLAND.x, TOP - 0.2, ISLAND.z); group.add(cap);
+  }
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(R, R + 0.5, WALL_H, 48), [mat(0xffffff, { map: masonry }), top, mat(0x5a5248)]);
   pad.position.set(ISLAND.x, -WALL_H / 2, ISLAND.z);
   group.add(pad);

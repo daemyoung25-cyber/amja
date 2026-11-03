@@ -79,6 +79,22 @@
         }
       }
     },
+    "notes": {
+      ".read": false,
+      "$id": {
+        ".write": "auth != null && !data.exists() && newData.exists() && (!root.child('noteLast/' + auth.uid).exists() || root.child('noteLast/' + auth.uid).val() < now - 60000)",
+        ".validate": "newData.hasChildren(['t','at'])",
+        "t": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 300" },
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
+      }
+    },
+    "noteLast": {
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000"
+      }
+    },
     "visits": {
       ".read": "auth != null",
       ".indexOn": ["at"],

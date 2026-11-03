@@ -168,3 +168,11 @@ button { font: inherit; color: inherit; }
 /* 소리 크기 줄: [− 숫자 +]를 이름 바로 옆에, 이름 폭을 맞춰 줄마다 같은 자리에 */
 .row[data-layer] { justify-content: flex-start; gap: 14px; }
 .row[data-layer] > span { flex: 0 0 7.5em; }
+.row[data-layer] .layer-on { flex: none; }
+.row[data-layer].off .stepper { opacity: .35; }
+/* 바라는 점: 여러 줄 적는 칸 + 남기기 */
+.note-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.note-form textarea { min-height: 88px; padding: 10px 14px; border-radius: 12px; font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; background: rgba(255, 255, 255, .08); border: 1px solid var(--glass-line); color: var(--ink); }
+.note-form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.note-form button { align-self: flex-end; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; cursor: pointer; background: var(--glass); border: 1px solid var(--glass-line); color: var(--ink); }
+.note-form button:disabled { opacity: .5; }

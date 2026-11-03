@@ -146,6 +146,43 @@ export function createYard(THREE, { items, baerye }) {
   const wood = new THREE.MeshLambertMaterial({ color: 0x6b4a2f, flatShading: true });
   const tileMat = new THREE.MeshLambertMaterial({ color: 0x45474c, side: THREE.DoubleSide });
   const ink = new THREE.MeshBasicMaterial({ color: 0xf2efe6 });
+  // 바라는 점 방명록: 마당(-z) 쪽으로 비스듬한 나무 서안 위에 펼친 책과 붓, 뒤에 '바라는 점' 현판
+  function guestbook(x, z) {
+    const g = new THREE.Group(); g.position.set(x, 0, z);
+    put(g, new THREE.BoxGeometry(0.5, 0.08, 0.4), wood, 0.04);
+    put(g, new THREE.BoxGeometry(0.1, 0.82, 0.1), wood, 0.45);
+    const top = new THREE.Group(); top.position.y = 0.9; top.rotation.x = -0.38; g.add(top);   // 뒤(+z)가 높게
+    put(top, new THREE.BoxGeometry(0.74, 0.04, 0.52), wood, 0);
+    const pageTex = (() => {
+      const c = document.createElement("canvas"); c.width = 256; c.height = 128;
+      const x2 = c.getContext("2d");
+      x2.fillStyle = "#f2ead8"; x2.fillRect(0, 0, 256, 128);
+      x2.strokeStyle = "rgba(60,40,30,.55)"; x2.lineWidth = 2;
+      for (const side of [0, 1]) for (let i = 0; i < 6; i++) {                 // 세로로 쓴 글 줄 (오른쪽부터)
+        const lx = side * 128 + 104 - i * 17;
+        x2.beginPath(); x2.moveTo(lx, 14 + (i % 2) * 6); x2.lineTo(lx, 70 + ((i * 37) % 40)); x2.stroke();
+      }
+      x2.fillStyle = "rgba(90,60,40,.4)"; x2.fillRect(127, 0, 2, 128);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    })();
+    const pages = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.4), new THREE.MeshLambertMaterial({ map: pageTex }));
+    pages.rotation.x = -Math.PI / 2; pages.rotation.z = Math.PI; pages.position.y = 0.026; top.add(pages);
+    put(top, new THREE.CylinderGeometry(0.008, 0.01, 0.22, 5), new THREE.MeshLambertMaterial({ color: 0x2a1c14 }), 0.04, { x: 0.25, z: -0.05, rz: Math.PI / 2, ry: 0.4 });   // 붓
+    // 현판: 두 기둥 사이 '바라는 점'
+    const signTex = (() => {
+      const c = document.createElement("canvas"); c.width = 256; c.height = 96;
+      const x2 = c.getContext("2d");
+      x2.fillStyle = "#3b2418"; x2.fillRect(0, 0, 256, 96);
+      x2.strokeStyle = "#c9a24a"; x2.lineWidth = 6; x2.strokeRect(6, 6, 244, 84);
+      x2.fillStyle = "#e9d9a8"; x2.font = "600 44px serif"; x2.textAlign = "center"; x2.textBaseline = "middle";
+      x2.fillText("바라는 점", 128, 50);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    })();
+    for (const sx of [-1, 1]) put(g, new THREE.BoxGeometry(0.06, 1.5, 0.06), wood, 0.75, { x: sx * 0.42, z: 0.3 });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.29), new THREE.MeshLambertMaterial({ map: signTex, side: THREE.DoubleSide }));
+    sign.rotation.y = Math.PI; sign.position.set(0, 1.36, 0.29); g.add(sign);
+    return g;
+  }
   function giwaStand(x, z) {
     const g = new THREE.Group(); g.position.set(x, 0, z);
     put(g, new THREE.BoxGeometry(1.2, 0.3, 1.5), wood, 0.15);
@@ -170,7 +207,7 @@ export function createYard(THREE, { items, baerye }) {
 
   let n = 0;
   for (const o of items) {
-    const make = { lantern: stoneLantern, pagoda, gwaebul, pot: lotusPot, giwa: giwaStand }[o.kind];
+    const make = { lantern: stoneLantern, pagoda, gwaebul, pot: lotusPot, giwa: giwaStand, guestbook }[o.kind];
     if (make) group.add(make(o.x, o.z, n++));
   }
   group.add(baeryeStone(baerye.x, baerye.z));
