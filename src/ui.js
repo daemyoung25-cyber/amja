@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnWish = $("btn-wish");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -61,6 +61,7 @@ export function createUI({ placeName }) {
   }
   function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
+  function setNearWish(near) { btnWish.hidden = !near; if (!near) wishSheet.hidden = true; }
 
   function setLeaning(on) {
     leaning = on;
@@ -104,6 +105,32 @@ export function createUI({ placeName }) {
   }
 
   const sheet = $("sheet"), creditsSheet = $("credits-sheet"), resume = $("sound-resume");
+  // 소원 적기 시트: 한 줄 적어 걸고, 아래에 아직 걸려 있는 내 소원이 보인다 (글은 이 폰에만)
+  const wishSheet = $("wish-sheet"), wishText = $("wish-text"), wishError = $("wish-error"), myWishList = $("my-wishes");
+  let wishSubmit = () => null;
+  $("wish-close").addEventListener("click", () => (wishSheet.hidden = true));
+  wishText.addEventListener("input", () => (wishError.hidden = true));
+  $("wish-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const err = wishSubmit(wishText.value);
+    if (err) { wishError.textContent = err; wishError.hidden = false; return; }
+    wishText.value = "";
+    wishText.blur();
+    wishSheet.hidden = true;
+  });
+  function openWishSheet(mine) {
+    sheet.hidden = creditsSheet.hidden = true;
+    wishError.hidden = true;
+    myWishList.replaceChildren(...mine.map((m) => {
+      const li = document.createElement("li");
+      const left = document.createElement("span");
+      left.textContent = `${m.daysLeft}일 남음`;
+      li.append(m.text, left);
+      return li;
+    }));
+    myWishList.hidden = !mine.length;
+    wishSheet.hidden = false;
+  }
   const volumeCbs = [];
   $("sheet-close").addEventListener("click", () => (sheet.hidden = true));
   $("credits-close").addEventListener("click", () => (creditsSheet.hidden = true));
@@ -128,7 +155,7 @@ export function createUI({ placeName }) {
   }
 
   function openSettings({ volumes }) {
-    creditsSheet.hidden = true;
+    creditsSheet.hidden = wishSheet.hidden = true;
     for (const row of rows) {
       const level = Math.round((volumes[row.dataset.layer] ?? 1) * 100);
       row.dataset.level = level;
@@ -139,7 +166,7 @@ export function createUI({ placeName }) {
 
   // 출처 시트: 오른쪽 위 [출처] 버튼
   function openCredits(credits) {
-    sheet.hidden = true;
+    sheet.hidden = wishSheet.hidden = true;
     const list = $("credits");
     list.replaceChildren(...credits.map((c) => {
       const li = document.createElement("li");
@@ -162,7 +189,8 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
+    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb),
+    setNearWish, openWishSheet, onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),
     onBow: (cb) => btnBow.addEventListener("click", cb),
     onBow108: (cb) => btnBow108.addEventListener("click", cb), setBowing, setBowCount,

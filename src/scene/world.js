@@ -1,5 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
-import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, CAVE, floorY } from "../logic/layout.js";
+import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, WISH, CAVE, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
 import { loadStatue } from "./statue.js";
@@ -8,6 +8,7 @@ import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
+import { createWishRack } from "./wishes.js";
 import { createCave } from "./cave.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
@@ -372,6 +373,9 @@ export function createWorld(THREE, scene) {
   const rack = createCandleRack(THREE, CANDLES);
   scene.add(rack.group);
   rack.group.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  const wishRack = createWishRack(THREE, WISH);
+  scene.add(wishRack.group);
+  wishRack.group.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { groundMeshes.push(o); obstacles.push(o); } });
 
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
@@ -604,6 +608,7 @@ export function createWorld(THREE, scene) {
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
     swayLanterns(t);
     rack.update(t);
+    wishRack.update(t);
     cave.update(t);
     for (const [i, f] of flames.entries()) f.scale.y = 1 + Math.sin(t * 13 + i * 2) * 0.12 + Math.sin(t * 7.3 + i) * 0.08;
   }
@@ -640,7 +645,7 @@ export function createWorld(THREE, scene) {
     }
   }
 
-  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces, setCandles: rack.setCandles };
+  return { update, groundMeshes, obstacles, seaY: SEA_Y, setTraces, setCandles: rack.setCandles, setWishes: wishRack.setWishes };
 }
 
 export function mulberry32(a) {

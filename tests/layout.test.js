@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN, RAIL_Z, LEAN_Z, PRAYER_SEATS, seatAt, CANDLES, nearCandles, faceCandles, CAVE, insideCave } from "../src/logic/layout.js";
+import { clampToWalkable, resolveTap, floorY, insideHall, COURTYARD, HALL, STATUE, INSIDE, CUSHIONS, ALTAR, DOOR_IN, RAIL_Z, LEAN_Z, PRAYER_SEATS, seatAt, CANDLES, nearCandles, faceCandles, CAVE, insideCave, WISH, nearWish, faceWish } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inHall = (p) => p.x > HALL.minX && p.x < HALL.maxX && p.z > HALL.minZ && p.z < HALL.maxZ;
@@ -149,7 +149,7 @@ test("walking straight across the front yard goes round the stones, not through 
 });
 
 test("tapping on a stone lantern or pagoda stands beside it", () => {
-  for (const o of YARD.filter((y) => y.kind !== "candles")) {   // 촛대는 앞에 가서 선다 (아래)
+  for (const o of YARD.filter((y) => y.kind !== "candles" && y.kind !== "wish")) {   // 촛대·소원걸이는 앞에 가서 선다 (아래)
     const r = resolveTap({ x: o.x, z: o.z });
     assert.equal(r.kind, "walk");
     assert.ok(!inYardStone(r.to), `${o.kind}: ${JSON.stringify(r.to)}`);
@@ -239,11 +239,11 @@ test("the censer is gone so nothing stands in the way of the steps, and the pago
   assert.deepEqual(path, [HALL.door]);
 });
 
-test("on the left of the yard, between the Gwaneum and the hall, there is a candle rack with a place to stand in front", () => {
+test("on the right of the yard (9 o'clock facing the hall), opposite the Gwaneum, there is a candle rack with a place to stand in front", () => {
   const rack = YARD.find((o) => o.kind === "candles");
   assert.ok(rack, "촛대");
   assert.deepEqual({ x: rack.x, z: rack.z }, { x: CANDLES.x, z: CANDLES.z });
-  assert.ok(rack.x < COURTYARD.minX / 2 && rack.z > STATUE.z + STATUE.baseR + 2 && rack.z + rack.r < HALL.minZ, JSON.stringify(rack));
+  assert.ok(rack.x > COURTYARD.maxX / 2 && rack.z > STATUE.z + STATUE.baseR + 2 && rack.z + rack.r < HALL.minZ, JSON.stringify(rack));
   assert.ok(CANDLES.spot.z < rack.z - rack.r, "앞(바다 쪽)에 선다");
   assert.deepEqual(clampToWalkable(CANDLES.spot), CANDLES.spot);
   assert.equal(nearCandles(CANDLES.spot), true);
@@ -308,4 +308,28 @@ test("in the cave there are cushions to sit on facing its Buddha", () => {
     assert.ok(Math.abs(r.yaw - Math.atan2(-(CAVE.altar.x - c.x), -(CAVE.altar.z - c.z))) < 1e-9);
     assert.equal(seatAt(r.to), c);
   }
+});
+
+test("left of the candle rack (seen from in front of it) there is a wish rack, with a place to stand in front", () => {
+  const rack = YARD.find((o) => o.kind === "wish");
+  assert.ok(rack, "소원걸이");
+  assert.deepEqual({ x: rack.x, z: rack.z }, { x: WISH.x, z: WISH.z });
+  assert.ok(WISH.x > CANDLES.x + 2, "공양대를 보고 섰을 때 왼쪽(+x)");
+  assert.ok(Math.abs(WISH.z - CANDLES.z) < 1.5, "공양대와 나란히");
+  assert.ok(WISH.x + rack.r < COURTYARD.maxX, JSON.stringify(rack));
+  assert.ok(WISH.spot.z < rack.z - rack.r, "앞(바다 쪽)에 선다");
+  assert.deepEqual(clampToWalkable(WISH.spot), WISH.spot);
+  assert.equal(nearWish(WISH.spot), true);
+  assert.equal(nearWish(CANDLES.spot), false);
+  assert.equal(nearCandles(WISH.spot), false);
+  assert.ok(Math.cos(faceWish(WISH.spot)) < -0.95, "소원걸이(산 쪽)를 본다");
+});
+
+test("tapping the wish rack walks to the place in front of it, round the stones", () => {
+  const r = resolveTap({ x: WISH.x - 0.3, z: WISH.z });
+  assert.equal(r.kind, "wish");
+  assert.deepEqual(r.to, WISH.spot);
+  const from = { x: 0, z: -8 }, path = routeAround(from, r.to);
+  assert.deepEqual(path.at(-1), WISH.spot);
+  assert.equal(crosses(from, path, inYardStone), null, JSON.stringify(path));
 });

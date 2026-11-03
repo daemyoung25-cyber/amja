@@ -55,6 +55,19 @@
         "$other": { ".validate": false }
       }
     },
+    "wishes": {
+      ".read": "auth != null",
+      ".indexOn": ["at"],
+      "$id": {
+        ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 608400000)",
+        ".validate": "newData.hasChildren(['slot','n','at'])",
+        "slot": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 60 && newData.val() % 1 === 0" },
+        "h": { ".validate": "newData.isString() && newData.val().matches(/^(m|f)$/)" },
+        "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
+      }
+    },
     "visits": {
       ".read": "auth != null",
       ".indexOn": ["at"],

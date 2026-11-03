@@ -64,3 +64,11 @@ test("presence may carry a short name, not a long one", opts, async () => {
   assert.equal(await put(`presence/${me.uid}`, presence({ n: "연화" }), me.token), 200);
   assert.notEqual(await put(`presence/${me.uid}`, presence({ n: "가나다라마바사아자차" }), me.token), 200);
 });
+
+test("a wish record holds only place, name and time: a wish text is refused", opts, async () => {
+  const me = await signIn();
+  assert.equal(await put(`wishes/a${now}`, { slot: 3, n: "연화", h: "f", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/b${now}`, { slot: 3, n: "연화", at: now, text: "소원 글" }, me.token), 200);
+  assert.notEqual(await put(`wishes/c${now}`, { slot: 60, n: "연화", at: now }, me.token), 200);
+  assert.notEqual(await put(`wishes/a${now}`, { slot: 4, n: "남", at: now }, me.token), 200, "걸린 소원은 이레 동안 남이 바꿀 수 없다");
+});

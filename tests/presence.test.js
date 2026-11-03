@@ -117,6 +117,23 @@ test("lighting a candle writes slot, name and server time under candles/, and th
   p.close();
 });
 
+test("hanging a wish writes only slot, name and server time under wishes/ (never the wish text), and reads at most 120", async () => {
+  const { sdk, log } = fakeSdk();
+  const p = await createPresence({ config: { apiKey: "k" }, loadSdk: async () => sdk });
+  p.hangWish({ slot: 4, n: "법운", h: "m", text: "이건 올라가면 안 됨" });
+  assert.equal(log.push.at(-1).path, "wishes");
+  assert.deepEqual({ ...log.push.at(-1).v, at: 0 }, { slot: 4, n: "법운", h: "m", at: 0 });
+  p.onWishes(() => {});
+  assert.ok(sdk.db.limits.includes(120), JSON.stringify(sdk.db.limits));
+  p.close();
+});
+
+test("solo mode can hang a wish without a connection", async () => {
+  const p = await createPresence({ config: { apiKey: "" } });
+  p.hangWish({ slot: 0, n: "연화" });
+  p.onWishes(() => {});
+});
+
 test("solo mode can light a candle without a connection", async () => {
   const p = await createPresence({ config: { apiKey: "" } });
   p.lightCandle({ slot: 0, n: "연화" });

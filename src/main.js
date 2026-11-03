@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, insideCave, faceCaveAltar, CAVE_ROOM } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM } from "./logic/layout.js";
+import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
@@ -59,6 +60,12 @@ let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, g
 let snapshot = null, peers = [];
 let traceRecords = [], visits = {}, lastTraceAt = null;
 let candleRecords = [], lastCandleAt = null;
+let wishRecords = [], lastWishAt = null;
+// 내 소원 글은 이 폰에만: [{ slot, at, text }]
+const MY_WISHES_KEY = "amja-wishes";
+let myWishes = [];
+try { myWishes = JSON.parse(localStorage.getItem(MY_WISHES_KEY) || "[]"); } catch {}
+const saveMyWishes = () => { try { localStorage.setItem(MY_WISHES_KEY, JSON.stringify(myWishes)); } catch {} };
 const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
@@ -69,6 +76,7 @@ const state = {
   leanOnArrive: false,
   sitOnArrive: false,
   candleOnArrive: false,
+  wishOnArrive: false,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -102,6 +110,7 @@ function goTo(point) {
   state.leanOnArrive = r.kind === "lean";
   state.sitOnArrive = r.kind === "sit";
   state.candleOnArrive = r.kind === "candle";
+  state.wishOnArrive = r.kind === "wish";
   net.sendMove(state.move);
   setBase("walk");
 }
@@ -148,6 +157,34 @@ ui.onCandle(() => {
     redrawCandles();
     ui.showWhisper("초를 밝혔어요");
   }, 1600);
+});
+// 소원 걸기: 한 줄 적어 소원패를 건다. 패는 모두에게 보이고 이레 동안 걸려 있다. 글은 이 폰에만 남는다.
+const myLiveWishes = () => (myWishes = keepMine(myWishes, liveWishes(wishRecords, net.now()), net.now()));
+ui.onWishButton(() => {
+  const now = net.now();
+  ui.openWishSheet(myLiveWishes().map((m) => ({ text: m.text, daysLeft: Math.max(1, Math.ceil((m.at + WISH_LIFE_MS - now) / 86400000)) })));
+});
+ui.onWishSubmit((raw) => {
+  const text = cleanWish(raw);
+  if (!text) return "한 줄로 30자까지 적어 주세요";
+  const now = net.now();
+  if (!canHang(lastWishAt, now)) return "조금 뒤에 또 걸 수 있어요";
+  if (state.base === "walk") return "소원걸이 앞에 서서 걸어요";
+  lastWishAt = now;
+  const p = positionAt(state.move, now);
+  state.yaw = faceWish(p);
+  rig.turnTo(state.yaw);
+  gesture("light");
+  setTimeout(() => {
+    const at = net.now(), slot = pickWishSlot(liveWishes(wishRecords, at), at);
+    wishRecords = [...wishRecords, { slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
+    net.hangWish({ slot, n: myName, h: mySex });
+    myWishes = [...myLiveWishes(), { slot, at, text }];
+    saveMyWishes();
+    redrawWishes();
+    ui.showWhisper("소원을 걸었어요");
+  }, 1600);
+  return null;
 });
 function faceBuddha() {
   const p = positionAt(state.move, net.now());
@@ -236,6 +273,7 @@ function frame(t) {
       rig.setLeaning(true);
     } else {
       if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
+      if (state.wishOnArrive) { state.yaw = faceWish(p); rig.turnTo(state.yaw); }        // 소원걸이를 마주 선다
       setBase("stand");
     }
   }
@@ -260,6 +298,7 @@ function frame(t) {
   const inside = insideHall(p);
   ui.setNearStatue(inside || insideCave(p) || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
   ui.setNearCandles(state.base !== "walk" && nearCandles(p));
+  ui.setNearWish(state.base !== "walk" && nearWish(p));
   const inCave = insideCave(p);
   rig.setIndoor(inside || inCave, inCave ? faceCaveAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : ROOM);
 
@@ -295,7 +334,7 @@ function drawOthers(now, mePos, dt) {
     o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
-    if (peer.p === "light" && pos.arrived) o.yaw = faceCandles(pos);
+    if (peer.p === "light" && pos.arrived) o.yaw = nearWish(pos) ? faceWish(pos) : faceCandles(pos);   // 초 켜기와 소원 걸기는 같은 몸짓
     const onSeat = pos.arrived && seatAt(pos);
     const sat = onSeat ? ["sit", "hapjang", "bow", "bow108"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
     if (onSeat && sat) o.yaw = faceSeat(pos);
@@ -320,7 +359,8 @@ function redrawCandles() {
   const now = net.now();
   world.setCandles(liveCandles(candleRecords, now).map((c) => ({ slot: c.slot, left: burnLeft(c, now) })));
 }
-setInterval(() => { redrawTraces(); redrawCandles(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
+function redrawWishes() { world.setWishes(liveWishes(wishRecords, net.now())); }
+setInterval(() => { redrawTraces(); redrawCandles(); redrawWishes(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
 
 let myName = "", mySex = "f", joinedAt = Infinity;
 ui.onEnter(async (name, sex) => {
@@ -367,6 +407,20 @@ function adopt(p) {
     candlesSeen = new Set(recs.map((c) => `${c.slot}:${c.at}`));
     candleRecords = recs;
     redrawCandles();
+  });
+  let wishesSeen = null;
+  net.onWishes((recs) => {
+    if (wishesSeen) {
+      for (const w of recs) {
+        const key = `${w.slot}:${w.at}`;
+        if (!wishesSeen.has(key) && w.n !== myName && net.now() - w.at < 30000) ui.notify(`${nameTag(w.n, w.h)}님이 소원을 걸었어요`);
+      }
+    }
+    wishesSeen = new Set(recs.map((w) => `${w.slot}:${w.at}`));
+    wishRecords = recs;
+    redrawWishes();
+    myLiveWishes();
+    saveMyWishes();
   });
   net.cleanup();
 }

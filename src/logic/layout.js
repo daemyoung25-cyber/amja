@@ -9,8 +9,10 @@ export const STATUE = { x: -17, z: -12, baseR: 1.2 };
 export const PRAYER = { minX: STATUE.x - 3.4, maxX: STATUE.x + 3.4, minZ: STATUE.z - 5.6, maxZ: STATUE.z - 1.3 };   // 박석 깐 기도 터
 export const PRAYER_BAERYE = { x: STATUE.x, z: STATUE.z - 1.75 };
 export const PRAYER_SEATS = [2.7, 3.7, 4.7].flatMap((dz) => [-2.4, -1.2, 0, 1.2, 2.4].map((dx) => ({ x: STATUE.x + dx, z: STATUE.z - dz })));   // 다섯 자리씩 세 줄, 15석
-// 촛불 공양대: 마당 왼쪽, 해수관음과 법당 사이. 바다 쪽 앞에 서서 초를 켜 올린다.
-export const CANDLES = { x: -18, z: 0.5, r: 1.05, spot: { x: -18, z: -0.9 } };
+// 촛불 공양대: 해수관음 맞은편 마당 오른쪽(법당을 보고 9시). 바다 쪽 앞에 서서 초를 켜 올린다.
+export const CANDLES = { x: 16, z: 0.5, r: 1.05, spot: { x: 16, z: -0.9 } };
+// 소원걸이: 공양대 앞에 서서 보면 그 왼쪽(+x). 소원패를 적어 건다.
+export const WISH = { x: 20, z: 0, r: 1.3, spot: { x: 20, z: -1.7 } };
 // 동굴 법당(관음굴): 마당 왼쪽 뒤 바위 언덕 속. 마당 뒤끝(foot)에서 돌계단으로 1.6m 올라 굴 어귀(door)를 지나 안으로.
 export const CAVE = (() => {
   const x = -13.5;
@@ -32,6 +34,7 @@ export const YARD = [
   ...[3.2, 1.6, 0].flatMap((z) => [{ kind: "pot", x: -24.8, z, r: 0.35 }, { kind: "pot", x: 24.8, z, r: 0.35 }]),
   { kind: "giwa", x: 19, z: -11, r: 0.8 },
   { kind: "candles", x: CANDLES.x, z: CANDLES.z, r: CANDLES.r },
+  { kind: "wish", x: WISH.x, z: WISH.z, r: WISH.r },
 ];
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
@@ -69,6 +72,8 @@ const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats];
 const faceCandles = (p) => Math.atan2(-(CANDLES.x - p.x), -(CANDLES.z - p.z));
 export const nearCandles = (p) => Math.hypot(p.x - CANDLES.spot.x, p.z - CANDLES.spot.z) <= 1.8;
 export { faceCandles };
+export const faceWish = (p) => Math.atan2(-(WISH.x - p.x), -(WISH.z - p.z));
+export const nearWish = (p) => Math.hypot(p.x - WISH.spot.x, p.z - WISH.spot.z) <= 1.8;
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
 export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : faceStatue(p));
 
@@ -118,6 +123,7 @@ export function resolveTap(p) {
   const seat = SEATS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < SEAT_R);
   if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
   if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
+  if (Math.hypot(p.x - WISH.x, p.z - WISH.z) < WISH.r + 0.2) return { kind: "wish", to: { ...WISH.spot }, yaw: faceWish(WISH.spot) };
   if (p.z < LEAN_TRIGGER_Z) {
     const s = nearestLeanSpot(p);
     return { kind: "lean", to: { x: s.x, z: s.z }, yaw: 0 };

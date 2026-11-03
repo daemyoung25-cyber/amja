@@ -106,6 +106,21 @@ button { font: inherit; color: inherit; }
 .row input[type="checkbox"]:checked { background: #b8875d; }
 .row input[type="checkbox"]:checked::after { transform: translateX(18px); }
 .row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* 소원 적기: 한 줄 입력 + 걸기, 아래에 내 소원 */
+.wish-form { display: flex; gap: 8px; margin-top: 8px; }
+.wish-form input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 12px; font-size: 16px;
+  background: rgba(255, 255, 255, .08); border: 1px solid var(--glass-line); color: var(--ink);
+}
+.wish-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wish-form button {
+  min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--glass-line); color: var(--ink);
+}
+.sheet .enter-error { margin: 8px 0 0; color: #ffd7c2; font-size: 13px; }
+.my-wishes { list-style: none; margin: 10px 0 0; padding: 0; max-height: 32vh; overflow-y: auto; }
+.my-wishes li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); font-size: 14px; overflow-wrap: anywhere; }
+.my-wishes li span { flex: none; color: var(--ink-soft); font-size: 12px; }
 .sheet-note { margin: 10px 0 0; color: var(--ink-soft); font-size: 12px; }
 .credits { margin: 6px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.8; max-height: 55vh; overflow-y: auto; }
 .credits a { color: var(--ink); }
