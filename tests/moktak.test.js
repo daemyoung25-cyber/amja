@@ -20,8 +20,9 @@ test("the stick is down on each hit, raised between hits, and resting when the c
   assert.equal(strikeLift(null, hits, len), 0);
 });
 
-test("the monk's seat (with desk) is inside the hall, beside the altar, clear of every cushion", () => {
-  assert.ok(MONK.x > INSIDE.minX + 0.5 && MONK.z < ALTAR.z && MONK.z > INSIDE.minZ);
+test("the monk sits front and centre before the altar (that cushion is his), clear of every other cushion", () => {
+  assert.ok(MONK.x === ALTAR.x && MONK.z < ALTAR.z && MONK.z > INSIDE.minZ);
+  assert.equal(CUSHIONS.length, 14);
   for (const c of CUSHIONS) assert.ok(Math.hypot(c.x - MONK.x, c.z - MONK.z) > MONK.r + 0.4, JSON.stringify(c));
   // 경상(스님 앞 0.66m, 반폭 0.48)도 방석과 안 겹친다
   const L = Math.hypot(ALTAR.x - MONK.x, ALTAR.z - MONK.z), dx = MONK.x + (ALTAR.x - MONK.x) / L * 0.66, dz = MONK.z + (ALTAR.z - MONK.z) / L * 0.66;

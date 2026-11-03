@@ -56,7 +56,7 @@ const clockNow = () => Date.now() + timeOffset;
 const colorIndex = Math.floor(Math.random() * AVATAR_COLORS.length);
 const me = createAvatar(THREE, { color: AVATAR_COLORS[colorIndex] });
 scene.add(me.root);
-// 대웅전 스님: 늘 불단 왼쪽 앞 자리에 앉아 염불 녹음 속 목탁 박자에 맞춰 목탁을 친다
+// 대웅전 스님: 늘 맨 앞줄 가운데 자리에 앉아 염불 녹음 속 목탁 박자에 맞춰 목탁을 친다
 const monk = createAvatar(THREE, { color: 0x9a968d, monk: true });
 monk.root.position.set(MONK.x, floorY(MONK), MONK.z);
 monk.root.rotation.y = faceAltar(MONK);

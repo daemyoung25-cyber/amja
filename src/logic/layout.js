@@ -102,10 +102,11 @@ export const WALLS = { front: 6.6, back: 15.0, side: 8.4, height: 4.8, doorW: 2.
 export const INSIDE = { minX: -8.0, maxX: 8.0, minZ: 6.95, maxZ: 12.6 };
 export const DOOR_IN = { x: 0, z: 7.1 };
 export const ALTAR = { x: 0, z: 13.9 };
-export const CUSHIONS = [-4, -2, 0, 2, 4].flatMap((x) => [{ x, z: 8.6 }, { x, z: 10.2 }, { x, z: 11.8 }]);
+// 맨 앞줄 가운데(0, 11.8)는 스님 자리라 방석 열넷
+export const CUSHIONS = [-4, -2, 0, 2, 4].flatMap((x) => [{ x, z: 8.6 }, { x, z: 10.2 }, { x, z: 11.8 }]).filter((c) => !(c.x === 0 && c.z === 11.8));
 export const FLOOR_Y = 0.5;
-// 스님 자리: 불단 왼쪽 앞, 방석 줄 밖. 늘 앉아 목탁을 치며 염불한다 (앞에 경상). r은 못 들어가는 반지름
-export const MONK = { x: -5.7, z: 12.5, r: 0.85 };
+// 스님 자리: 맨 앞줄 가운데, 부처님 바로 앞. 늘 앉아 목탁을 치며 염불한다 (앞에 경상). r은 못 들어가는 반지름
+export const MONK = { x: 0, z: 11.8, r: 0.85 };
 export const CEILING_Y = FLOOR_Y + WALLS.height - 0.6;   // 바깥 처마 단청 상자(벽 위 0.45m부터)보다 아래
 // 법당 안에 있을 때 카메라가 머무를 상자 (벽·천장 안쪽). 문으로 빠져나가면 문틀에 걸려 깜빡인다.
 export const ROOM = { minX: -8.1, maxX: 8.1, minZ: 6.95, maxZ: 14.7, maxY: CEILING_Y - 0.2 };
