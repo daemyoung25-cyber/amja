@@ -232,7 +232,7 @@ export function createUI({ placeName }) {
     },
     onChant: (cb) => $("chant-pick").addEventListener("change", (e) => cb(e.target.value)),
     // 소리 한 번에 끄기/켜기 버튼: 꺼져 있으면 '켜기'
-    onMute: (cb) => $("btn-mute").addEventListener("click", cb),
-    setMuted: (m) => { const b = $("btn-mute"); b.textContent = m ? "켜기" : "끄기"; b.setAttribute("aria-pressed", String(m)); b.setAttribute("aria-label", m ? "소리 다시 켜기" : "소리 모두 끄기"); },
+    onMute: (cb) => $("sound-all").addEventListener("change", cb),           // 소리 시트 맨 위 '모든 소리' 스위치
+    setMuted: (m) => { $("sound-all").checked = !m; },
   };
 }

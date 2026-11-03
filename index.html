@@ -54,7 +54,6 @@
     <button id="btn-wish" type="button" hidden>소원 걸기</button>
     <button id="btn-wish-read" type="button" hidden>소원 읽기</button>
     <button id="btn-sound" type="button" aria-label="소리 설정">소리</button>
-    <button id="btn-mute" type="button" aria-pressed="false" aria-label="소리 모두 끄기">끄기</button>
   </div>
   <button id="btn-credits" class="credits-btn" type="button" aria-label="출처 보기">출처</button>
 </div>
@@ -63,6 +62,7 @@
 
 <section id="sheet" class="sheet" hidden aria-labelledby="sheet-title">
   <div class="sheet-head"><h2 id="sheet-title">소리</h2><button id="sheet-close" type="button" aria-label="닫기">닫기</button></div>
+  <div class="row"><label for="sound-all">모든 소리</label><input id="sound-all" type="checkbox" role="switch" checked aria-label="모든 소리 켜기·끄기"></div>
   <div class="row" data-layer="waves"><span>파도와 바람</span><div class="stepper"><button type="button" data-step="-1" aria-label="파도와 바람 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="파도와 바람 크게">+</button></div></div>
   <div class="row" data-layer="chime"><span>풍경</span><div class="stepper"><button type="button" data-step="-1" aria-label="풍경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="풍경 크게">+</button></div></div>
   <div class="row" data-layer="chant"><span>불경</span><div class="stepper"><button type="button" data-step="-1" aria-label="불경 작게">−</button><output aria-live="polite">100</output><button type="button" data-step="1" aria-label="불경 크게">+</button></div></div>
