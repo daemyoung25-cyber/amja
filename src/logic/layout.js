@@ -38,15 +38,26 @@ export const BRIDGE = (() => {
   const b = { x: ISLAND.x + (dx / L) * ISLAND.r, z: ISLAND.z + (dz / L) * ISLAND.r };
   return { a, b, w: 1.4, sag: 2.5, head: { x: a.x, z: RAIL_Z + 0.8 } };
 })();
-// 섬 암자: 터 가운데에서 다리 반대쪽(u)으로 물러앉아 정면이 다리·바다·큰절을 본다.
-// 걸을 수 있는 곳은 터 둥근 판 가운데 '앞줄(front)'보다 다리 쪽만 (볼록해서 곧은 길이 암자를 뚫지 않는다).
+// 섬 암자: 터 서쪽(뭍 쪽)에 물러앉아 정면이 동쪽 바다(+x)를 본다. 정면 세 칸, 가운데 칸이 문.
+// 바깥에서 걸을 수 있는 곳은 터 둥근 판 가운데 '앞줄(front)'보다 바다 쪽만 (볼록해서 곧은 길이 암자를 뚫지 않는다).
+// 안: 문(door) - 문 안(doorIn) - 마루(inside), 뒤쪽 불단에 부처님, 앞에 방석 세 개.
 export const HERMITAGE = (() => {
-  const L = Math.hypot(ISLAND.x - BRIDGE.a.x, ISLAND.z - BRIDGE.a.z);
-  const u = { x: (ISLAND.x - BRIDGE.a.x) / L, z: (ISLAND.z - BRIDGE.a.z) / L };
-  const s = 3.9;                                       // 암자 가운데가 터 가운데에서 물러난 거리
-  return { u, x: ISLAND.x + u.x * s, z: ISLAND.z + u.z * s, yaw: Math.atan2(-u.x, -u.z), w: 5.4, d: 3.6, front: 0.6 };
+  const x = ISLAND.x - 3.6, z = ISLAND.z, w = 6.6, d = 4.8, fy = 0.55;
+  const plinth = { minX: x - d / 2 - 0.45, maxX: x + d / 2 + 0.45, minZ: z - w / 2 - 0.45, maxZ: z + w / 2 + 0.45 };
+  return {
+    x, z, w, d, fy, wallH: 2.3, yaw: Math.PI / 2, u: { x: -1, z: 0 }, front: 0.3, plinth,
+    door: { x: plinth.maxX + 0.45, z }, doorIn: { x: x + d / 2 - 0.35, z },
+    inside: { minX: x - d / 2 + 1.3, maxX: x + d / 2 - 0.35, minZ: z - w / 2 + 0.35, maxZ: z + w / 2 - 0.35 },
+    altar: { x: x - d / 2 + 0.65, z },
+    seats: [-1.3, 0, 1.3].map((dz) => ({ x: x + 0.2, z: z + dz })),
+  };
 })();
 const islandS = (p) => (p.x - ISLAND.x) * HERMITAGE.u.x + (p.z - ISLAND.z) * HERMITAGE.u.z;
+export const insideHermitage = (p) => p.x >= HERMITAGE.inside.minX && p.x <= HERMITAGE.inside.maxX && p.z >= HERMITAGE.inside.minZ && p.z <= HERMITAGE.inside.maxZ;
+const onHermPlinth = (p) => p.x >= HERMITAGE.plinth.minX && p.x <= HERMITAGE.plinth.maxX && p.z >= HERMITAGE.plinth.minZ && p.z <= HERMITAGE.plinth.maxZ;
+export const faceHermAltar = (p) => Math.atan2(-(HERMITAGE.altar.x - p.x), -(HERMITAGE.altar.z - p.z));
+// 암자 안에 있을 때 카메라가 머무를 상자
+export const HERM_ROOM = { minX: HERMITAGE.x - HERMITAGE.d / 2 + 0.2, maxX: HERMITAGE.x + HERMITAGE.d / 2 - 0.1, minZ: HERMITAGE.z - HERMITAGE.w / 2 + 0.2, maxZ: HERMITAGE.z + HERMITAGE.w / 2 - 0.2, maxY: HERMITAGE.fy + HERMITAGE.wallH - 0.15 };
 export const bridgeAt = (t) => ({ x: BRIDGE.a.x + (BRIDGE.b.x - BRIDGE.a.x) * t, z: BRIDGE.a.z + (BRIDGE.b.z - BRIDGE.a.z) * t });
 const BR_LEN2 = (BRIDGE.b.x - BRIDGE.a.x) ** 2 + (BRIDGE.b.z - BRIDGE.a.z) ** 2;
 const bridgeT = (p) => ((p.x - BRIDGE.a.x) * (BRIDGE.b.x - BRIDGE.a.x) + (p.z - BRIDGE.a.z) * (BRIDGE.b.z - BRIDGE.a.z)) / BR_LEN2;
@@ -60,7 +71,8 @@ function clampToBridge(p) {
   if (Math.hypot(p.x - ISLAND.x, p.z - ISLAND.z) <= ISLAND.r + 3) {
     const dx = p.x - ISLAND.x, dz = p.z - ISLAND.z, d = Math.hypot(dx, dz), m = ISLAND.r - 0.3;
     const q = d <= m ? { x: p.x, z: p.z } : { x: ISLAND.x + (dx / d) * m, z: ISLAND.z + (dz / d) * m };
-    const over = islandS(q) - HERMITAGE.front;          // 암자 쪽을 누르면 암자 앞마당으로
+    if (onHermPlinth(q)) { const r = HERMITAGE.inside; return { x: clamp(q.x, r.minX, r.maxX), z: clamp(q.z, r.minZ, r.maxZ) }; }   // 암자를 누르면 안으로
+    const over = islandS(q) - HERMITAGE.front;          // 암자 뒤나 옆을 누르면 앞마당으로
     return over > 0 ? { x: q.x - HERMITAGE.u.x * over, z: q.z - HERMITAGE.u.z * over } : q;
   }
   const t = bridgeT(p);
@@ -112,18 +124,20 @@ export const insideHall = (p) => p.x >= INSIDE.minX && p.x <= INSIDE.maxX && p.z
 const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
 const faceStatue = (p) => Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));
-const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats];
+const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats, ...HERMITAGE.seats];
 const faceCandles = (p) => Math.atan2(-(CANDLES.x - p.x), -(CANDLES.z - p.z));
 export const nearCandles = (p) => Math.hypot(p.x - CANDLES.spot.x, p.z - CANDLES.spot.z) <= 1.8;
 export { faceCandles };
 export const faceWish = (p) => Math.atan2(-(WISH.x - p.x), -(WISH.z - p.z));
 export const nearWish = (p) => Math.hypot(p.x - WISH.spot.x, p.z - WISH.spot.z) <= 1.8;
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
-export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : faceStatue(p));
+export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : insideHermitage(p) ? faceHermAltar(p) : faceStatue(p));
 
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
 export function floorY({ x, z }) {
+  if (onHermPlinth({ x, z })) return HERMITAGE.fy;
+  if (Math.abs(z - HERMITAGE.z) <= 1.0 && x > HERMITAGE.plinth.maxX && x < HERMITAGE.door.x) return HERMITAGE.fy * (HERMITAGE.door.x - x) / (HERMITAGE.door.x - HERMITAGE.plinth.maxX);   // 디딤돌
   if (onIsland({ x, z })) return 0;
   if (onBridge({ x, z })) return bridgeDeckY(bridgeT({ x, z }));
   if (insideCave({ x, z })) return CAVE.floor;
@@ -202,9 +216,17 @@ const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, block
 export function routeAround(from, to) {
   // 섬과 다리로 오가는 길: 마당 안 들머리(head) - 난간 틈(a) - 다리 - 섬 쪽 끝(b) - 섬
   const ba = inBridgeArea(from), bb = inBridgeArea(to);
-  if (ba && bb) return onIsland(from) === onIsland(to) ? [to] : [BRIDGE.b, to];
-  if (ba) return [...(onIsland(from) ? [BRIDGE.b] : []), BRIDGE.a, BRIDGE.head, ...routeAround(BRIDGE.head, to)];
-  if (bb) return [...routeAround(from, BRIDGE.head), BRIDGE.a, ...(onIsland(to) ? [BRIDGE.b] : []), to];
+  // 섬 안에서는 암자 문(door) - 문 안(doorIn)을 거쳐 드나든다
+  const outOfHerm = (p) => (insideHermitage(p) ? [HERMITAGE.doorIn, HERMITAGE.door] : []);
+  const intoHerm = (p) => (insideHermitage(p) ? [HERMITAGE.door, HERMITAGE.doorIn] : []);
+  const toEdge = (p) => (onIsland(p) ? [...outOfHerm(p), BRIDGE.b] : []);
+  const fromEdge = (p) => (onIsland(p) ? [BRIDGE.b, ...intoHerm(p)] : []);
+  if (ba && bb) {
+    if (onIsland(from) && onIsland(to)) return insideHermitage(from) === insideHermitage(to) ? [to] : [...outOfHerm(from), ...intoHerm(to), to];
+    return onIsland(from) ? [...toEdge(from), to] : [...fromEdge(to), to];
+  }
+  if (ba) return [...toEdge(from), BRIDGE.a, BRIDGE.head, ...routeAround(BRIDGE.head, to)];
+  if (bb) return [...routeAround(from, BRIDGE.head), BRIDGE.a, ...fromEdge(to), to];
   // 굴로 오가는 길: 마당 뒤끝(foot) - 돌계단 - 굴 어귀(door) - 굴 안
   const ca = inCaveArea(from), cb = inCaveArea(to);
   if (ca && cb) return insideCave(from) === insideCave(to) ? [to] : [CAVE.door, to];

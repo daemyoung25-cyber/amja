@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BRIDGE, ISLAND, HERMITAGE, RAIL_Z, COURTYARD, HALL, LEAN_Z, floorY, resolveTap, routeAround, clampToWalkable, nearestLeanSpot, onBridge, onIsland, bridgeAt } from "../src/logic/layout.js";
+import { BRIDGE, ISLAND, HERMITAGE, insideHermitage, faceHermAltar, RAIL_Z, COURTYARD, HALL, LEAN_Z, floorY, resolveTap, routeAround, clampToWalkable, nearestLeanSpot, onBridge, onIsland, bridgeAt } from "../src/logic/layout.js";
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inYard = (p) => p.x >= COURTYARD.minX && p.x <= COURTYARD.maxX && p.z >= COURTYARD.minZ && p.z <= COURTYARD.maxZ;
@@ -71,15 +71,44 @@ test("leaning on the railing never stands in the bridge gap", () => {
   assert.equal(s.z, LEAN_Z);
 });
 
-test("the island hermitage sits at the back of the terrace facing the bridge; tapping it walks to its front yard", () => {
-  const toB = Math.hypot(HERMITAGE.x - BRIDGE.b.x, HERMITAGE.z - BRIDGE.b.z);
-  assert.ok(toB > ISLAND.r, "암자는 다리 반대쪽");
-  assert.ok(Math.hypot(HERMITAGE.x - ISLAND.x, HERMITAGE.z - ISLAND.z) + Math.hypot(HERMITAGE.w / 2 + 0.45, HERMITAGE.d / 2 + 0.45) < ISLAND.r, "기단이 터 안에");
-  const r = resolveTap({ x: HERMITAGE.x, z: HERMITAGE.z });
+test("the island hermitage faces the open sea (east) from the landward back of the terrace", () => {
+  assert.equal(HERMITAGE.yaw, Math.PI / 2);                 // 로컬 정면 +z가 +x(동쪽 바다)로
+  assert.ok(HERMITAGE.x < ISLAND.x, "뭍 쪽(서쪽)에 물러앉음");
+  const P = HERMITAGE.plinth;
+  for (const [x, z] of [[P.minX, P.minZ], [P.minX, P.maxZ], [P.maxX, P.minZ], [P.maxX, P.maxZ]]) assert.ok(Math.hypot(x - ISLAND.x, z - ISLAND.z) < ISLAND.r - 0.2, "기단이 터 안에");
+});
+
+test("tapping the hermitage walks in through its door; the floor inside is on the plinth", () => {
+  const r = resolveTap({ x: HERMITAGE.x, z: HERMITAGE.z + 0.5 });
   assert.equal(r.kind, "walk");
-  assert.ok(onIsland(r.to), JSON.stringify(r.to));
-  const s = (r.to.x - ISLAND.x) * HERMITAGE.u.x + (r.to.z - ISLAND.z) * HERMITAGE.u.z;
-  assert.ok(Math.abs(s - HERMITAGE.front) < 1e-9, String(s));
-  // 앞마당 어디로 가도 곧은 길이 기단(앞면 = 가운데에서 s 3.9 - d/2 - 0.45)에 닿지 않는다
-  assert.ok(HERMITAGE.front < 3.9 - HERMITAGE.d / 2 - 0.45);
+  assert.ok(insideHermitage(r.to), JSON.stringify(r.to));
+  assert.equal(floorY(r.to), HERMITAGE.fy);
+  const from = { x: ISLAND.x + 3, z: ISLAND.z + 2 };
+  assert.deepEqual(routeAround(from, r.to), [HERMITAGE.door, HERMITAGE.doorIn, r.to]);
+  assert.deepEqual(routeAround(r.to, from), [HERMITAGE.doorIn, HERMITAGE.door, from]);
+  // 큰절 마당에서 곧장 암자 안까지: 다리를 건너 문으로
+  const path = routeAround({ x: 0, z: -10 }, r.to);
+  assert.deepEqual(path.slice(-4), [BRIDGE.b, HERMITAGE.door, HERMITAGE.doorIn, r.to]);
+  // 문 앞 디딤돌은 기단 높이에서 땅까지 비스듬히
+  const mid = { x: (HERMITAGE.door.x + HERMITAGE.plinth.maxX) / 2, z: HERMITAGE.z };
+  assert.ok(floorY(mid) > 0 && floorY(mid) < HERMITAGE.fy);
+});
+
+test("the hermitage has three cushions before the Buddha; sitting faces the altar", () => {
+  assert.equal(HERMITAGE.seats.length, 3);
+  for (const c of HERMITAGE.seats) {
+    assert.ok(insideHermitage(c));
+    const r = resolveTap(c);
+    assert.equal(r.kind, "sit");
+    assert.ok(Math.abs(r.yaw - faceHermAltar(c)) < 1e-9);
+  }
+  // 가운데 방석에서 부처님(서쪽 -x)을 보면 yaw = +π/2 (yaw 0 = -z를 봄)
+  assert.ok(Math.abs(faceHermAltar(HERMITAGE.seats[1]) - Math.PI / 2) < 1e-9, String(faceHermAltar(HERMITAGE.seats[1])));
+});
+
+test("tapping behind or beside the hermitage outside its plinth walks to the front yard", () => {
+  const r = resolveTap({ x: ISLAND.x - 1, z: ISLAND.z + 6.5 });
+  assert.equal(r.kind, "walk");
+  assert.ok(!insideHermitage(r.to) && onIsland(r.to));
+  assert.ok(r.to.x >= ISLAND.x - HERMITAGE.front - 1e-9, JSON.stringify(r.to));
 });

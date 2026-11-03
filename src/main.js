@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM } from "./logic/layout.js";
+import { STATUE, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { startMove, positionAt } from "./logic/walk.js";
@@ -234,7 +234,7 @@ function listenJoins() {
 }
 function faceBuddha() {
   const p = positionAt(state.move, net.now());
-  state.yaw = insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
+  state.yaw = insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : insideHermitage(p) ? faceHermAltar(p) : Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));   // 부처님을 향해 선다
 }
 ui.onBow(() => {
   if (state.bow108) return;
@@ -352,11 +352,12 @@ function frame(t) {
   me.setSeated(seated);
   me.update(dt);
   const inside = insideHall(p);
-  ui.setNearStatue(inside || insideCave(p) || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
+  const inHerm = insideHermitage(p);
+  ui.setNearStatue(inside || insideCave(p) || inHerm || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
   ui.setNearCandles(state.base !== "walk" && nearCandles(p));
   ui.setNearWish(state.base !== "walk" && nearWish(p), readable().length > 0);
   const inCave = insideCave(p);
-  rig.setIndoor(inside || inCave, inCave ? faceCaveAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : ROOM);
+  rig.setIndoor(inside || inCave || inHerm, inCave ? faceCaveAltar(p) : inHerm ? faceHermAltar(p) : faceAltar(p), inCave ? CAVE_ROOM : inHerm ? HERM_ROOM : ROOM);
 
   drawOthers(now, p, dt);
   audio.setListener(p);

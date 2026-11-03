@@ -331,6 +331,7 @@ export function createWorld(THREE, scene) {
     const small = statue.object.clone();
     small.scale.multiplyScalar(1.6 / BUDDHA_H);
     cave.setStatue(small);
+    hermitage.setStatue(statue.object.clone(), BUDDHA_H);   // 섬 암자에도 작게
   });
   // 양옆 협시보살: 국가유산청 3D 에셋 선림원지 금동보살입상(공공누리 1유형).
   loadStatue(THREE, "models/bodhisattva.glb", { height: BODHI_H, doubleSided: true }).then((statue) => {
