@@ -160,7 +160,10 @@ export function createWorld(THREE, scene) {
   const yardTex = new THREE.TextureLoader().load("textures/yard-stone.webp");
   yardTex.colorSpace = THREE.SRGBColorSpace; yardTex.wrapS = yardTex.wrapT = THREE.RepeatWrapping;
   yardTex.repeat.set((W + 2) / 10, (D + 2) / 10); yardTex.anisotropy = 8;
-  const yardMat = new THREE.MeshLambertMaterial({ map: yardTex });
+  // 높낮이: 돌마다 살짝 다른 높이·기울기, 닳은 모서리, 꺼진 줄눈 (빛 받는 쪽만 바꾸는 노멀맵이라 걷는 높이는 그대로)
+  const yardN = new THREE.TextureLoader().load("textures/yard-stone-n.webp");
+  yardN.wrapS = yardN.wrapT = THREE.RepeatWrapping; yardN.repeat.copy(yardTex.repeat); yardN.anisotropy = 8;
+  const yardMat = new THREE.MeshLambertMaterial({ map: yardTex, normalMap: yardN, normalScale: new THREE.Vector2(1.6, 1.6) });
   yardMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vYardW;")
       .replace("#include <project_vertex>", "#include <project_vertex>\nvYardW = (modelMatrix * vec4(transformed, 1.0)).xz;");
