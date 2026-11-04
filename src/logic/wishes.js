@@ -1,5 +1,7 @@
 /* 소원걸이: 소원패는 이레 동안 걸려 있고, 자리가 다 차면 가장 오래된 패 자리에 새 패를 건다.
    소원 글은 적은 사람의 폰에만 남는다 (서버엔 자리·이름·시각만). */
+import { isRude } from "./badwords.js";
+
 export const WISH_LIFE_MS = 7 * 86400000;
 export const WISH_SLOTS = 60;            // 세 줄 × 20
 export const WISH_GAP_MS = 60000;        // 한 사람이 1분에 한 번
@@ -45,14 +47,11 @@ export function keepMine(mine, live, nowMs) {
 
 /* 함께 읽는 소원: 적은 사람이 "다른 분도 읽을 수 있게"를 고른 패만, 이름 없이 글(t)만 서버에 둔다.
    번호·링크·욕설은 막는다 (서버 규칙은 숫자와 링크를, 여기선 욕설까지). 그래도 남는 것은 '가리기'로. */
-const SWEARS = ["시발", "씨발", "씨바", "시바", "씨빨", "ㅅㅂ", "ㅆㅂ", "병신", "ㅂㅅ", "븅신", "개새", "개색", "새끼", "좆", "존나", "졸라", "지랄", "ㅈㄹ", "미친놈", "미친년", "썅", "엿먹", "닥쳐", "꺼져", "니미", "느금", "섹스", "fuck", "shit", "bitch"];
-const squash = (t) => t.toLowerCase().replace(/[\s.,!?~·*_\-]+/g, "");
 const LINKISH = /[0-9０-９]|https?|www|\.(com|net|kr|org|io|me|ly)|@|t\.me|open\.kakao/i;
 
 export function publicProblem(text) {
   if (LINKISH.test(text)) return "다른 분이 읽는 소원엔 숫자와 링크를 넣을 수 없어요";
-  const s = squash(text);
-  if (SWEARS.some((w) => s.includes(w))) return "고운 말로 적어 주세요";
+  if (isRude(text)) return "고운 말로 적어 주세요";
   return null;
 }
 

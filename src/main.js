@@ -18,7 +18,7 @@ import { CREDITS } from "./credits.js";
 import { createPresence } from "./net/presence.js";
 import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
 import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
-import { nameTag } from "./logic/name.js";
+import { nameTag, whoTag } from "./logic/name.js";
 import { FIREBASE } from "../firebase-config.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
@@ -453,7 +453,7 @@ function drawOthers(now, mePos, dt) {
     if (!o) {
       o = { avatar: createAvatar(THREE, { color: AVATAR_COLORS[peer.c % AVATAR_COLORS.length] }), gone: 0 };
       // 이미 계시던 분들 말고, 내가 들어온 뒤에 새로 오신 분만 알린다
-      if (performance.now() - joinedAt > 4000) ui.notify(`${peer.n ? nameTag(peer.n, peer.h) + "님이" : "누군가"} 들어오셨어요`);
+      if (performance.now() - joinedAt > 4000) ui.notify(`${whoTag(peer.n, peer.h)} 들어오셨어요`);
       scene.add(o.avatar.root);
       others.set(peer.uid, o);
     }
@@ -520,7 +520,7 @@ function adopt(p) {
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);
-    ui.notify(`${who && who.n ? nameTag(who.n, who.h) + "님이" : "누군가"} 합장으로 인사했어요 🙏`);
+    ui.notify(`${who ? whoTag(who.n, who.h) : "누군가"} 합장으로 인사했어요 🙏`);
   });
   joinedAt = performance.now();
   // 들어왔을 때 이미 계신 분이 있으면 한 번 알려 준다
@@ -534,7 +534,7 @@ function adopt(p) {
     if (candlesSeen) {
       for (const c of recs) {
         const key = `${c.slot}:${c.at}`;
-        if (!candlesSeen.has(key) && c.n !== myName && net.now() - c.at < 30000) ui.notify(`${nameTag(c.n, c.h)}님이 초를 밝혔어요 🕯️`);
+        if (!candlesSeen.has(key) && c.n !== myName && net.now() - c.at < 30000) ui.notify(`${whoTag(c.n, c.h)} 초를 밝혔어요 🕯️`);
       }
     }
     candlesSeen = new Set(recs.map((c) => `${c.slot}:${c.at}`));
@@ -546,7 +546,7 @@ function adopt(p) {
     if (offersSeen) {                      // 들어온 뒤에 남이 올린 것만 알린다
       for (const r of recs) {
         const key = `${r.k}:${r.slot}:${r.at}`;
-        if (!offersSeen.has(key) && r.n !== myName && OFFER_PLACES[r.k] && net.now() - r.at < 30000) ui.notify(OFFER_PLACES[r.k].kind === "incense" ? `${nameTag(r.n, r.h)}님이 향을 피웠어요` : `${nameTag(r.n, r.h)}님이 초를 밝혔어요 🕯️`);
+        if (!offersSeen.has(key) && r.n !== myName && OFFER_PLACES[r.k] && net.now() - r.at < 30000) ui.notify(OFFER_PLACES[r.k].kind === "incense" ? `${whoTag(r.n, r.h)} 향을 피웠어요` : `${whoTag(r.n, r.h)} 초를 밝혔어요 🕯️`);
       }
     }
     offersSeen = new Set(recs.map((r) => `${r.k}:${r.slot}:${r.at}`));
@@ -558,7 +558,7 @@ function adopt(p) {
     if (wishesSeen) {
       for (const w of recs) {
         const key = `${w.slot}:${w.at}`;
-        if (!wishesSeen.has(key) && !w.mine && !myWishes.some((m) => m.id === w.id) && w.n !== myName && net.now() - w.at < 30000) ui.notify(w.n ? `${nameTag(w.n, w.h)}님이 소원을 걸었어요` : "누군가 소원을 걸었어요");
+        if (!wishesSeen.has(key) && !w.mine && !myWishes.some((m) => m.id === w.id) && w.n !== myName && net.now() - w.at < 30000) ui.notify(`${whoTag(w.n, w.h)} 소원을 걸었어요`);
       }
     }
     wishesSeen = new Set(recs.map((w) => `${w.slot}:${w.at}`));

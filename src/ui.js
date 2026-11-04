@@ -1,4 +1,4 @@
-import { cleanName, cleanSex } from "./logic/name.js";
+import { cleanName, cleanSex, nameProblem } from "./logic/name.js";
 
 /* 화면 위 글자와 버튼. 늘 보이는 버튼은 최대 3개, 기대 있으면 사라진다. */
 const $ = (id) => document.getElementById(id);
@@ -31,8 +31,9 @@ export function createUI({ placeName }) {
     let entered = false;
     const go = () => {
       if (entered) return;
+      const why = nameProblem(nameInput.value);
+      if (why) { nameError.textContent = why; nameError.hidden = false; nameInput.focus(); return; }
       const name = cleanName(nameInput.value);
-      if (!name) { nameError.hidden = false; nameInput.focus(); return; }
       entered = true;
       nameInput.blur();
       try { localStorage.setItem(NAME_KEY, name); localStorage.setItem(SEX_KEY, sex); } catch {}
