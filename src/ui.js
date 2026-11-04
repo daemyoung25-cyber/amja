@@ -27,6 +27,9 @@ export function createUI({ placeName }) {
   showSex();
   const nameInput = $("enter-name"), nameError = $("enter-error");
   try { nameInput.value = localStorage.getItem(NAME_KEY) || ""; } catch {}
+  let goNow = null;
+  // 잠깐 나갔다 와서 페이지가 다시 열렸을 때: 이름 화면을 건너뛰고 바로 들어간다
+  function enterAs(name, s) { nameInput.value = name; sex = cleanSex(s); showSex(); if (goNow) goNow(); }
   function onEnter(cb) {
     let entered = false;
     const go = () => {
@@ -43,6 +46,7 @@ export function createUI({ placeName }) {
       hud.hidden = false;
       cb(name, sex);
     };
+    goNow = go;
     $("enter-btn").addEventListener("click", go);
     nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) go(); });
     nameInput.addEventListener("input", () => (nameError.hidden = true));
@@ -252,7 +256,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),
+    onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),
     setNearWish, openWishSheet, openNoteSheet, setNearNote, onNoteSubmit: (cb) => (noteSubmit = cb), onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
     showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),

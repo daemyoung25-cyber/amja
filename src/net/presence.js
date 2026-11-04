@@ -72,7 +72,12 @@ async function connect(config, loadSdk, me) {
   });
 
   const beat = setInterval(() => { if (present) { state.s = now(); db.update(mine, { s: state.s }); } }, HEARTBEAT);
-  const onVis = () => (document.hidden ? disappear() : appear());
+  // 다른 화면(카톡 등)에 가도 지우지 않고 "잠깐 떠남"(a)만 적는다. 돌아오면 a 없이 다시 쓴다.
+  // 정말 연결이 끊기면 서버가 onDisconnect로 지운다
+  const onVis = () => {
+    if (document.hidden) { if (present) db.update(mine, { a: now() }); }
+    else appear();
+  };
   if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
 
   const peerCbs = [], greetCbs = [], lastGreet = new Map();

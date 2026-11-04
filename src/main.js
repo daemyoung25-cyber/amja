@@ -20,7 +20,8 @@ import { CREDITS } from "./credits.js";
 import { createPresence } from "./net/presence.js";
 import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
 import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
-import { nameTag, whoTag } from "./logic/name.js";
+import { nameTag, whoTag, cleanName, cleanSex } from "./logic/name.js";
+import { SESSION_KEY, packSession, readSession } from "./logic/session.js";
 import { FIREBASE } from "../firebase-config.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
@@ -57,7 +58,9 @@ const timeOffset = (() => {
 })();
 const clockNow = () => Date.now() + timeOffset;
 
-const colorIndex = Math.floor(Math.random() * AVATAR_COLORS.length);
+// 잠깐 나갔다 와서 페이지가 다시 열렸으면 이어 간다 (이 탭에 둔 마지막 상태)
+const resumed = (() => { try { return readSession(sessionStorage.getItem(SESSION_KEY), Date.now(), { cleanName, cleanSex }); } catch { return null; } })();
+const colorIndex = resumed ? resumed.color : Math.floor(Math.random() * AVATAR_COLORS.length);
 const me = createAvatar(THREE, { color: AVATAR_COLORS[colorIndex] });
 scene.add(me.root);
 // 대웅전 스님: 늘 맨 앞줄 가운데 자리에 앉아 염불 녹음 속 목탁 박자에 맞춰 목탁을 친다
@@ -106,7 +109,7 @@ const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
   move: (() => {        // 들어오는 자리를 마당 앞쪽에 흩어 둔다 (여럿이 겹치지 않게)
-    const spawn = { x: (Math.random() - 0.5) * 8, z: -13 + Math.random() * 2 };
+    const spawn = resumed ? { x: resumed.x, z: resumed.z } : { x: (Math.random() - 0.5) * 8, z: -13 + Math.random() * 2 };
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,
@@ -397,8 +400,16 @@ ui.onVolume((layer, v) => {
   applyLayer(layer);
   try { localStorage.setItem(SOUND_KEY, JSON.stringify(volumes)); } catch {}
 });
+// 다른 화면으로 갈 때 지금 자리·자세·이름을 이 탭에 적어 둔다 (폰이 페이지를 버렸다 다시 열어도 이어지게)
+function saveSession() {
+  if (!myName) return;
+  const p = positionAt(state.move, net.now());
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(packSession({ name: myName, sex: mySex, color: colorIndex, x: p.x, z: p.z, yaw: state.yaw, base: state.base, bundle: myBundle }, Date.now()))); } catch {}
+}
+window.addEventListener("pagehide", saveSession);
+setInterval(saveSession, 15000);
 document.addEventListener("visibilitychange", async () => {
-  if (document.hidden) { audio.suspend(); return; }
+  if (document.hidden) { saveSession(); audio.suspend(); return; }
   if (!(await audio.resumeIfNeeded())) ui.showSoundResume(() => audio.resumeIfNeeded());
 });
 
@@ -509,7 +520,7 @@ function drawOthers(now, mePos, dt) {
       others.set(peer.uid, o);
     }
     o.gone = 0;
-    o.avatar.setOpacity(1);
+    o.avatar.setOpacity(peer.away ? 0.55 : 1);       // 잠깐 다른 화면에 간 분은 옅게
     const pos = positionAt(peer.m, now);
     o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
@@ -565,6 +576,20 @@ ui.onEnter(async (name, sex) => {
   const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base, n: myName, h: mySex }, onLate: adopt });
   if (p.mode === "shared") adopt(p);
 });
+
+// 이어 들어가기: 그 자리·자세로, 든 꾸러미도 그대로. 소리는 손이 닿아야 켜지니 첫 터치에 다시 켠다
+if (resumed) {
+  state.yaw = resumed.yaw;
+  if (resumed.base === "sit" && seatAt(resumed)) { state.sitOnArrive = true; setBase("walk"); }
+  else if (resumed.base === "lean") { state.leanOnArrive = true; setBase("walk"); }
+  if (resumed.bundle != null) { gotBongsong = true; myBundle = resumed.bundle; me.hold(makeBundle(THREE, CLOTHS[myBundle]), "hang"); }
+  setTimeout(() => {
+    ui.enterAs(resumed.name, resumed.sex);
+    const wake = async () => { if (await audio.resumeIfNeeded()) removeEventListener("pointerdown", wake); };
+    addEventListener("pointerdown", wake);
+    setTimeout(async () => { if (!(await audio.resumeIfNeeded())) ui.showSoundResume(() => audio.resumeIfNeeded()); }, 800);
+  }, 0);
+}
 
 // 같이 있기로 옮겨 탄다 (처음 연결이든, 늦게 붙은 연결이든)
 function adopt(p) {
