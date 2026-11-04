@@ -14,7 +14,7 @@ export function peersFromSnapshot(val, myUid, nowMs, me) {
     if (uid === myUid || !v || typeof v !== "object") continue;
     if (!validMove(v.m) || !num(v.s) || nowMs - v.s > STALE_MS) continue;
     const pos = positionAt(v.m, nowMs);
-    out.push({ uid, c: num(v.c) ? v.c : 0, m: v.m, p: typeof v.p === "string" ? v.p : "stand", pt: num(v.pt) ? v.pt : 0, g: v.g, n: cleanName(v.n) || "", h: cleanSex(v.h), d: Math.hypot(pos.x - me.x, pos.z - me.z) });
+    out.push({ uid, c: num(v.c) ? v.c : 0, m: v.m, p: typeof v.p === "string" ? v.p : "stand", pt: num(v.pt) ? v.pt : 0, g: v.g, b: Number.isInteger(v.b) && v.b >= 0 && v.b <= 5 ? v.b : null, n: cleanName(v.n) || "", h: cleanSex(v.h), d: Math.hypot(pos.x - me.x, pos.z - me.z) });
   }
   out.sort((a, b) => a.d - b.d);
   return out.slice(0, MAX_PEERS).map(({ d, ...p }) => p);

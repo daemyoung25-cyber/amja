@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
 import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
-import { createBongsongTable, makeBundle } from "./scene/bongsong.js";
+import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -75,11 +75,18 @@ bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");
 scene.add(bosal.root);
-let bosalUntil = 0, gotBongsong = false;
+let bosalUntil = 0, gotBongsong = false, myBundle = null;
 const bosalDo = (pose, sec) => { bosal.setPose(pose); bosalUntil = performance.now() + sec * 1000; };
+// 다른 분이 봉송을 받을 때: 내 화면의 보살님도 꾸러미를 두 손으로 내밀어 건네시고, 건너가는 순간 손에서 사라진다
+function bosalGive(cloth) {
+  const bundle = makeBundle(THREE, CLOTHS[cloth]);
+  bosal.hold(bundle, "both");
+  bosalDo("give", 2.4);
+  setTimeout(() => { if (bosal.held === bundle) bosal.hold(null); }, GIVE_SECONDS * 1000);
+}
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {}, offer() {}, lightCandle() {} };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {} };
 let snapshot = null, peers = [];
 let traceRecords = [], visits = {}, lastTraceAt = null;
 let candleRecords = [], lastCandleAt = null;
@@ -191,21 +198,24 @@ function makeOffer(k) {
     ui.showWhisper(incense ? "향을 피웠어요" : "초를 밝혔어요");
   }, 1600);
 }
-// 봉송 받기: 보살님이 꾸러미를 두 손으로 내미시고, 내 손에 건너오면 오른손에 들고 다닌다 (이 몸짓은 내 화면에만)
+// 봉송 받기: 보살님이 꾸러미를 두 손으로 내미시고, 내 손에 건너오면 오른손에 들고 다닌다.
+// 다른 분 화면에도: 내 몸짓(give)을 보고 그 화면의 보살님도 건네시고, 건너온 뒤엔 든 꾸러미 색(b)이 간다
 ui.onBongsong(() => {
   if (state.base === "walk" || gotBongsong) return;
   gotBongsong = true;
   const p = positionAt(state.move, net.now());
   state.yaw = faceBongsong(p); rig.turnTo(state.yaw);
-  const bundle = makeBundle(THREE, bongTable.randomCloth());
+  const cloth = bongTable.randomCloth();
+  const bundle = makeBundle(THREE, CLOTHS[cloth]);
   bosal.hold(bundle, "both");
   bosalDo("give", 2.4);
-  me.setPose("give");
-  state.gestureUntil = performance.now() + 2400;
+  gesture("give");
   const pack = packBongsong();
   setTimeout(() => {
     bosal.hold(null);
     me.hold(bundle, "both");
+    myBundle = cloth;
+    net.sendCarry(cloth);
     setTimeout(() => me.hold(bundle, "hang"), 900);
     ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
   }, GIVE_SECONDS * 1000);
@@ -504,6 +514,12 @@ function drawOthers(now, mePos, dt) {
     o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
+    if (peer.p === "give" && pos.arrived) {          // 봉송 받는 분: 보살님을 마주 보고, 내 화면의 보살님도 건네신다 (막 시작한 몸짓만)
+      o.yaw = faceBongsong(pos);
+      if (o.gavePt !== peer.pt && net.now() - peer.pt < 2000 && nearBongsong(pos)) bosalGive(Math.floor(Math.random() * CLOTHS.length));
+      o.gavePt = peer.pt;
+    }
+    if ((o.b ?? null) !== peer.b) { o.b = peer.b; o.avatar.hold(peer.b == null ? null : makeBundle(THREE, CLOTHS[peer.b]), "hang"); }   // 든 꾸러미
     if (peer.p === "light" && pos.arrived) { const k = offerPlace(pos); o.yaw = k ? faceOffer(pos, k) : nearWish(pos) ? faceWish(pos) : faceCandles(pos); }   // 초 켜기와 소원 걸기는 같은 몸짓
     const onSeat = pos.arrived && seatAt(pos);
     const sat = onSeat ? ["sit", "hapjang", "bow", "bow108", "light"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
@@ -558,6 +574,7 @@ function adopt(p) {
   net = p;
   net.sendMove(state.move);
   net.sendPose(state.base);
+  if (myBundle != null) net.sendCarry(myBundle);
   net.onPeers((val) => { snapshot = val; });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);

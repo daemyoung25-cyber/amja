@@ -48,3 +48,8 @@ test("a peer carries m (처사) or f (보살), defaulting to f", () => {
   const r = peersFromSnapshot({ a: at(1, 0, { h: "m" }), b: at(2, 0, { h: "zz" }), c: at(3, 0) }, "me", NOW, ME);
   assert.deepEqual(r.map((p) => p.h), ["m", "f", "f"]);
 });
+
+test("a carried bongsong bundle colour comes through only as a whole number 0-5", () => {
+  const r = peersFromSnapshot({ a: at(1, 1, { b: 3 }), b: at(2, 2, { b: 9 }), c: at(3, 3, { b: 1.5 }), d: at(4, 4) }, "me", NOW, ME);
+  assert.deepEqual(r.map((p) => p.b), [3, null, null, null]);
+});

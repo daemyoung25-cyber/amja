@@ -259,7 +259,7 @@ export function createAvatar(THREE, { color, monk = false }) {
   }
 
   update(0);
-  return { root, setPose, setSeated, setName, update, setOpacity, hold, setStrike: (v) => setStrike(v), get pose() { return pose; } };
+  return { root, setPose, setSeated, setName, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

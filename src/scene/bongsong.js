@@ -1,6 +1,6 @@
 /* 봉송 나눔 상: 낮은 나무 상 위에 보자기로 싼 꾸러미들과 떡·과일 소쿠리. 보살님(아바타)은 main.js에서 세운다.
    makeBundle은 손에 드는 꾸러미 하나 (보살님 손 → 내 손). */
-const CLOTHS = [0xd98c8c, 0x8fb58a, 0x6f86b8, 0xe0c068, 0xb98fc4, 0xe8a070];   // 연분홍·연두·쪽빛·치자·보라·주황 보자기
+export const CLOTHS = [0xd98c8c, 0x8fb58a, 0x6f86b8, 0xe0c068, 0xb98fc4, 0xe8a070];   // 연분홍·연두·쪽빛·치자·보라·주황 보자기
 
 export function makeBundle(THREE, color = CLOTHS[0], s = 1) {
   const mat = new THREE.MeshLambertMaterial({ color, flatShading: true });
@@ -60,5 +60,5 @@ export function createBongsongTable(THREE, { table }) {
   const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.7, 10), new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.set(0, 0.85, -0.35);
   group.add(hit);
-  return { group, hit, randomCloth: () => CLOTHS[Math.floor(Math.random() * CLOTHS.length)] };
+  return { group, hit, randomCloth: () => Math.floor(Math.random() * CLOTHS.length) };
 }

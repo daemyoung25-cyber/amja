@@ -17,7 +17,7 @@ function solo() {
   const noop = () => {};
   return {
     mode: "solo", uid: null, now: () => Date.now(),
-    onPeers: noop, sendMove: noop, sendPose: noop, greet: noop, onGreeted: noop, close: noop,
+    onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, onGreeted: noop, close: noop,
     writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop,
   };
 }
@@ -95,6 +95,7 @@ async function connect(config, loadSdk, me) {
     onGreeted: (cb) => greetCbs.push(cb),
     sendMove(m) { state.m = m; state.s = now(); if (present) db.update(mine, { m, s: state.s }); },
     sendPose(p) { state.p = p; state.pt = now(); if (present) db.update(mine, { p, pt: state.pt }); },
+    sendCarry(b) { state.b = b; if (present) db.update(mine, { b }); },   // 든 봉송 꾸러미 (보자기 색 번호 0~5)
     greet(to) { const g = { to, at: now() }; state.g = g; if (present) db.update(mine, { g }); },
     close() {
       clearInterval(beat);

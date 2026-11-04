@@ -92,3 +92,9 @@ test("praying along: only under my own uid, only for a wish that hangs", opts, a
   assert.notEqual(await put(`wishJoins/nowish${now}/${other.uid}`, now, other.token), 200, "없는 소원엔 못 빈다");
   assert.notEqual(await put(`wishJoins/j${now}/${other.uid}`, "x", other.token), 200);
 });
+
+test("presence accepts the bongsong give pose and a carried bundle colour 0-5, nothing else", opts, async () => {
+  const me = await signIn();
+  assert.equal(await put(`presence/${me.uid}`, presence({ p: "give", b: 2 }), me.token), 200);
+  for (const b of [6, -1, 1.5, "red"]) assert.notEqual(await put(`presence/${me.uid}`, presence({ b }), me.token), 200, String(b));
+});
