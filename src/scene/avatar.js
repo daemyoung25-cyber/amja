@@ -33,7 +33,7 @@ function robeTexture(THREE) {
 }
 import { bowPhase, BOW108_SECONDS } from "../logic/bows.js";
 
-const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4 };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -209,6 +209,10 @@ export function createAvatar(THREE, { color, monk = false }) {
       target = poseT < 2 ? hands.offer : hands.hapjang;
       hipTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
     }
+    else if (pose === "give") {                                   // 두 손으로 꾸러미를 내밀거나 받고(1.6초), 고개 숙여 인사
+      target = poseT < 1.6 ? hands.offer : hands.stand;
+      hipTilt = poseT < 1.6 ? -0.15 : poseT < 2.2 ? -0.3 : -0.05;
+    }
     let kneel = 0, drop = 0;
     if (pose === "bow" || pose === "bow108") {
       const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
@@ -233,6 +237,18 @@ export function createAvatar(THREE, { color, monk = false }) {
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
     if (pose === "moktak") handR.position.y = target[1][1] + 0.15 * strikeLift;   // 채질은 빠르니 따라가지 않고 바로
+    if (held) {                                   // 든 것: 두 손 사이에 받쳐 들거나(both) 오른손에 늘어뜨린다(hang)
+      if (heldMode === "both") held.position.set((handL.position.x + handR.position.x) / 2, (handL.position.y + handR.position.y) / 2 - 0.08, (handL.position.z + handR.position.z) / 2);
+      else held.position.set(handR.position.x + 0.02, handR.position.y - 0.24, handR.position.z);
+    }
+  }
+
+  // 손에 드는 것 (봉송 꾸러미): obj를 주면 들고, null이면 내려놓는다
+  let held = null, heldMode = "both";
+  function hold(obj, mode = "both") {
+    if (held && held !== obj) upper.remove(held);
+    held = obj; heldMode = mode;
+    if (obj) { upper.add(obj); obj.traverse((o) => { if (o.material) { o.material.transparent = true; materials.push(o.material); } }); }
   }
 
   function setOpacity(o) {
@@ -243,7 +259,7 @@ export function createAvatar(THREE, { color, monk = false }) {
   }
 
   update(0);
-  return { root, setPose, setSeated, setName, update, setOpacity, setStrike: (v) => setStrike(v), get pose() { return pose; } };
+  return { root, setPose, setSeated, setName, update, setOpacity, hold, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

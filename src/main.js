@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong } from "./logic/layout.js";
+import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
+import { createBongsongTable, makeBundle } from "./scene/bongsong.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -64,6 +66,17 @@ monk.root.position.set(MONK.x, floorY(MONK), MONK.z);
 monk.root.rotation.y = faceAltar(MONK);
 monk.setSeated(true); monk.setPose("moktak");
 scene.add(monk.root);
+// 봉송 나눔: 마당 가운데 공양주 보살님이 상 앞에 서서 법당 쪽을 본다. 한 번 들를 때 꾸러미 하나를 싸 주신다
+const bongTable = createBongsongTable(THREE, BONGSONG);
+scene.add(bongTable.group);
+world.groundMeshes.push(bongTable.hit);
+const bosal = createAvatar(THREE, { color: 0xa8957f });
+bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
+bosal.root.rotation.y = Math.PI;
+bosal.setName("공양주 보살님");
+scene.add(bosal.root);
+let bosalUntil = 0, gotBongsong = false;
+const bosalDo = (pose, sec) => { bosal.setPose(pose); bosalUntil = performance.now() + sec * 1000; };
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
 let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {}, offer() {}, lightCandle() {} };
@@ -94,6 +107,7 @@ const state = {
   candleOnArrive: false,
   wishOnArrive: false,
   noteOnArrive: false,
+  bongsongOnArrive: false,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -129,6 +143,7 @@ function goTo(point) {
   state.candleOnArrive = r.kind === "candle";
   state.wishOnArrive = r.kind === "wish";
   state.noteOnArrive = r.kind === "note";
+  state.bongsongOnArrive = r.kind === "bongsong";
   net.sendMove(state.move);
   setBase("walk");
 }
@@ -176,6 +191,25 @@ function makeOffer(k) {
     ui.showWhisper(incense ? "향을 피웠어요" : "초를 밝혔어요");
   }, 1600);
 }
+// 봉송 받기: 보살님이 꾸러미를 두 손으로 내미시고, 내 손에 건너오면 오른손에 들고 다닌다 (이 몸짓은 내 화면에만)
+ui.onBongsong(() => {
+  if (state.base === "walk" || gotBongsong) return;
+  gotBongsong = true;
+  const p = positionAt(state.move, net.now());
+  state.yaw = faceBongsong(p); rig.turnTo(state.yaw);
+  const bundle = makeBundle(THREE, bongTable.randomCloth());
+  bosal.hold(bundle, "both");
+  bosalDo("give", 2.4);
+  me.setPose("give");
+  state.gestureUntil = performance.now() + 2400;
+  const pack = packBongsong();
+  setTimeout(() => {
+    bosal.hold(null);
+    me.hold(bundle, "both");
+    setTimeout(() => me.hold(bundle, "hang"), 900);
+    ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
+  }, GIVE_SECONDS * 1000);
+});
 ui.onIncense(() => { const k = offerPlace(positionAt(state.move, net.now())); if (k && OFFER_PLACES[k].kind === "incense") makeOffer(k); });
 ui.onCandle(() => {
   if (state.base === "walk") return;
@@ -395,6 +429,10 @@ function frame(t) {
     } else {
       if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
       if (state.wishOnArrive) { state.yaw = faceWish(p); rig.turnTo(state.yaw); }        // 소원걸이를 마주 선다
+      if (state.bongsongOnArrive) {   // 상 앞에 서면 보살님을 마주 보고, 보살님이 합장으로 맞아 주신다
+        state.bongsongOnArrive = false; state.yaw = faceBongsong(p); rig.turnTo(state.yaw);
+        if (!gotBongsong) bosalDo("hapjang", 2.5);
+      }
       if (state.noteOnArrive) { state.noteOnArrive = false; state.yaw = faceNote(p); rig.turnTo(state.yaw); ui.openNoteSheet(myNotes); }   // 방명록 앞에 서면 적는 칸이 열린다
       setBase("stand");
     }
@@ -420,6 +458,9 @@ function frame(t) {
   const chantNow = audio.chantNow();
   monk.setStrike(chantNow && chantNow.track ? strikeLift(chantNow.t, chantNow.track.hits, chantNow.track.len) : 0);
   monk.update(dt);
+  if (bosalUntil && performance.now() >= bosalUntil) { bosalUntil = 0; bosal.setPose("stand"); }
+  bosal.update(dt);
+  ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
   ui.setNearStatue(inside || insideCave(p) || inHerm || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);

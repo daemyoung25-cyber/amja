@@ -98,6 +98,12 @@ export const GUESTBOOK = { x: -4.0, z: 3.6, r: 0.55, spot: { x: -4.0, z: 2.65 } 
 YARD.push({ kind: "guestbook", x: GUESTBOOK.x, z: GUESTBOOK.z, r: GUESTBOOK.r });
 export const faceNote = (p) => Math.atan2(-(GUESTBOOK.x - p.x), -(GUESTBOOK.z - p.z));
 export const nearNote = (p) => Math.hypot(p.x - GUESTBOOK.spot.x, p.z - GUESTBOOK.spot.z) <= 1.2;
+// 봉송 나눔: 마당 가운데(들어오는 자리 바로 앞, 바다 쪽)에 공양주 보살님이 낮은 상을 두고 법당 쪽(+z)을 보고 서 있다.
+// 상 앞 디딤 자리(spot)에 서면 '봉송 받기'. 보살님과 상은 함께 못 들어가는 둥근 자리 하나
+export const BONGSONG = { x: 0, z: -14.9, r: 0.85, bosal: { x: 0, z: -15.25 }, table: { x: 0, z: -14.55, w: 1.1, d: 0.5, h: 0.38 }, spot: { x: 0, z: -13.55 } };
+YARD.push({ kind: "bongsong", x: BONGSONG.x, z: BONGSONG.z, r: BONGSONG.r });
+export const faceBongsong = (p) => Math.atan2(-(BONGSONG.bosal.x - p.x), -(BONGSONG.bosal.z - p.z));
+export const nearBongsong = (p) => Math.hypot(p.x - BONGSONG.spot.x, p.z - BONGSONG.spot.z) <= 1.2;
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
 const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
@@ -213,6 +219,7 @@ export function resolveTap(p) {
   if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
   if (Math.hypot(p.x - WISH.x, p.z - WISH.z) < WISH.r + 0.2) return { kind: "wish", to: { ...WISH.spot }, yaw: faceWish(WISH.spot) };
   if (Math.hypot(p.x - GUESTBOOK.x, p.z - GUESTBOOK.z) < GUESTBOOK.r + 0.3) return { kind: "note", to: { ...GUESTBOOK.spot }, yaw: faceNote(GUESTBOOK.spot) };
+  if (Math.hypot(p.x - BONGSONG.x, p.z - BONGSONG.z) < BONGSONG.r + 0.3) return { kind: "bongsong", to: { ...BONGSONG.spot }, yaw: faceBongsong(BONGSONG.spot) };
   const br = clampToBridge(p);
   if (br) return { kind: "walk", to: br };
   if (p.z < LEAN_TRIGGER_Z) {
