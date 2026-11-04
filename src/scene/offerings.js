@@ -80,9 +80,9 @@ export function offeringKit(THREE, parent) {
       yy += r * 1.5;
     }
   }
-  function censer(x, y, z) {
+  function censer(x, y, z, { sticks = true } = {}) {      // sticks: false면 꽂힌 향 없이 (사람들이 올린 향은 offerBanks.js)
     const c = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.09, 0.14, 10), bronze); c.position.set(x, y + 0.07, z); add(c);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; sticks && i < 3; i++) {
       const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 3), mat(0x7a2b20));
       stick.position.set(x - 0.04 + i * 0.04, y + 0.25, z); add(stick);
     }

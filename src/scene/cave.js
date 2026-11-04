@@ -2,6 +2,8 @@
    거친 바위 굴 안을 파랑·다홍·보라 빛이 아래에서 비추고, 맨 안쪽 불단 위에 큰 금빛 광배를 두른 천수관음.
    절벽 앞은 돌계단, 굴 어귀 위에 '觀音窟' 새김. 굴 안은 햇빛이 닿지 않게 미리 빛을 칠한 재질(MeshBasic)로. */
 import { makeNoise, boulderGeometry } from "./landscape.js";
+import { candleBank } from "./offerBanks.js";
+import { OFFER_PLACES } from "../logic/offers.js";
 
 const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -182,6 +184,7 @@ export function createCave(THREE, { cave, yardBackZ }) {
 
   /* 불단과 촛불, 연등 */
   const flames = [];
+  let offerCandles = null;
   {
     const altarZ = altar.z - 0.75;
     const wood = new THREE.MeshLambertMaterial({ color: 0x5c1d14, emissive: 0x2e0d08 }), goldTrim = new THREE.MeshLambertMaterial({ color: 0xc9a046, emissive: 0x2a1c05 });
@@ -202,6 +205,20 @@ export function createCave(THREE, { cave, yardBackZ }) {
     }
     group.add(candles, fl);
     flames.mesh = fl;
+    // 불단 앞 낮은 촛대 단: 사람들이 켠 초가 두 줄로 놓인다 (가운데부터 바깥으로)
+    const STEP_W = 3.2, STEP_H = 0.42, STEP_D = 0.42, stepZ = altarZ - 0.4 - STEP_D / 2 - 0.02;
+    const step = new THREE.Mesh(new THREE.BoxGeometry(STEP_W, STEP_H, STEP_D), wood);
+    step.position.set(CX, FL + STEP_H / 2, stepZ);
+    const stepTrim = new THREE.Mesh(new THREE.BoxGeometry(STEP_W + 0.04, 0.04, STEP_D + 0.04), goldTrim);
+    stepTrim.position.set(CX, FL + STEP_H, stepZ);
+    group.add(step, stepTrim);
+    const SLOTS = OFFER_PLACES.cave.slots, COLS = SLOTS / 2;
+    const order = Array.from({ length: COLS }, (_, i) => (i % 2 ? -1 : 1) * Math.ceil(i / 2));   // 0, -1, 1, -2, 2 …
+    const lit = candleBank(THREE, group, (slot) => {
+      const row = Math.floor(slot / COLS), k = order[slot % COLS] + (COLS % 2 ? 0 : 0.5);
+      return { x: CX + k * 0.24 + (row ? 0.12 : 0), y: FL + STEP_H + 0.02, z: stepZ - 0.09 + row * 0.17 };
+    }, SLOTS);
+    offerCandles = lit;
     // 양옆 연꽃 등 (분홍·연두, 스스로 빛난다)
     for (const [sx, col] of [[-1, 0xff8fb8], [1, 0x9fe08a]]) {
       const lotus = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
@@ -325,9 +342,10 @@ export function createCave(THREE, { cave, yardBackZ }) {
       flames.mesh.setMatrixAt(i, fm.compose(fp.set(f.x, f.y, f.z), fq, fs.set(0.013, 0.03 * k, 0.013)));
     });
     flames.mesh.instanceMatrix.needsUpdate = true;
+    offerCandles.update(t);
     rockUni.uTime.value = t;
   }
-  function setNight(night) { glowMat.opacity = 0.3 + 0.7 * night; }
+  function setNight(night) { glowMat.opacity = 0.3 + 0.7 * night; offerCandles.setNight(1); }   // 굴 안은 늘 어둑해 빛무리를 밤처럼
 
-  return { group, pickables, obstacles, update, setNight, setStatue };
+  return { group, pickables, obstacles, update, setNight, setStatue, setCandles: (list) => offerCandles.setItems(list) };
 }

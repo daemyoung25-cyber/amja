@@ -8,6 +8,8 @@ import { createGongpo } from "./gongpo.js";
 import { decorateHall } from "./hallDecor.js";
 import { createYard } from "./yard.js";
 import { createCandleRack } from "./candles.js";
+import { candleBank, incenseBank } from "./offerBanks.js";
+import { OFFER_PLACES } from "../logic/offers.js";
 import { createWishRack } from "./wishes.js";
 import { createBridge } from "./bridge.js";
 import { pavingMaterial } from "./paving.js";
@@ -355,6 +357,7 @@ export function createWorld(THREE, scene) {
     flames.push(flame);
   }
   decorateHall(THREE, hall, { FY, W_SIDE, W_FRONT, W_BACK, WT, CEILING_Y, ALTAR, altarTop, TH_W, TH_Y, TH_H, latticeMat: doorMat, sumidanMat: sumiFront, gold, flames });
+  const hallIncense = incenseBank(THREE, hall, { x: ALTAR.x, y: altarTop, z: ALTAR.z - 0.5 }, OFFER_PLACES.hall.slots);   // 불단 향로에 사람들이 피운 향
   const cushionMat = mat(0x8c2f3a);
   for (const c of CUSHIONS) {
     const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.66), cushionMat);
@@ -526,6 +529,14 @@ export function createWorld(THREE, scene) {
   statue.rotation.y = 0;   // 정면(-z)이 바다
   scene.add(statue);
   statue.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); obstacles.push(o); } });
+  // 받침 둘째 단 앞쪽 둘레에 사람들이 켠 초 (가운데부터 양옆으로, 정면은 -z)
+  const gwanCandles = (() => {
+    const SLOTS = OFFER_PLACES.gwan.slots, R = 0.87, SPAN = 2.6;
+    return candleBank(THREE, statue, (slot) => {
+      const k = (slot % 2 ? -1 : 1) * Math.ceil(slot / 2), a = (k / SLOTS) * SPAN;
+      return { x: Math.sin(a) * R, y: 0.55, z: -Math.cos(a) * R };
+    }, SLOTS);
+  })();
   /* 기도 터: 관음상 앞(바다 쪽)에 박석을 깔고, 배례석과 방석을 놓는다. 방석을 누르면 관음상을 보고 앉는다. */
   const prayerFloor = add(new THREE.Mesh(new THREE.BoxGeometry(PRAYER.maxX - PRAYER.minX, 0.06, PRAYER.maxZ - PRAYER.minZ), mat(0xb9ae9b)), true);
   prayerFloor.position.set((PRAYER.minX + PRAYER.maxX) / 2, 0.03, (PRAYER.minZ + PRAYER.maxZ) / 2);
@@ -615,6 +626,8 @@ export function createWorld(THREE, scene) {
     yard.setNight(night);
     cave.setNight(night);
     rack.setNight(night);
+    hallIncense.setNight(night); gwanCandles.setNight(night);
+    if (hermitage.incense) hermitage.incense.setNight(night);
     candleLight.intensity = 5 + 7 * night;
   }
 
@@ -631,6 +644,8 @@ export function createWorld(THREE, scene) {
     chime.rotation.x = Math.sin(swing * 0.9) * 0.03;
     swayLanterns(t);
     rack.update(t);
+    hallIncense.update(t); gwanCandles.update(t);
+    if (hermitage.incense) hermitage.incense.update(t);
     wishRack.update(t);
     cave.update(t);
     for (const [i, f] of flames.entries()) f.scale.y = 1 + Math.sin(t * 13 + i * 2) * 0.12 + Math.sin(t * 7.3 + i) * 0.08;
@@ -668,7 +683,8 @@ export function createWorld(THREE, scene) {
     }
   }
 
-  return { update, groundMeshes, obstacles, seaY: SEA_Y, landHeight: landscape.height, landReady: landscape.ready, setTraces, setCandles: rack.setCandles, setWishes: wishRack.setWishes };
+  return { update, groundMeshes, obstacles, seaY: SEA_Y, landHeight: landscape.height, landReady: landscape.ready, setTraces, setCandles: rack.setCandles,
+    setOffers: (k, list) => ({ hall: hallIncense, herm: hermitage.incense, cave: { setItems: cave.setCandles }, gwan: gwanCandles })[k]?.setItems(list), setWishes: wishRack.setWishes };
 }
 
 export function mulberry32(a) {

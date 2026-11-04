@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -61,6 +61,7 @@ export function createUI({ placeName }) {
   }
   function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
+  function setNearIncense(near) { btnIncense.hidden = !near; }
   function setNearWish(near, canRead = false) {
     btnWish.hidden = !near;
     btnWishRead.hidden = !near || !canRead;
@@ -249,7 +250,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb),
+    onEnter, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),
     setNearWish, openWishSheet, openNoteSheet, setNearNote, onNoteSubmit: (cb) => (noteSubmit = cb), onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
     showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),

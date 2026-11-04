@@ -6,10 +6,13 @@ import { pavingMaterial } from "./paving.js";
 import { dancheongBand, cofferTexture } from "./dancheong.js";
 import { createBuddha } from "./buddha.js";
 import { offeringKit } from "./offerings.js";
+import { incenseBank } from "./offerBanks.js";
+import { OFFER_PLACES } from "../logic/offers.js";
 import { createGongpo } from "./gongpo.js";
 
 export function createHermitage(THREE) {
   const group = new THREE.Group();
+  let incense = null;
   const mat = (color, o = {}) => new THREE.MeshLambertMaterial({ color, ...o });
   const canvasTex = (w, h, draw) => {
     const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -156,7 +159,8 @@ export function createHermitage(THREE) {
   // 불단 공양물: 큰 법당과 같이 향로 양옆으로 마지·다기·과일·(초)·떡·한과·국화 꽃병 (정면이 +z)
   {
     const o = offeringKit(THREE, hall), top = FY + ALTAR_H + 0.06, F = altarZ + 0.25;
-    o.censer(0, top, F + 0.05);
+    o.censer(0, top, F + 0.05, { sticks: false });
+    incense = incenseBank(THREE, hall, { x: 0, y: top, z: F + 0.05 }, OFFER_PLACES.herm.slots);   // 사람들이 피운 향
     for (const sx of [-1, 1]) {
       o.mazi(sx * 0.3, top, F);
       o.dagi(sx * 0.58, top, F - 0.05);
@@ -233,5 +237,5 @@ export function createHermitage(THREE) {
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 5), ridgeMat);
     tip.position.set(sx * (XG + 0.1), FY + WH + 0.28 + H + 0.35, 0); tip.rotation.z = -sx * 0.35; hall.add(tip);
   }
-  return { group, setStatue };
+  return { group, setStatue, incense };
 }

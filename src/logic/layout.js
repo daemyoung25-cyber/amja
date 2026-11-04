@@ -141,6 +141,16 @@ export const faceWish = (p) => Math.atan2(-(WISH.x - p.x), -(WISH.z - p.z));
 export const nearWish = (p) => Math.hypot(p.x - WISH.spot.x, p.z - WISH.spot.z) <= 1.8;
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
 export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : insideHermitage(p) ? faceHermAltar(p) : faceStatue(p));
+// 향·초 공양을 올리는 곳: 대웅전·섬 암자 안이면 향, 동굴 법당 안과 해수관음 앞(기도 터나 받침 둘레)이면 초
+const inPrayer = (p) => p.x >= PRAYER.minX && p.x <= PRAYER.maxX && p.z >= PRAYER.minZ && p.z <= PRAYER.maxZ;
+export function offerPlace(p) {
+  if (insideHall(p)) return "hall";
+  if (insideHermitage(p)) return "herm";
+  if (insideCave(p)) return "cave";
+  if (inPrayer(p) || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + 1.6) return "gwan";
+  return null;
+}
+export const faceOffer = (p, k) => (k === "hall" ? faceAltar(p) : k === "herm" ? faceHermAltar(p) : k === "cave" ? faceCaveAltar(p) : faceStatue(p));
 
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;

@@ -104,7 +104,7 @@ export function decorateHall(THREE, hall, d) {
   add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5a3a2c })));
 
   /* 불단 위 향로·과일, 불단 앞 경상과 목탁 */
-  censer(ALTAR.x, altarTop, ALTAR.z - 0.5);
+  censer(ALTAR.x, altarTop, ALTAR.z - 0.5, { sticks: false });   // 향은 사람들이 피운 것만 (world.js incenseBank)
   for (const sx of [-1, 1]) fruitStack(ALTAR.x + sx * 1.45, altarTop, ALTAR.z - 0.45, sx < 0 ? 0xe0802a : 0xc23a2a);
   // 불단 공양물 (육법공양 향·등·꽃·과일·차·쌀에 떡과 한과, 고기·생선은 없다): 가운데 향로 양옆으로
   //  마지(놋그릇에 고봉밥) · 다기(청수) · 초 · 과일 · 떡 · 과일 · 한과 · 꽃병

@@ -42,6 +42,20 @@
         "$other": { ".validate": false }
       }
     },
+    "offers": {
+      ".read": "auth != null",
+      ".indexOn": ["at"],
+      "$id": {
+        ".write": "auth != null && (!data.exists() || data.child('at').val() < now - 90000000)",
+        ".validate": "newData.hasChildren(['k','slot','n','at'])",
+        "k": { ".validate": "newData.isString() && newData.val().matches(/^(hall|herm|cave|gwan)$/)" },
+        "slot": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 24 && newData.val() % 1 === 0" },
+        "h": { ".validate": "newData.isString() && newData.val().matches(/^(m|f)$/)" },
+        "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 8" },
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
+      }
+    },
     "candles": {
       ".read": "auth != null",
       ".indexOn": ["at"],

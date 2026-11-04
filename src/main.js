@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM } from "./logic/layout.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
+import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
 import { startMove, positionAt } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
@@ -65,10 +66,12 @@ monk.setSeated(true); monk.setPose("moktak");
 scene.add(monk.root);
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {} };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, greet() {}, offer() {}, lightCandle() {} };
 let snapshot = null, peers = [];
 let traceRecords = [], visits = {}, lastTraceAt = null;
 let candleRecords = [], lastCandleAt = null;
+let offerRecords = [];                  // 향·초 공양 (대웅전·섬 암자 향, 동굴·해수관음 초)
+const lastOfferAt = {};
 let wishRecords = [], lastWishAt = null;
 // 내 소원 글은 이 폰에만: [{ slot, at, text }]
 const MY_WISHES_KEY = "amja-wishes";
@@ -156,9 +159,29 @@ ui.onHapjang(() => {
   if (to) net.greet(to);
 });
 // 초 켜기: 공양대를 보고 두 손으로 초를 올린 뒤 합장. 초는 모두에게 보이고 하루 동안 탄다.
+// 향 피우기·초 켜기 (네 곳): 그 자리에서 부처님·관음상을 보고 올린다. 향은 한 시간, 초는 하루 탄다.
+function makeOffer(k) {
+  if (state.base === "walk" || state.bow108) return;
+  const now = net.now(), incense = OFFER_PLACES[k].kind === "incense";
+  if (!canOffer(lastOfferAt[k], now)) { ui.showWhisper(incense ? "향이 아직 타고 있어요. 조금 뒤에 또 피워요" : "초가 아직 타고 있어요. 조금 뒤에 또 켜요"); return; }
+  lastOfferAt[k] = now;
+  state.yaw = faceOffer(positionAt(state.move, now), k);
+  rig.turnTo(state.yaw);
+  gesture("light");
+  setTimeout(() => {
+    const at = net.now(), slot = pickOfferSlot(liveOffers(offerRecords, k, at), k);
+    offerRecords = [...offerRecords, { k, slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
+    net.offer({ k, slot, n: myName, h: mySex });
+    redrawOffers();
+    ui.showWhisper(incense ? "향을 피웠어요" : "초를 밝혔어요");
+  }, 1600);
+}
+ui.onIncense(() => { const k = offerPlace(positionAt(state.move, net.now())); if (k && OFFER_PLACES[k].kind === "incense") makeOffer(k); });
 ui.onCandle(() => {
   if (state.base === "walk") return;
   const now = net.now();
+  const here = offerPlace(positionAt(state.move, now));
+  if (here && OFFER_PLACES[here].kind === "candle") { makeOffer(here); return; }   // 동굴 법당·해수관음 앞
   if (!canLight(lastCandleAt, now)) { ui.showWhisper("초가 아직 타고 있어요. 조금 뒤에 또 켜요"); return; }
   lastCandleAt = now;
   const p = positionAt(state.move, now);
@@ -400,7 +423,9 @@ function frame(t) {
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
   ui.setNearStatue(inside || insideCave(p) || inHerm || Math.hypot(p.x - STATUE.x, p.z - STATUE.z) <= STATUE.baseR + BOW_RANGE);
-  ui.setNearCandles(state.base !== "walk" && nearCandles(p));
+  const offerK = state.base !== "walk" ? offerPlace(p) : null, offerKind = offerK && OFFER_PLACES[offerK].kind;
+  ui.setNearCandles(state.base !== "walk" && (nearCandles(p) || offerKind === "candle"));
+  ui.setNearIncense(offerKind === "incense");
   ui.setNearWish(state.base !== "walk" && nearWish(p), readable().length > 0);
   ui.setNearNote(nearNote(p));
   const inCave = insideCave(p);
@@ -438,9 +463,9 @@ function drawOthers(now, mePos, dt) {
     o.avatar.root.position.set(pos.x, floorY(pos), pos.z);
     if (!pos.arrived) o.yaw = pos.yaw;
     if (peer.p === "lean") o.yaw = 0;
-    if (peer.p === "light" && pos.arrived) o.yaw = nearWish(pos) ? faceWish(pos) : faceCandles(pos);   // 초 켜기와 소원 걸기는 같은 몸짓
+    if (peer.p === "light" && pos.arrived) { const k = offerPlace(pos); o.yaw = k ? faceOffer(pos, k) : nearWish(pos) ? faceWish(pos) : faceCandles(pos); }   // 초 켜기와 소원 걸기는 같은 몸짓
     const onSeat = pos.arrived && seatAt(pos);
-    const sat = onSeat ? ["sit", "hapjang", "bow", "bow108"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
+    const sat = onSeat ? ["sit", "hapjang", "bow", "bow108", "light"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
     if (onSeat && sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
@@ -463,8 +488,12 @@ function redrawCandles() {
   const now = net.now();
   world.setCandles(liveCandles(candleRecords, now).map((c) => ({ slot: c.slot, left: burnLeft(c, now) })));
 }
+function redrawOffers() {
+  const now = net.now();
+  for (const k of Object.keys(OFFER_PLACES)) world.setOffers(k, liveOffers(offerRecords, k, now).map((r) => ({ slot: r.slot, left: offerLeft(r, now) })));
+}
 function redrawWishes() { world.setWishes(liveWishes(wishRecords, net.now())); }
-setInterval(() => { redrawTraces(); redrawCandles(); redrawWishes(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
+setInterval(() => { redrawTraces(); redrawCandles(); redrawOffers(); redrawWishes(); }, 60000);       // 1분마다 흔적은 옅어지고 초는 짧아진다
 
 let myName = "", mySex = "f", joinedAt = Infinity;
 ui.onEnter(async (name, sex) => {
@@ -511,6 +540,18 @@ function adopt(p) {
     candlesSeen = new Set(recs.map((c) => `${c.slot}:${c.at}`));
     candleRecords = recs;
     redrawCandles();
+  });
+  let offersSeen = null;
+  net.onOffers((recs) => {
+    if (offersSeen) {                      // 들어온 뒤에 남이 올린 것만 알린다
+      for (const r of recs) {
+        const key = `${r.k}:${r.slot}:${r.at}`;
+        if (!offersSeen.has(key) && r.n !== myName && OFFER_PLACES[r.k] && net.now() - r.at < 30000) ui.notify(OFFER_PLACES[r.k].kind === "incense" ? `${nameTag(r.n, r.h)}님이 향을 피웠어요` : `${nameTag(r.n, r.h)}님이 초를 밝혔어요 🕯️`);
+      }
+    }
+    offersSeen = new Set(recs.map((r) => `${r.k}:${r.slot}:${r.at}`));
+    offerRecords = recs;
+    redrawOffers();
   });
   let wishesSeen = null;
   net.onWishes((recs) => {
