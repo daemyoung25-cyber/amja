@@ -124,11 +124,6 @@ export const TEA = (() => {
 export const insideTea = (p) => p.x >= TEA.inside.minX && p.x <= TEA.inside.maxX && p.z >= TEA.inside.minZ && p.z <= TEA.inside.maxZ;
 export const teaSeatAt = (p) => TEA.seats.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < 0.05) || null;
 export const TEA_SIP_SEC = 4;                         // 찻잔을 드는 시간
-// 다실 방석에 앉은 분은 자리마다 조금씩 어긋나게 11초에 한 번 찻잔을 든다: 서버 시계로만 정해져 모두의 화면에서 같다
-export function teaSipping(seat, ms) {
-  const i = TEA.seats.findIndex((c) => c.x === seat.x && c.z === seat.z);
-  return i >= 0 && ((ms / 1000 + i * 2.7) % 11) < TEA_SIP_SEC;
-}
 // 다실 안에 있을 때 카메라가 머무를 상자 (앞은 트여 조금 밖까지)
 export const TEA_ROOM = { minX: TEA.x - TEA.w / 2 + 0.25, maxX: TEA.x + TEA.w / 2 - 0.25, minZ: TEA.z - TEA.d / 2 - 1, maxZ: TEA.z + TEA.d / 2 - 0.25, maxY: TEA.fy + TEA.wallH - 0.2 };
 const inTeaBlock = (p, pad = 0) => p.x > TEA.x - TEA.w / 2 - pad && p.x < TEA.x + TEA.w / 2 + pad && p.z > TEA.z - TEA.d / 2 - pad && p.z < TEA.z + TEA.d / 2 + pad;

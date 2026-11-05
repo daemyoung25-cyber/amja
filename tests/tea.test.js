@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { TEA, TEA_ROOM, TEA_SIP_SEC, COURTYARD, HALL, RAIL_Z, BAEK_KENNEL, BRIDGE, insideTea, teaSeatAt, teaSipping, seatAt, faceSeat, floorY, resolveTap, clampToWalkable, routeAround, nearestLeanSpot, LEAN_Z } from "../src/logic/layout.js";
+import { TEA, TEA_ROOM, COURTYARD, HALL, RAIL_Z, BAEK_KENNEL, BRIDGE, insideTea, teaSeatAt, seatAt, faceSeat, floorY, resolveTap, clampToWalkable, routeAround, nearestLeanSpot, LEAN_Z } from "../src/logic/layout.js";
 import { petSpotOk, careSpot, DOG, BAEK, CAT } from "../src/logic/pets.js";
 
 const left = TEA.x - TEA.w / 2, right = TEA.x + TEA.w / 2, front = TEA.z - TEA.d / 2, back = TEA.z + TEA.d / 2;
@@ -105,17 +105,6 @@ test("walking up to an animal outside never ends inside the tea room", () => {
     const spot = careSpot(seg.at, me);
     if (spot) assert.ok(!insideTea(clampToWalkable(spot)), JSON.stringify([seg.at, me]));
   }
-});
-
-test("someone on a tea cushion lifts the cup now and then, the same on every screen", () => {
-  const seat = TEA.seats[1], t0 = 1_800_000_000_000;
-  let on = 0;
-  for (let s = 0; s < 1100; s++) if (teaSipping(seat, t0 + s * 1000)) on++;
-  assert.ok(on / 1100 > 0.25 && on / 1100 < 0.45, String(on / 1100));
-  assert.equal(teaSipping(seat, t0), teaSipping(seat, t0));
-  assert.notDeepEqual(TEA.seats.map((c) => teaSipping(c, t0)).join(), [0, 3, 6, 9].map((d) => teaSipping(seat, t0 + d * 1000)).join() + "x");
-  assert.equal(teaSipping({ x: 0, z: 8.6 }, t0), false, "not in the hall");
-  assert.ok(TEA_SIP_SEC >= 3 && TEA_SIP_SEC <= 5);
 });
 
 test("the camera stays under the roof inside", () => {

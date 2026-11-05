@@ -6,7 +6,7 @@
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['c','m','p','s'])",
         "c": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0" },
-        "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|sit|hapjang|bow|bow108|light|give)$/)" },
+        "p": { ".validate": "newData.isString() && newData.val().matches(/^(stand|walk|lean|sit|hapjang|bow|bow108|light|give|tea)$/)" },
         "b": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0" },
         "pt": { ".validate": "newData.isNumber()" },
         "a": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, clampToWalkable, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, insideTea, teaSeatAt, teaSipping, TEA_ROOM, TEA_SIP_SEC, BONGSONG, faceBongsong, nearBongsong, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, clampToWalkable, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, insideTea, teaSeatAt, TEA_ROOM, TEA_SIP_SEC, BONGSONG, faceBongsong, nearBongsong, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
@@ -288,12 +288,13 @@ function doCare(a) {
   if (c.item) { me.hold(makeCareItem(THREE, a), "hand"); careHeldUntil = performance.now() + c.item * 1000; }
   net.petAct(PET_IDS[i], a);
 }
-// 차 마시기: 다실 방석에 앉아 찻잔을 든다. 규칙이 받는 몸짓이 아니라 서버로 보내지 않고, 다른 분 화면에서는 teaSipping 박자로 찻잔을 든다
+// 차 마시기: 다실 방석에 앉아 찻잔을 든다. 몸짓이 서버로 가서 다른 분 화면에서도 같은 때에 찻잔을 든다
 const myCup = makeTeaCup(THREE);
 ui.onTea(() => {
   if (state.base !== "sit" || state.bow108 || state.gestureUntil) return;
   if (!teaSeatAt(positionAt(state.move, net.now()))) return;
   me.setPose("tea");
+  net.sendPose("tea");
   state.gestureUntil = performance.now() + TEA_SIP_SEC * 1000;
   me.hold(myCup, "hand"); careHeldUntil = performance.now() + TEA_SIP_SEC * 1000;
 });
@@ -633,16 +634,16 @@ function drawOthers(now, mePos, dt) {
     if ((o.b ?? null) !== peer.b) { o.b = peer.b; o.avatar.hold(peer.b == null ? null : makeBundle(THREE, CLOTHS[peer.b]), "hang"); }   // 든 꾸러미
     if (peer.p === "light" && pos.arrived) { const k = offerPlace(pos); o.yaw = k ? faceOffer(pos, k) : nearWish(pos) ? faceWish(pos) : faceCandles(pos); }   // 초 켜기와 소원 걸기는 같은 몸짓
     const onSeat = pos.arrived && seatAt(pos);
-    const sat = onSeat ? ["sit", "hapjang", "bow", "bow108", "light"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
+    const sat = onSeat ? ["sit", "hapjang", "bow", "bow108", "light", "tea"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
     if (onSeat && sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
     const care = o.care && o.care.until > performance.now() && pos.arrived ? o.care : null;
     if (o.care && o.care.heldUntil && (!care || performance.now() >= o.care.heldUntil)) { o.care.heldUntil = 0; o.avatar.hold(o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), "hang"); }
     if (care) o.avatar.root.rotation.y = faceDog(pos, petsNow[care.i]);
-    const sip = !care && !!onSeat && peer.p === "sit" && teaSipping(onSeat, net.now());   // 다실 방석에 앉은 분은 이따금 찻잔을 든다
+    const sip = !care && !!onSeat && peer.p === "tea" && net.now() - peer.pt < (TEA_SIP_SEC + 1) * 1000;   // 찻잔을 드는 분 (끝 신호가 안 와도 내려놓는다)
     if (sip !== !!o.sip) { o.sip = sip; o.avatar.hold(sip ? (o.cup ??= makeTeaCup(THREE)) : o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), sip ? "hand" : "hang"); }
-    o.avatar.setPose(care ? care.pose : sip ? "tea" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
+    o.avatar.setPose(care ? care.pose : sip ? "tea" : peer.p === "tea" ? "sit" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
     o.avatar.update(dt);
   }
