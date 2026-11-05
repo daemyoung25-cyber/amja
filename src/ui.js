@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read"), btnBongsong = $("btn-bongsong"), btnPet = $("btn-pet"), btnShare = $("btn-share");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read"), btnBongsong = $("btn-bongsong"), btnPet = $("btn-pet"), btnShare = $("btn-share"), btnSuneung = $("btn-suneung");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -219,17 +219,18 @@ export function createUI({ placeName }) {
   // 마음 전하기: 초·향·소원을 올린 뒤 잠깐 버튼이 나오고, 누르면 누구를 위해인지 적어 보낸다
   const shareSheet = $("share-sheet"), shareFor = $("share-for"), shareError = $("share-error"), shareLink = $("share-link");
   let sharePlace = null, shareTimer = 0, shareSend = async () => null;
-  function offerShare(place) {
-    sharePlace = place; btnShare.hidden = false;
+  let sharePrefill = "";
+  function offerShare(place, prefill = "") {
+    sharePlace = place; sharePrefill = prefill; btnShare.hidden = false;
     clearTimeout(shareTimer);
     shareTimer = setTimeout(() => (btnShare.hidden = true), 20000);
   }
   btnShare.addEventListener("click", () => {
     sheet.hidden = creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
-    shareError.hidden = true; shareLink.hidden = true; shareFor.value = "";
+    shareError.hidden = true; shareLink.hidden = true; shareFor.value = sharePrefill;
     shareSheet.hidden = false;
   });
-  hud.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && b !== btnShare) shareSheet.hidden = true; });
+  hud.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && b !== btnShare) shareSheet.hidden = true; if (b && b !== btnCandle) suSheet.hidden = true; });
   $("share-close").addEventListener("click", () => (shareSheet.hidden = true));
   shareFor.addEventListener("input", () => (shareError.hidden = true));
   $("share-form").addEventListener("submit", async (e) => {
@@ -239,6 +240,23 @@ export function createUI({ placeName }) {
     if (r.link) { shareLink.value = r.link; shareLink.hidden = false; shareLink.focus(); shareLink.select(); return; }   // 복사도 안 되면 직접 길게 눌러 복사
     if (r.done) { shareFor.blur(); shareSheet.hidden = true; btnShare.hidden = true; }
   });
+
+  // 수험생 기도 시트: 해수관음 앞에서 초를 켤 때 (기간 중에만)
+  const suSheet = $("su-sheet"), suFor = $("su-for"), suError = $("su-error");
+  let suSend = () => null, suPlain = () => {};
+  function openSuSheet() {
+    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = shareSheet.hidden = true;
+    suError.hidden = true; suFor.value = ""; suSheet.hidden = false;
+  }
+  $("su-close").addEventListener("click", () => (suSheet.hidden = true));
+  suFor.addEventListener("input", () => (suError.hidden = true));
+  $("su-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const err = suSend(suFor.value);
+    if (err) { suError.textContent = err; suError.hidden = false; return; }
+    suFor.blur(); suSheet.hidden = true;
+  });
+  $("su-plain").addEventListener("click", () => { suSheet.hidden = true; suPlain(); });
 
   // 소원 읽기 시트: 남이 함께 읽게 건 소원 하나 (이름 없이). 함께 빌기 · 다음 · 가리기
   const readSheet = $("read-sheet"), readText = $("read-text"), readJoin = $("read-join");
@@ -282,6 +300,8 @@ export function createUI({ placeName }) {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
     onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setNearDog, onPet: (cb) => btnPet.addEventListener("click", cb), offerShare, onShareSend: (cb) => (shareSend = cb),
+    openSuSheet, onSuSend: (cb) => (suSend = cb), onSuPlain: (cb) => (suPlain = cb), onSuneungButton: (cb) => btnSuneung.addEventListener("click", cb), setSuneungButton: (on) => { btnSuneung.hidden = !on; },
+    setSeason: (text) => { const el = $("enter-season"); el.textContent = text; el.hidden = !text; },
     setInvite: (text) => { const el = $("enter-invite"); el.textContent = text; el.hidden = !text; }, setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),
     setNearWish, openWishSheet, openNoteSheet, setNearNote, onNoteSubmit: (cb) => (noteSubmit = cb), onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
     showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,

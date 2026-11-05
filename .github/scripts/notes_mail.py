@@ -50,23 +50,34 @@ try:                                                            # 60일 지난 �
 except Exception as e:
     print("visitor cleanup failed:", type(e).__name__)
 
+# 수험생 기도 누적 수: 수능이 끝난 뒤 첫 메일에 한 번만
+SUNEUNG_END = 1795078800000
+suneung_line = ""
+try:
+    if now_ms >= SUNEUNG_END and not get("suneungReported"):
+        suneung_line = f"수험생 기도를 마쳤어요. 모두 {get('suneungCount') or 0}분이 초를 밝혔습니다."
+except Exception as e:
+    print("suneung count failed:", type(e).__name__)
+
 kst_day = lambda ms: datetime.fromtimestamp(ms / 1000, KST).date()
 ran_today = bool(last) and kst_day(last) == kst_day(now_ms)
 if notes or not (os.environ.get("GITHUB_EVENT_NAME") == "schedule" and ran_today):
     when = lambda ms: datetime.fromtimestamp(ms / 1000, KST).strftime("%m월 %d일 %H:%M")
     today = datetime.now(KST).strftime("%m월 %d일")
+    head = (suneung_line + "\n\n" if suneung_line else "") + visit_line
     msg = EmailMessage()
     msg["From"], msg["To"] = MAIL_FROM, MAIL_TO
     if notes:
         msg["Subject"] = f"[해조암] {visit_short} · 바라는 점 {len(notes)}개 ({today})"
-        msg.set_content(visit_line + "\n\n" + "\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
+        msg.set_content(head + "\n\n" + "\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
         items = "".join(f'<li style="margin:0 0 14px"><div style="color:#888;font-size:12px">{when(n["at"])}</div><div style="white-space:pre-wrap;font-size:15px">{escape(n.get("t", ""))}</div></li>' for n in notes)
-        msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><p style="font-size:15px;margin:0 0 12px">{visit_line}</p><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
+        msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><p style="font-size:15px;margin:0 0 12px;white-space:pre-line">{head}</p><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
     else:
         msg["Subject"] = f"[해조암] {visit_short} · 새 글 없음 ({today})"
-        msg.set_content(visit_line + "\n\n지난번 메일 뒤로 들어온 바라는 점이 없습니다. 메일 시스템은 정상으로 돌았습니다.\n\n— www.amja.co.kr 대웅전 앞 방명록")
+        msg.set_content(head + "\n\n지난번 메일 뒤로 들어온 바라는 점이 없습니다. 메일 시스템은 정상으로 돌았습니다.\n\n— www.amja.co.kr 대웅전 앞 방명록")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as s:
         s.login(MAIL_FROM, os.environ["GMAIL_APP_PASSWORD"].replace(" ", ""))
         s.send_message(msg)
     print("mailed")
+    if suneung_line: requests.put(f"{DB}/suneungReported.json", headers=H, data="true", timeout=30).raise_for_status()
 requests.put(f"{DB}/notesMailedAt.json", headers=H, data=json.dumps(now_ms), timeout=30).raise_for_status()

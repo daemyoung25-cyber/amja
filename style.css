@@ -133,6 +133,7 @@ button { font: inherit; color: inherit; }
 .my-wishes li span { flex: none; color: var(--ink-soft); font-size: 12px; }
 .enter .enter-invite { margin: 4px 0 10px; max-width: 300px; font-size: 15px; line-height: 1.6; color: #ffe9c8; word-break: keep-all; text-align: center; }
 .share-link { width: 100%; margin-top: 10px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: inherit; font-size: 13px; }
+.su-plain { margin-top: 6px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--ink-soft); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
 .sheet-note { margin: 10px 0 0; color: var(--ink-soft); font-size: 12px; }
 .credits { margin: 6px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.8; max-height: 55vh; overflow-y: auto; }
 .credits a { color: var(--ink); }

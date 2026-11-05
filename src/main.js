@@ -6,6 +6,7 @@ import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
 import { createPets } from "./scene/pets.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
+import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
 import { canPet, faceDog, PET_SECONDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
@@ -62,6 +63,7 @@ const timeOffset = (() => {
 })();
 const clockNow = () => Date.now() + timeOffset;
 
+ui.setSeason(seasonLine(Date.now()));   // 수능 기간에만 입장 화면 한 줄
 // 마음 전하기 링크로 왔으면: 입장 화면에 사연을 띄우고 그 자리에서 시작한다. 주소창의 초대 부분은 지운다
 const invite = parseShare(location.search);
 if (invite) { ui.setInvite(inviteLine(invite)); try { history.replaceState(null, "", location.pathname + stripShareParams(location.search)); } catch {} }
@@ -102,7 +104,7 @@ function bosalGive(cloth) {
 }
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petDog() {} };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petDog() {}, litForSuneung: async () => false };
 let snapshot = null, peers = [];
 const sharedNow = () => net.now() + timeOffset;   // 모두 같은 시계 (?time=은 점검용)
 let traceRecords = [], visits = {}, lastTraceAt = null;
@@ -200,7 +202,7 @@ ui.onHapjang(() => {
 });
 // 초 켜기: 공양대를 보고 두 손으로 초를 올린 뒤 합장. 초는 모두에게 보이고 하루 동안 탄다.
 // 향 피우기·초 켜기 (네 곳): 그 자리에서 부처님·관음상을 보고 올린다. 향은 한 시간, 초는 하루 탄다.
-function makeOffer(k) {
+function makeOffer(k, su = null) {
   if (state.base === "walk" || state.bow108) return;
   const now = net.now(), incense = OFFER_PLACES[k].kind === "incense";
   if (!canOffer(lastOfferAt[k], now)) { ui.showWhisper(incense ? "향이 아직 타고 있어요. 조금 뒤에 또 피워요" : "초가 아직 타고 있어요. 조금 뒤에 또 켜요"); return; }
@@ -213,10 +215,31 @@ function makeOffer(k) {
     offerRecords = [...offerRecords, { k, slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
     net.offer({ k, slot, n: myName, h: mySex });
     redrawOffers();
+    if (su) { suneungLit(su); return; }
     ui.showWhisper(incense ? "향을 피웠어요" : "초를 밝혔어요");
     ui.offerShare(k);
   }, 1600);
 }
+// 수험생 기도: 해수관음 앞 초 켜기에 이름을 적을 수 있고(저장 안 함), 기기마다 한 번 누적 수에 더한다
+const SU_LIT_KEY = "amja-su-lit";
+let suneungCount = 0, suLitHere = false;
+try { suLitHere = localStorage.getItem(SU_LIT_KEY) === "1"; } catch {}
+function suneungLit({ forName }) {
+  ui.showWhisper(`${forName ? `${forName}님을 위해` : "수험생을 위해"} 초를 밝혔어요`, 3500);
+  ui.offerShare("gwan", forName);
+  const first = !suLitHere;
+  suLitHere = true;
+  if (first) net.litForSuneung().then((ok) => { if (ok) { try { localStorage.setItem(SU_LIT_KEY, "1"); } catch {} } });
+  setTimeout(() => { const t = countLine(suneungCount); if (t) ui.showWhisper(t, 5000); }, 3700);
+}
+ui.onSuSend((raw) => {
+  const forName = cleanFor(raw);
+  if (forName === null) return "한글로 10자까지, 이름만 적어 주세요";
+  makeOffer("gwan", { forName });
+  return null;
+});
+ui.onSuPlain(() => makeOffer("gwan"));
+ui.onSuneungButton(() => goTo(SHARE_PLACES.gwan.spot));
 // 봉송 받기: 보살님이 꾸러미를 두 손으로 내미시고, 내 손에 건너오면 오른손에 들고 다닌다.
 // 다른 분 화면에도: 내 몸짓(give)을 보고 그 화면의 보살님도 건네시고, 건너온 뒤엔 든 꾸러미 색(b)이 간다
 ui.onBongsong(() => {
@@ -229,7 +252,7 @@ ui.onBongsong(() => {
   bosal.hold(bundle, "both");
   bosalDo("give", 2.4);
   gesture("give");
-  const pack = packBongsong();
+  const pack = suneungActive(net.now()) ? packSuneung() : packBongsong();
   setTimeout(() => {
     bosal.hold(null);
     me.hold(bundle, "both");
@@ -255,6 +278,7 @@ ui.onCandle(() => {
   if (state.base === "walk") return;
   const now = net.now();
   const here = offerPlace(positionAt(state.move, now));
+  if (here === "gwan" && suneungActive(now) && canOffer(lastOfferAt.gwan, now)) { ui.openSuSheet(); return; }
   if (here && OFFER_PLACES[here].kind === "candle") { makeOffer(here); return; }   // 동굴 법당·해수관음 앞
   if (!canLight(lastCandleAt, now)) { ui.showWhisper("초가 아직 타고 있어요. 조금 뒤에 또 켜요"); return; }
   lastCandleAt = now;
@@ -307,7 +331,8 @@ ui.onShareSend(async (raw, place) => {
   const forName = cleanFor(raw);
   if (forName === null) return { error: "한글로 10자까지, 이름만 적어 주세요" };
   const info = { place, n: myName, h: mySex, forName };
-  const url = shareUrl(location.origin + location.pathname, info), text = shareMessage(info);
+  const home = location.origin + location.pathname.replace(/index\.html$/, "");
+  const url = shareUrl(place === "gwan" && suneungActive(net.now()) ? `${home}suneung/` : home, info), text = shareMessage(info);
   if (navigator.share) {
     try { await navigator.share({ text, url }); return { done: true }; }
     catch (e) { if (e && e.name === "AbortError") return { stay: true }; }          // 공유 창을 그냥 닫은 것
@@ -526,6 +551,7 @@ function frame(t) {
   critters.update(dt, sharedNow());
   dogNow = pets.update(dt, sharedNow(), dogPetUntil > performance.now());
   ui.setNearDog(state.base !== "walk" && !state.bow108 && canPet(dogNow, p));
+  ui.setSuneungButton(suneungActive(net.now()) && !suLitHere && !state.bow108 && offerPlace(p) !== "gwan");
   ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
@@ -649,6 +675,10 @@ function adopt(p) {
   net.sendPose(state.base);
   if (myBundle != null) net.sendCarry(myBundle);
   net.onPeers((val) => { snapshot = val; });
+  if (suneungActive(net.now())) {
+    net.onSuneungCount((n) => { suneungCount = n; });
+    setTimeout(() => { const t = countLine(suneungCount); if (t && suneungActive(net.now())) ui.notify(t, 6000); }, 5000);
+  }
   net.onDogPet((v) => {
     if (!v || net.now() - v.at > PET_SECONDS * 1000) return;   // 들어오기 전에 있었던 일은 보여 주지 않는다
     const until = performance.now() + PET_SECONDS * 1000, o = others.get(v.u);

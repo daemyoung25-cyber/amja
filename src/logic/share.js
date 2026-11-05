@@ -29,7 +29,10 @@ export function shareMessage({ place, n, h, forName }) {
   const who = whoTag(n, h), whom = forName ? ` ${forName}님을 위해` : "";
   return `${who}${whom} ${DONE[SHARE_PLACES[place].kind]}. 함께 마음을 모아 주세요`;
 }
-export const inviteLine = shareMessage;
+export function inviteLine(info) {
+  if (info.su && !info.n && !info.forName) return "수험생을 위해 함께 마음을 모아 주세요";
+  return shareMessage(info);
+}
 
 export function shareUrl(base, { place, n, h, forName }) {
   const q = new URLSearchParams({ to: place });
@@ -42,13 +45,13 @@ export function shareUrl(base, { place, n, h, forName }) {
 export function parseShare(search) {
   const q = new URLSearchParams(search), place = q.get("to");
   if (!known(place)) return null;
-  return { place, n: cleanName(q.get("n")), h: cleanSex(q.get("h")), forName: cleanFor(q.get("for")) || "" };
+  return { place, n: cleanName(q.get("n")), h: cleanSex(q.get("h")), forName: cleanFor(q.get("for")) || "", su: q.get("c") === "su" };
 }
 
 // 읽은 뒤 주소창에서 초대 부분만 지운다 (새로고침하면 이어 들어가기가 되고, 점검용 ?emu 등은 남긴다)
 export function stripShareParams(search) {
   const q = new URLSearchParams(search);
-  for (const k of ["to", "n", "h", "for"]) q.delete(k);
+  for (const k of ["to", "n", "h", "for", "c"]) q.delete(k);
   const s = q.toString();
   return s ? `?${s}` : "";
 }

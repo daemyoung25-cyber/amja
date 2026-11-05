@@ -120,3 +120,17 @@ test("a visitor can mark only their own day, nobody can read the list, and the d
   const read = await fetch(`${DB}/visitDays.json?${NS}&auth=${me.token}`).then((r) => r.status);
   assert.notEqual(read, 200, "visitors cannot read the list");
 });
+
+test("each device adds one to the exam candle count, by exactly one, and no more", opts, async () => {
+  const me = await signIn(), other = await signIn();
+  const count = async () => (await fetch(`${DB}/suneungCount.json?${NS}&auth=${me.token}`).then((r) => r.json())) || 0;
+  const n = await count();
+  assert.notEqual(await put("suneungCount", n + 5, me.token), 200, "not by more than one");
+  assert.equal(await put("suneungCount", n + 1, me.token), 200);
+  assert.notEqual(await put(`suneungBy/${other.uid}`, Date.now(), me.token), 200, "not for someone else");
+  assert.equal(await put(`suneungBy/${me.uid}`, Date.now(), me.token), 200);
+  assert.notEqual(await put("suneungCount", n + 2, me.token), 200, "the same device cannot count twice");
+  assert.notEqual(await put(`suneungBy/${me.uid}`, Date.now(), me.token), 200, "cannot erase or rewrite the mark");
+  assert.equal(await put("suneungCount", n + 2, other.token), 200, "another device can");
+  assert.notEqual(await put("suneungReported", true, other.token), 200, "only the mail job marks the report");
+});

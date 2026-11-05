@@ -18,7 +18,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petDog: noop, onDogPet: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petDog: noop, onDogPet: noop, litForSuneung: async () => false, onSuneungCount: noop,
   };
 }
 
@@ -105,6 +105,11 @@ async function connect(config, loadSdk, me) {
     // 바둑이 쓰다듬기: dogPet = { at, u } 하나만 덮어쓴다. 규칙이 막아도 내 화면의 쓰다듬기는 그대로 간다
     petDog() { Promise.resolve(db.set(db.ref(database, "dogPet"), { at: now(), u: uid })).catch(() => {}); },
     onDogPet(cb) { db.onValue(db.ref(database, "dogPet"), (snap) => cb(snap.val()), () => {}); },
+    // 수험생 기도 누적: suneungCount(수만). 규칙이 기기마다 한 번만 허용한다 (suneungBy/{uid})
+    async litForSuneung() {
+      try { await db.runTransaction(db.ref(database, "suneungCount"), (v) => (v || 0) + 1); await db.set(db.ref(database, `suneungBy/${uid}`), now()); return true; } catch { return false; }
+    },
+    onSuneungCount(cb) { db.onValue(db.ref(database, "suneungCount"), (snap) => cb(snap.val() || 0), () => {}); },
     close() {
       clearInterval(beat);
       stopPeers();
