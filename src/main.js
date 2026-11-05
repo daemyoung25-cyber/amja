@@ -3,6 +3,7 @@ import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
 import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
+import { createCritters } from "./scene/critters.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -78,6 +79,9 @@ bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");
 scene.add(bosal.root);
+// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기 (낮에만, 사람마다 자기 화면에서 따로)
+const critters = createCritters(THREE);
+scene.add(critters.group);
 let bosalUntil = 0, gotBongsong = false, myBundle = null;
 const bosalDo = (pose, sec) => { bosal.setPose(pose); bosalUntil = performance.now() + sec * 1000; };
 // 다른 분이 봉송을 받을 때: 내 화면의 보살님도 꾸러미를 두 손으로 내밀어 건네시고, 건너가는 순간 손에서 사라진다
@@ -481,6 +485,7 @@ function frame(t) {
   monk.update(dt);
   if (bosalUntil && performance.now() >= bosalUntil) { bosalUntil = 0; bosal.setPose("stand"); }
   bosal.update(dt);
+  critters.update(dt, p, new Date(clockNow()));
   ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
@@ -656,4 +661,4 @@ function adopt(p) {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, renderer, scene };
