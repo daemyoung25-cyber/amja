@@ -5,6 +5,7 @@ import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
 import { createPets } from "./scene/pets.js";
+import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { canPet, faceDog, PET_SECONDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
@@ -61,8 +62,11 @@ const timeOffset = (() => {
 })();
 const clockNow = () => Date.now() + timeOffset;
 
+// 마음 전하기 링크로 왔으면: 입장 화면에 사연을 띄우고 그 자리에서 시작한다. 주소창의 초대 부분은 지운다
+const invite = parseShare(location.search);
+if (invite) { ui.setInvite(inviteLine(invite)); try { history.replaceState(null, "", location.pathname + stripShareParams(location.search)); } catch {} }
 // 잠깐 나갔다 와서 페이지가 다시 열렸으면 이어 간다 (이 탭에 둔 마지막 상태)
-const resumed = (() => { try { return readSession(sessionStorage.getItem(SESSION_KEY), Date.now(), { cleanName, cleanSex }); } catch { return null; } })();
+const resumed = invite ? null : (() => { try { return readSession(sessionStorage.getItem(SESSION_KEY), Date.now(), { cleanName, cleanSex }); } catch { return null; } })();
 const colorIndex = resumed ? resumed.color : Math.floor(Math.random() * AVATAR_COLORS.length);
 const me = createAvatar(THREE, { color: AVATAR_COLORS[colorIndex] });
 scene.add(me.root);
@@ -119,7 +123,7 @@ const others = new Map();     // uid -> { avatar, gone: 0 }
 
 const state = {
   move: (() => {        // 들어오는 자리를 마당 앞쪽에 흩어 둔다 (여럿이 겹치지 않게)
-    const spawn = resumed ? { x: resumed.x, z: resumed.z } : { x: (Math.random() - 0.5) * 8, z: -13 + Math.random() * 2 };
+    const spawn = invite ? { ...SHARE_PLACES[invite.place].spot } : resumed ? { x: resumed.x, z: resumed.z } : { x: (Math.random() - 0.5) * 8, z: -13 + Math.random() * 2 };
     return startMove(spawn, spawn, Date.now());
   })(),
   leanOnArrive: false,
@@ -135,6 +139,7 @@ const state = {
 };
 
 const rig = createCameraRig(THREE, camera, canvas, { onTap, obstacles: world.obstacles });
+if (invite) { state.yaw = SHARE_PLACES[invite.place].yaw(); rig.turnTo(state.yaw); }
 const ray = new THREE.Raycaster();
 const headAt = new THREE.Vector3();
 const ndc = new THREE.Vector2();
@@ -209,6 +214,7 @@ function makeOffer(k) {
     net.offer({ k, slot, n: myName, h: mySex });
     redrawOffers();
     ui.showWhisper(incense ? "향을 피웠어요" : "초를 밝혔어요");
+    ui.offerShare(k);
   }, 1600);
 }
 // 봉송 받기: 보살님이 꾸러미를 두 손으로 내미시고, 내 손에 건너오면 오른손에 들고 다닌다.
@@ -262,6 +268,7 @@ ui.onCandle(() => {
     net.lightCandle({ slot, n: myName, h: mySex });
     redrawCandles();
     ui.showWhisper("초를 밝혔어요");
+    ui.offerShare("rack");
   }, 1600);
 });
 // 소원 걸기: 한 줄 적어 소원패를 건다. 패는 모두에게 보이고 이레 동안 걸려 있다. 글은 이 폰에만 남는다.
@@ -291,8 +298,22 @@ ui.onWishSubmit((raw, pub) => {
     listenJoins();
     redrawWishes();
     ui.showWhisper("소원을 걸었어요");
+    ui.offerShare("wish");
   }, 1600);
   return null;
+});
+// 마음 전하기: 폰의 공유 창(카톡 포함)으로 보내고, 안 되면 링크를 복사한다. 복사도 안 되면 링크를 보여 준다
+ui.onShareSend(async (raw, place) => {
+  const forName = cleanFor(raw);
+  if (forName === null) return { error: "한글로 10자까지, 이름만 적어 주세요" };
+  const info = { place, n: myName, h: mySex, forName };
+  const url = shareUrl(location.origin + location.pathname, info), text = shareMessage(info);
+  if (navigator.share) {
+    try { await navigator.share({ text, url }); return { done: true }; }
+    catch (e) { if (e && e.name === "AbortError") return { stay: true }; }          // 공유 창을 그냥 닫은 것
+  }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); ui.showWhisper("복사했어요. 카톡에 붙여 넣어 보내 주세요", 5000); return { done: true }; }
+  catch { return { link: url }; }
 });
 // 바라는 점: 방명록에 적으면 notes/에 남고(만든 사람만 읽음), 내 폰엔 내가 남긴 글 (최근 20개)
 const NOTES_KEY = "amja-notes";
@@ -596,6 +617,7 @@ ui.onEnter(async (name, sex) => {
   me.setName(nameTag(name, sex));
   audio.start();
   ui.showHintOnce();
+  if (invite) ui.showWhisper(`${SHARE_PLACES[invite.place].kind === "wish" ? "소원걸이" : SHARE_PLACES[invite.place].kind === "incense" ? "부처님" : "촛불"} 앞이에요. 함께 마음을 모아 주세요`, 6000);
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;

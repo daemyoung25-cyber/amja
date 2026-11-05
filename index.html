@@ -36,6 +36,7 @@
   <svg class="enter-mark" viewBox="0 0 48 24" aria-hidden="true"><path d="M2 14c9-1 15-5 22-11 7 6 13 10 22 11M8 14v8m32-8v8M2 22h44"/></svg>
   <h1 id="enter-title">해조암</h1>
   <p>바다를 보며 잠깐 머물다 가요</p>
+  <p id="enter-invite" class="enter-invite" hidden></p>
   <label class="enter-name"><span>이름</span><input id="enter-name" type="text" maxlength="8" placeholder="한글 1~8자" autocomplete="nickname" lang="ko" enterkeyhint="go"><span id="enter-suffix" class="suffix">보살</span></label>
   <div class="enter-sex" role="radiogroup" aria-label="여자 또는 남자">
     <button type="button" role="radio" data-sex="f" aria-checked="true">여 · 보살</button>
@@ -58,6 +59,7 @@
     <button id="btn-candle" type="button" hidden>초 켜기</button>
     <button id="btn-bongsong" type="button" hidden>봉송 받기</button>
     <button id="btn-pet" type="button" hidden>쓰다듬기</button>
+    <button id="btn-share" type="button" hidden>마음 전하기</button>
     <button id="btn-wish" type="button" hidden>소원 걸기</button>
     <button id="btn-wish-read" type="button" hidden>소원 읽기</button>
     <button id="btn-sound" type="button" aria-label="소리 설정">소리</button>
@@ -94,6 +96,13 @@
   <form id="note-form" class="note-form"><textarea id="note-text" maxlength="300" rows="3" placeholder="이런 게 있으면 좋겠어요 (300자까지)" lang="ko" aria-label="바라는 점"></textarea><button type="submit">남기기</button></form>
   <p id="note-error" class="enter-error" role="alert" hidden></p>
   <ul id="my-notes" class="my-wishes" hidden aria-label="내가 남긴 글"></ul>
+</section>
+<section id="share-sheet" class="sheet" hidden aria-labelledby="share-title">
+  <div class="sheet-head"><h2 id="share-title">마음 전하기</h2><button id="share-close" type="button" aria-label="닫기">닫기</button></div>
+  <form id="share-form" class="wish-form"><input id="share-for" type="text" maxlength="10" placeholder="누구를 위해 (안 적어도 돼요)" autocomplete="off" lang="ko" enterkeyhint="send" aria-label="누구를 위해"><button type="submit">보내기</button></form>
+  <p id="share-error" class="enter-error" role="alert" hidden></p>
+  <input id="share-link" class="share-link" type="text" readonly hidden aria-label="보낼 링크">
+  <p id="share-note" class="sheet-note">카톡 등으로 링크를 보내요. 받은 분은 이 자리로 바로 와서 함께 마음을 모을 수 있어요. 소원 글은 함께 가지 않아요</p>
 </section>
 <section id="read-sheet" class="sheet" hidden aria-labelledby="read-title">
   <div class="sheet-head"><h2 id="read-title">누군가의 소원</h2><button id="read-close" type="button" aria-label="닫기">닫기</button></div>
