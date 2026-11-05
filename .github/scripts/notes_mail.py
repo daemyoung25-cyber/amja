@@ -1,4 +1,5 @@
-"""바라는 점 메일: 지난번 보낸 뒤로 들어온 notes/를 모아 메일 한 통. 새 글이 없으면 보내지 않는다.
+"""바라는 점 메일: 지난번 보낸 뒤로 들어온 notes/를 모아 메일 한 통. 새 글이 없으면 '새 글 없음' 한 통(잘 돌아간다는 표시).
+예약 실행은 그날(한국) 이미 돌았고 새 글도 없으면 보내지 않는다 — 손으로 돌린 뒤 늦은 예약이 또 보내는 일을 막으려고.
 비밀: FIREBASE_SA (서비스 계정 JSON), GMAIL_APP_PASSWORD (보내는 계정의 앱 비밀번호). 보낸 시각은 notesMailedAt에 남긴다."""
 import json, os, smtplib, ssl, sys, time
 from datetime import datetime, timedelta, timezone
@@ -22,18 +23,25 @@ def get(path):
     r = requests.get(f"{DB}/{path}.json", headers=H, timeout=30); r.raise_for_status(); return r.json()
 
 now_ms = int(time.time() * 1000)
-since = get("notesMailedAt") or now_ms - 24 * 3600 * 1000       # 처음엔 지난 하루
+last = get("notesMailedAt")
+since = last or now_ms - 24 * 3600 * 1000       # 처음엔 지난 하루
 notes = sorted((v for v in (get("notes") or {}).values() if isinstance(v, dict) and since < v.get("at", 0) <= now_ms), key=lambda v: v["at"])
 print(f"since {since}, new {len(notes)}")
-if notes:
+kst_day = lambda ms: datetime.fromtimestamp(ms / 1000, KST).date()
+ran_today = bool(last) and kst_day(last) == kst_day(now_ms)
+if notes or not (os.environ.get("GITHUB_EVENT_NAME") == "schedule" and ran_today):
     when = lambda ms: datetime.fromtimestamp(ms / 1000, KST).strftime("%m월 %d일 %H:%M")
     today = datetime.now(KST).strftime("%m월 %d일")
     msg = EmailMessage()
-    msg["Subject"] = f"[해조암] 바라는 점 {len(notes)}개 ({today})"
     msg["From"], msg["To"] = MAIL_FROM, MAIL_TO
-    msg.set_content("\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
-    items = "".join(f'<li style="margin:0 0 14px"><div style="color:#888;font-size:12px">{when(n["at"])}</div><div style="white-space:pre-wrap;font-size:15px">{escape(n.get("t", ""))}</div></li>' for n in notes)
-    msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
+    if notes:
+        msg["Subject"] = f"[해조암] 바라는 점 {len(notes)}개 ({today})"
+        msg.set_content("\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
+        items = "".join(f'<li style="margin:0 0 14px"><div style="color:#888;font-size:12px">{when(n["at"])}</div><div style="white-space:pre-wrap;font-size:15px">{escape(n.get("t", ""))}</div></li>' for n in notes)
+        msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
+    else:
+        msg["Subject"] = f"[해조암] 새 글 없음 ({today})"
+        msg.set_content("지난번 메일 뒤로 들어온 바라는 점이 없습니다. 메일 시스템은 정상으로 돌았습니다.\n\n— www.amja.co.kr 대웅전 앞 방명록")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as s:
         s.login(MAIL_FROM, os.environ["GMAIL_APP_PASSWORD"].replace(" ", ""))
         s.send_message(msg)
