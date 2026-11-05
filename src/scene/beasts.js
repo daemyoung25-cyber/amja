@@ -178,6 +178,11 @@ function assemble(THREE, look) {
     const sp = onHead(look.tongueDir, look.mouthR * 0.06);
     tongue.position.set(...sp.p); tongue.rotation.x = -0.35; tongue.visible = false; head.add(tongue);
   }
+  let morsel = null;                                // 간식을 무는 동안 입에 보이는 조각
+  if (look.morsel) {
+    morsel = new THREE.Mesh(new THREE.BoxGeometry(look.mouthR * 2.6, look.mouthR * 1.3, look.mouthR * 1.3), new THREE.MeshLambertMaterial({ color: 0xc08a4e }));
+    morsel.position.set(...onHead(look.tongueDir, look.mouthR * 0.3).p); morsel.visible = false; head.add(morsel);
+  }
   if (look.whiskers) {
     const pts = [];
     for (const s of [-1, 1]) for (const k of [-1, 0, 1]) {
@@ -238,11 +243,16 @@ function assemble(THREE, look) {
   const now = { ...look.poses.sit };
   let t = Math.random() * 10, yaw = null, blinkAt = 2 + Math.random() * 3, blink = 0;
 
-  function update(dt, s, petted) {
+  // act: null | pet | treat | churu | pat, actT: 시작한 뒤 흐른 초
+  function update(dt, s, act = null, actT = 0) {
     t += dt;
+    if (act === true) act = "pet"; else if (act === false) act = null;
+    const petted = act === "pet", eating = act === "treat", licking = act === "churu", patted = act === "pat";
+    const chewing = eating && actT > 0.9;
     const k = 1 - Math.exp(-dt * 5);
-    const sleeping = s.state === "sleep", walking = s.state === "walk";
-    const p = look.poses[s.pose] || look.poses.sit;
+    const sleeping = s.state === "sleep" && !act, walking = s.state === "walk";
+    const poseName = (act && look.acts && look.acts[act]) || s.pose;   // 먹거나 궁디팡팡 받을 땐 그 자세로 일어난다
+    const p = look.poses[poseName] || look.poses.sit;
     for (const key of Object.keys(now)) now[key] = lerp(now[key], p[key], k);
     root.position.set(s.x, 0, s.z);
     yaw = yaw === null ? s.yaw : turn(yaw, s.yaw, 1 - Math.exp(-dt * 7));
@@ -250,8 +260,8 @@ function assemble(THREE, look) {
 
     const stride = walking ? t * look.stride : 0;
     const breathe = Math.sin(t * (sleeping ? 1.3 : 2.2));
-    body.position.y = now.y + (walking ? Math.abs(Math.sin(stride)) * look.bounce : 0) + breathe * 0.002;
-    body.rotation.x = now.pitch + (walking ? Math.sin(stride * 2) * 0.018 : 0);
+    body.position.y = now.y + (walking ? Math.abs(Math.sin(stride)) * look.bounce : 0) + breathe * 0.002 + (patted ? Math.abs(Math.sin(t * 8)) * 0.008 : 0);
+    body.rotation.x = now.pitch + (walking ? Math.sin(stride * 2) * 0.018 : 0) - (patted ? Math.abs(Math.sin(t * 8)) * 0.025 : 0);
     body.rotation.z = walking ? Math.sin(stride) * 0.025 : 0;
     body.scale.set(1 + breathe * (sleeping ? 0.016 : 0.007), 1 + breathe * (sleeping ? 0.016 : 0.007), 1);
     for (const l of legs) {
@@ -261,20 +271,25 @@ function assemble(THREE, look) {
     }
     const liftForPet = petted && (s.pose === "lie" || s.pose === "curl") ? 0.4 : 0;
     const asleepNod = sleeping && !petted ? look.sleepHead : 0;
-    head.rotation.x = now.head - now.pitch + asleepNod + liftForPet + (petted ? Math.sin(t * 5) * 0.05 : 0) + (walking ? Math.sin(stride * 2) * 0.03 : 0);
-    const idle = !walking && !sleeping && !petted;
+    const careHead = eating ? (chewing ? -0.12 + Math.sin(t * 15) * 0.05 : 0.2) : licking ? 0.26 + Math.sin(t * 10) * 0.025 : patted ? 0.1 + Math.abs(Math.sin(t * 8)) * 0.04 : 0;
+    head.rotation.x = now.head - now.pitch + asleepNod + liftForPet + careHead + (petted ? Math.sin(t * 5) * 0.05 : 0) + (walking ? Math.sin(stride * 2) * 0.03 : 0);
+    const idle = !walking && !sleeping && !act;
     head.rotation.y = idle ? Math.sin(t * 0.37) * 0.3 + Math.sin(t * 0.13) * 0.1 : 0;
-    head.rotation.z = idle ? Math.sin(t * 0.23) * 0.09 : petted ? 0.12 : 0;
+    head.rotation.z = idle ? Math.sin(t * 0.23) * 0.09 : petted ? 0.12 : chewing ? Math.sin(t * 2.4) * 0.07 : licking ? 0.08 : 0;
 
     // 깜빡임, 잠든 눈
     blinkAt -= dt;
     if (blinkAt < 0) { blink = 1; blinkAt = 2.2 + Math.random() * 3.5; }
     blink = Math.max(0, blink - dt * 7);
-    const closed = (sleeping && !petted) || (petted && (!look.iris || look.petClose)) ? 1 : Math.sin(blink * Math.PI);
+    const closed = sleeping || (petted && (!look.iris || look.petClose)) || chewing || licking || patted ? 1 : Math.sin(blink * Math.PI);
     for (const e of eyes) { e.e.scale.y = Math.max(0.1, 1 - closed); e.open.visible = closed < 0.6; }
-    if (tongue) tongue.visible = !!petted;
-    look.moveTail(tail, tailSegs, { t, walking, sleeping, petted, pose: s.pose });
-    for (const [i, e] of ears.entries()) { const side = i ? 1 : -1; e.rotation.x = look.ear.rx + (petted ? look.ear.happy : 0) + (walking ? Math.sin(stride * 2) * look.ear.flop : 0); e.rotation.z = side * look.ear.rz + (walking ? side * Math.sin(stride * 2 + 1) * look.ear.flop * 0.6 : 0); }
+    if (tongue) {                                     // 쓰다듬으면 내밀고, 다 먹고 입맛을 다시고, 츄르는 날름날름
+      tongue.visible = petted || (eating && actT > 2.6 && Math.sin(t * 6) > 0) || (licking && Math.sin(t * 11) > -0.35);
+      tongue.scale.y = licking ? 0.75 + Math.abs(Math.sin(t * 11)) * 0.55 : 1;
+    }
+    if (morsel) { morsel.visible = chewing && actT < 2.6; morsel.scale.setScalar(Math.max(0.35, 1 - (actT - 0.9) * 0.4)); }
+    look.moveTail(tail, tailSegs, { t, walking, sleeping, petted: petted || eating, pose: poseName });
+    for (const [i, e] of ears.entries()) { const side = i ? 1 : -1; e.rotation.x = look.ear.rx + (petted || eating || licking || patted ? look.ear.happy : 0) + (walking ? Math.sin(stride * 2) * look.ear.flop : 0); e.rotation.z = side * look.ear.rz + (walking ? side * Math.sin(stride * 2 + 1) * look.ear.flop * 0.6 : 0); }
     root.scale.setScalar(look.scale);
   }
   return { root, update };
@@ -306,7 +321,7 @@ export function createDog(THREE) {
     headAt: [0, 0.122, -0.218], headRadius, paintHead,
     eyeDir: [0.46, 0.12, -0.88], eyeR: 0.0165, eyeWide: 1, eyeTilt: 0,
     nose: 0x17110f, noseR: 0.0185, noseDir: [0, -0.21, -0.98], noseShine: true,
-    mouth: 0x3a2d28, mouthR: 0.0135, tongue: true, tongueDir: [0, -0.54, -0.84],
+    mouth: 0x3a2d28, mouthR: 0.0135, tongue: true, tongueDir: [0, -0.54, -0.84], morsel: true, acts: { treat: "sit" },
     mouthPaths: [[[0, -0.3, -0.95], [0, -0.45, -0.89]], [[-0.21, -0.47, -0.86], [-0.1, -0.52, -0.85], [0, -0.45, -0.89], [0.1, -0.52, -0.85], [0.21, -0.47, -0.86]]],
     earDir: [0.72, 0.62, 0.02],
     ear: {
@@ -369,7 +384,7 @@ export function createBaekgu(THREE) {
     headAt: [0, 0.185, -0.275], headRadius, paintHead,
     eyeDir: [0.42, 0.14, -0.9], eyeR: 0.0096, eyeWide: 1.32, eyeTilt: 0.3, iris: 0x3b2415, pupilW: 0.85, petClose: true,
     nose: 0x2c1c19, noseR: 0.0135, noseDir: [0, -0.17, -0.985], noseShine: true,
-    mouth: 0x4a3a33, mouthR: 0.0115, tongue: true, tongueDir: [0, -0.46, -0.89],
+    mouth: 0x4a3a33, mouthR: 0.0115, tongue: true, tongueDir: [0, -0.46, -0.89], morsel: true, acts: { treat: "sit" },
     mouthPaths: [[[0, -0.25, -0.97], [0, -0.37, -0.93]], [[-0.15, -0.39, -0.91], [-0.07, -0.43, -0.9], [0, -0.37, -0.93], [0.07, -0.43, -0.9], [0.15, -0.39, -0.91]]],
     earDir: [0.5, 0.85, -0.04],
     ear: {
@@ -429,7 +444,7 @@ export function createCat(THREE) {
     headAt: [0, 0.106, -0.19], headRadius, paintHead,
     eyeDir: [0.47, 0.13, -0.87], eyeR: 0.0138, eyeWide: 1.14, eyeTilt: 0.2, iris: 0x6db4cf,
     nose: 0xe88d9a, noseR: 0.0078, noseDir: [0, -0.2, -0.98],
-    mouth: 0x9a7a78, mouthR: 0.0074, whiskers: true,
+    mouth: 0x9a7a78, mouthR: 0.0074, whiskers: true, tongue: true, tongueDir: [0, -0.46, -0.89], acts: { churu: "lick", pat: "rump" },
     mouthPaths: [[[0, -0.24, -0.97], [0, -0.35, -0.94]], [[-0.14, -0.35, -0.93], [-0.07, -0.4, -0.91], [0, -0.35, -0.94], [0.07, -0.4, -0.91], [0.14, -0.35, -0.93]]],
     earDir: [0.56, 0.78, -0.1],
     ear: {
@@ -437,7 +452,7 @@ export function createCat(THREE) {
       inner: [[0.002, 0, -0.004, 0.0005, 0.0005], [0.008, 0, -0.004, 0.024, 0.009], [0.03, 0, -0.003, 0.016, 0.007], [0.052, 0, -0.001, 0.006, 0.003], [0.058, 0, 0, 0.0005, 0.0005]],
       innerC: PINK,
       paint: (s, x, y, z, c) => { c[0] = WHITE[0]; c[1] = WHITE[1]; c[2] = WHITE[2]; },
-      rx: -0.08, ry: 0.32, rz: -0.28, happy: 0, flop: 0.03,
+      rx: -0.08, ry: 0.32, rz: -0.28, happy: 0.32, flop: 0.03,
     },
     frontHip: { x: 0.038, y: -0.042, z: -0.108 }, rearHip: { x: 0.048, y: -0.046, z: 0.112 },
     legKeys: (front) => front
@@ -453,17 +468,20 @@ export function createCat(THREE) {
       sit: { y: 0.142, pitch: 0.72, front: 0, rear: 1.46, head: 0.06 },
       lie: { y: 0.072, pitch: 0, front: 1.5, rear: 1.4, head: -0.05 },
       curl: { y: 0.066, pitch: 0, front: -1.36, rear: 1.42, head: -0.5 },   // 앞발은 가슴 밑으로 접어 넣는다
+      lick: { y: 0.142, pitch: 0.72, front: 0, rear: 1.46, head: 0.1 },     // 앉아서 고개 들고 츄르
+      rump: { y: 0.16, pitch: -0.22, front: 0.82, rear: 0, head: 0.2 },     // 앞은 낮추고 엉덩이를 치켜든다 (궁디팡팡)
     },
     moveTail(tail, segs, { t, walking, pose }) {
-      const curled = pose === "curl", low = !walking && !curled;
+      const curled = pose === "curl", raised = pose === "rump", low = !walking && !curled && !raised;
       tail.position.x = curled ? 0.082 : low ? 0.02 : 0;      // 웅크리면 옆구리에 붙이고, 앉으면 몸 곁에 내려 둔다
       tail.position.y = curled ? -0.052 : low ? -0.05 : 0.034;
       tail.position.z = curled ? 0.13 : 0.168;
-      tail.rotation.set(curled ? -1.56 : low ? 1.42 : -0.3, 0, curled ? 0 : low ? -0.5 + Math.sin(t * 0.7) * 0.05 : Math.sin(t * 1.15) * 0.14);
+      tail.rotation.set(curled ? -1.56 : low ? 1.42 : raised ? -0.02 : -0.3, 0, raised ? Math.sin(t * 26) * 0.05 : curled ? 0 : low ? -0.5 + Math.sin(t * (pose === "lick" ? 3 : 0.7)) * (pose === "lick" ? 0.16 : 0.05) : Math.sin(t * 1.15) * 0.14);   // 궁디팡팡엔 꼬리를 곧추세워 떨고, 츄르엔 살랑
       segs.forEach((s, i) => {
         if (!i) return;
         const wave = Math.sin(t * (walking ? 1.8 : 0.9) - i * 0.7);
         if (curled) { s.rotation.set(0, 0, 0.12); return; }       // 옆구리를 따라 앞으로 감는다
+        if (raised) { s.rotation.set(i === segs.length - 1 ? -0.5 : -0.03, 0, Math.sin(t * 26 - i) * 0.03); return; }
         if (low) { s.rotation.set(0, 0, -0.16 + (i === segs.length - 1 ? wave * 0.25 : 0)); return; }  // 끝만 살랑
         s.rotation.set(i < 3 ? -0.24 : 0.2, 0, wave * 0.14);       // 걸을 땐 S자로 세운다
       });

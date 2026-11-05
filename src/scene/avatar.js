@@ -33,7 +33,7 @@ function robeTexture(THREE) {
 }
 import { bowPhase, BOW108_SECONDS } from "../logic/bows.js";
 
-const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4, pet: 4 };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4, pet: 4, feed: 6, pat: 4 };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -153,6 +153,8 @@ export function createAvatar(THREE, { color, monk = false }) {
     prone: [[-0.24, 0.27, -0.19], [0.24, 0.27, -0.19]],      // 이마 옆 바닥에 손바닥
     lift: [[-0.2, 0.26, -0.06], [0.2, 0.26, -0.06]],         // 손바닥을 위로 귀까지
     moktak: [[-0.1, -0.01, -0.3], [0.13, 0.05, -0.3]],       // 왼손에 목탁, 오른손 채는 목탁 위
+    feed: [[-0.22, 0.04, -0.12], [0.05, 0.3, -0.44]],        // 오른손을 내밀어 먹인다
+    pat: [[-0.22, 0.04, -0.12], [0.03, 0.26, -0.44]],        // 오른손으로 궁디팡팡
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -209,13 +211,15 @@ export function createAvatar(THREE, { color, monk = false }) {
       target = poseT < 2 ? hands.offer : hands.hapjang;
       hipTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
     }
-    else if (pose === "pet") { target = hands.offer; hipTilt = -0.72; }   // 바둑이를 쓰다듬는다
+    else if (pose === "pet") { target = hands.offer; hipTilt = -0.72; }   // 개를 쓰다듬는다
+    else if (pose === "feed") { target = hands.feed; hipTilt = -0.72; }
+    else if (pose === "pat") { target = hands.pat; hipTilt = -0.66; }
     else if (pose === "give") {                                   // 두 손으로 꾸러미를 내밀거나 받고(1.6초), 고개 숙여 인사
       target = poseT < 1.6 ? hands.offer : hands.stand;
       hipTilt = poseT < 1.6 ? -0.15 : poseT < 2.2 ? -0.3 : -0.05;
     }
     let kneel = 0, drop = 0;
-    if (pose === "pet") kneel = 0.8;
+    if (pose === "pet" || pose === "feed" || pose === "pat") kneel = 0.8;
     if (pose === "bow" || pose === "bow108") {
       const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
       hipTilt = b.tilt; kneel = b.kneel; drop = b.drop;
@@ -238,9 +242,11 @@ export function createAvatar(THREE, { color, monk = false }) {
     if (tag) tag.position.y = 1.55 + body.position.y;
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
+    if (pose === "pat") handR.position.y = target[1][1] + Math.abs(Math.sin(t * 8)) * 0.13;   // 팡팡
     if (pose === "moktak") handR.position.y = target[1][1] + 0.15 * strikeLift;   // 채질은 빠르니 따라가지 않고 바로
     if (held) {                                   // 든 것: 두 손 사이에 받쳐 들거나(both) 오른손에 늘어뜨린다(hang)
       if (heldMode === "both") held.position.set((handL.position.x + handR.position.x) / 2, (handL.position.y + handR.position.y) / 2 - 0.08, (handL.position.z + handR.position.z) / 2);
+      else if (heldMode === "hand") held.position.set(handR.position.x, handR.position.y + 0.02, handR.position.z - 0.05);
       else held.position.set(handR.position.x + 0.02, handR.position.y - 0.24, handR.position.z);
     }
   }

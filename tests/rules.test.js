@@ -110,6 +110,20 @@ test("anyone signed in can pet the dog as themselves, but not as someone else or
   assert.notEqual(await put("dogPet", null, other.token), 200, "cannot delete");
 });
 
+test("feeding and patting signal per animal, as yourself, with the right act, not too often", opts, async () => {
+  const me = await signIn(), other = await signIn(), at = Date.now();
+  assert.notEqual(await put("petAct/dog", { at, u: other.uid, a: "treat" }, me.token), 200, "not in someone else's name");
+  assert.notEqual(await put("petAct/dog", { at, u: me.uid, a: "churu" }, me.token), 200, "the dog gets no churu");
+  assert.notEqual(await put("petAct/cat", { at, u: me.uid, a: "treat" }, me.token), 200, "the cat gets churu, not treats");
+  assert.notEqual(await put("petAct/cow", { at, u: me.uid, a: "pet" }, me.token), 200, "no other animals");
+  assert.notEqual(await put("petAct/cat", { at, u: me.uid, a: "pat", junk: 1 }, me.token), 200, "no extra fields");
+  assert.notEqual(await put("petAct/cat", { at: at - 3600000, u: me.uid, a: "pat" }, me.token), 200, "not an old time");
+  assert.equal(await put("petAct/cat", { at: Date.now(), u: me.uid, a: "pat" }, me.token), 200);
+  assert.notEqual(await put("petAct/cat", { at: Date.now(), u: other.uid, a: "churu" }, other.token), 200, "too soon on the same animal");
+  assert.equal(await put("petAct/baek", { at: Date.now(), u: other.uid, a: "treat" }, other.token), 200, "another animal is free");
+  assert.notEqual(await put("petAct/cat", null, other.token), 200, "cannot delete");
+});
+
 test("a visitor can mark only their own day, nobody can read the list, and the day must look like a date", opts, async () => {
   const me = await signIn(), other = await signIn(), at = Date.now();
   assert.equal(await put(`visitDays/20261105/${me.uid}`, at, me.token), 200);

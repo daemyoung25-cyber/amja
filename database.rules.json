@@ -119,6 +119,17 @@
       "u": { ".validate": "newData.val() === auth.uid" },
       "$other": { ".validate": false }
     },
+    "petAct": {
+      ".read": "auth != null",
+      "$w": {
+        ".write": "auth != null && newData.exists() && (!data.exists() || data.child('at').val() < now - 3000)",
+        ".validate": "newData.hasChildren(['at','u','a']) && ($w === 'dog' || $w === 'baek' || $w === 'cat')",
+        "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000" },
+        "u": { ".validate": "newData.val() === auth.uid" },
+        "a": { ".validate": "($w === 'cat' && (newData.val() === 'churu' || newData.val() === 'pat')) || ($w !== 'cat' && (newData.val() === 'pet' || newData.val() === 'treat'))" },
+        "$other": { ".validate": false }
+      }
+    },
     "visitDays": {
       "$day": {
         "$uid": {

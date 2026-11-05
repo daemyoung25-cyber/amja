@@ -8,7 +8,7 @@ export function createUI({ placeName }) {
   document.title = placeName;
   $("enter-title").textContent = placeName;
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
-  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read"), btnBongsong = $("btn-bongsong"), btnPet = $("btn-pet"), btnShare = $("btn-share"), btnSuneung = $("btn-suneung");
+  const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read"), btnBongsong = $("btn-bongsong"), careButtons = { pet: $("btn-pet"), treat: $("btn-treat"), churu: $("btn-churu"), pat: $("btn-pat") }, btnShare = $("btn-share"), btnSuneung = $("btn-suneung");
 
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
@@ -67,7 +67,7 @@ export function createUI({ placeName }) {
   function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
   function setNearBongsong(near) { btnBongsong.hidden = !near; }
-  function setNearDog(near) { btnPet.hidden = !near; }
+  function setCare(a, on) { careButtons[a].hidden = !on; }
   function setNearIncense(near) { btnIncense.hidden = !near; }
   function setNearWish(near, canRead = false) {
     btnWish.hidden = !near;
@@ -299,7 +299,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setNearDog, onPet: (cb) => btnPet.addEventListener("click", cb), offerShare, onShareSend: (cb) => (shareSend = cb),
+    onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setCare, onCare: (cb) => { for (const a of Object.keys(careButtons)) careButtons[a].addEventListener("click", () => cb(a)); }, offerShare, onShareSend: (cb) => (shareSend = cb),
     openSuSheet, onSuSend: (cb) => (suSend = cb), onSuPlain: (cb) => (suPlain = cb), onSuneungButton: (cb) => btnSuneung.addEventListener("click", cb), setSuneungButton: (on) => { btnSuneung.hidden = !on; },
     setSeason: (text) => { const el = $("enter-season"); el.textContent = text; el.hidden = !text; },
     setInvite: (text) => { const el = $("enter-invite"); el.textContent = text; el.hidden = !text; }, setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),

@@ -107,9 +107,9 @@ export const nearBongsong = (p) => Math.hypot(p.x - BONGSONG.spot.x, p.z - BONGS
 // 강아지집: 법당을 볼 때 왼쪽 뒤, 소나무 옆 빈터. 문이 마당 쪽. dog·cat은 집 앞 쉬는 자리
 export const KENNEL = { x: 15.5, z: 14, r: 0.75, dog: { x: 15.5, z: 12.6 }, cat: { x: 13.3, z: 12.8 } };
 YARD.push({ kind: "kennel", x: KENNEL.x, z: KENNEL.z, r: KENNEL.r });
-// 백구 집: 대웅전 건너편, 바둑이 집과 마주 보는 자리. 문 앞 양옆에 밥그릇과 물그릇 (동굴 계단으로 가는 길은 비운다)
-export const BAEK_KENNEL = { x: -15.5, z: 14, r: 0.75, dog: { x: -15.5, z: 12.6 }, food: { x: -16.4, z: 12.75, r: 0.17 }, water: { x: -14.6, z: 12.75, r: 0.17 } };
-YARD.push({ kind: "kennel", x: BAEK_KENNEL.x, z: BAEK_KENNEL.z, r: BAEK_KENNEL.r }, { kind: "bowl", ...BAEK_KENNEL.food }, { kind: "bowl", ...BAEK_KENNEL.water });
+// 설탕이(백구) 집: 법당을 볼 때 오른쪽 담장과 동굴 법당 계단의 한가운데. 문 앞 한쪽에 밥그릇과 물그릇을 붙여 둔다
+export const BAEK_KENNEL = { x: (COURTYARD.minX + CAVE.x) / 2, z: 14, r: 0.75, dog: { x: (COURTYARD.minX + CAVE.x) / 2, z: 12.6 }, bowls: { x: (COURTYARD.minX + CAVE.x) / 2 + 1.1, z: 12.6, r: 0.36, gap: 0.17 } };
+YARD.push({ kind: "kennel", x: BAEK_KENNEL.x, z: BAEK_KENNEL.z, r: BAEK_KENNEL.r }, { kind: "bowls", x: BAEK_KENNEL.bowls.x, z: BAEK_KENNEL.bowls.z, r: BAEK_KENNEL.bowls.r });
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
 const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];

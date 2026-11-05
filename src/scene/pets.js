@@ -1,10 +1,11 @@
 /* 강아지집과 바둑이·백구·하얀 고양이 배치. 몸은 scene/beasts.js, 움직임은 logic/pets.js.
    동물은 움직이는 그림자 대신 발밑 둥근 그림자를 쓰고, 누르기·카메라 충돌에 걸리지 않는다. 강아지집은 마당 물건처럼 그림자를 드리운다. */
-import { DOG, BAEK, CAT, petAt } from "../logic/pets.js";
+import { DOG, BAEK, CAT, petAt, PET_NAMES } from "../logic/pets.js";
 import { createDog, createBaekgu, createCat } from "./beasts.js";
 
 // 옹기 밥그릇(사료)과 백자 물그릇
-function createBowls(THREE, { food, water }) {
+function createBowls(THREE, { x, z, gap }) {
+  const food = { x: x - gap, z }, water = { x: x + gap, z };   // 나란히 붙여 둔다
   const g = new THREE.Group();
   const profile = [[0.001, 0], [0.12, 0], [0.165, 0.075], [0.15, 0.08], [0.11, 0.022], [0.001, 0.02]].map(([r, y]) => new THREE.Vector2(r, y));
   const shell = new THREE.LatheGeometry(profile, 22);
@@ -62,18 +63,56 @@ export function createPets(THREE, kennel, baekKennel) {
   const group = new THREE.Group();
   group.userData.noShadow = true;
   const house = new THREE.Group();
-  house.add(createKennel(THREE, kennel), createKennel(THREE, baekKennel), createBowls(THREE, baekKennel));
+  house.add(createKennel(THREE, kennel), createKennel(THREE, baekKennel), createBowls(THREE, baekKennel.bowls));
 
   const dog = createDog(THREE), baek = createBaekgu(THREE), cat = createCat(THREE);
   group.add(dog.root, baek.root, cat.root);
 
-  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 개들의 상태 [바둑이, 백구]를 돌려준다 (쓰다듬기 버튼이 본다)
-  function update(dt, tMs, petting) {
-    const d = petAt(DOG, tMs), b = petAt(BAEK, tMs), c = petAt(CAT, tMs);
-    dog.update(dt, d, petting[0]);
-    baek.update(dt, b, petting[1]);
-    cat.update(dt, c, false);
-    return [d, b];
+  // 머리 위 이름표: 사람 이름표와 같은 모양으로 조금 작게
+  const nameTag = (text) => {
+    const c = document.createElement("canvas"); c.width = 512; c.height = 128;
+    const g = c.getContext("2d");
+    g.font = '600 64px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    g.textAlign = "center"; g.textBaseline = "middle";
+    const w = Math.min(500, g.measureText(text).width + 56);
+    g.fillStyle = "rgba(20,22,36,0.55)";
+    g.beginPath(); g.roundRect((512 - w) / 2, 14, w, 100, 50); g.fill();
+    g.fillStyle = "#f8f3e8"; g.fillText(text, 256, 66);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.scale.set(0.96, 0.24, 1); s.renderOrder = 10; group.add(s);
+    return s;
+  };
+  const tags = { dog: nameTag(PET_NAMES.dog), baek: nameTag(PET_NAMES.baek), cat: nameTag(PET_NAMES.cat) };
+  const TAG_Y = { dog: 0.72, baek: 0.9, cat: 0.6 };
+
+  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 상태 [바둑이, 설탕, 나비]를 돌려준다 (돌보기 버튼이 본다)
+  // acts: { dog|baek|cat: { a, until, sec, yaw } } 돌보는 중인 것 (until은 performance.now 기준)
+  function update(dt, tMs, acts = {}) {
+    const now = performance.now();
+    const drive = (id, beast, tl) => {
+      const s = petAt(tl, tMs), act = acts[id], on = act && act.until > now;
+      beast.update(dt, on ? { ...s, yaw: act.yaw } : s, on ? act.a : null, on ? act.sec - (act.until - now) / 1000 : 0);
+      tags[id].position.set(s.x, TAG_Y[id], s.z);
+      return s;
+    };
+    return [drive("dog", dog, DOG), drive("baek", baek, BAEK), drive("cat", cat, CAT)];
   }
-  return { group, house, update, dog, baek, cat };
+  return { group, house, update, dog, baek, cat, tags };
+}
+
+// 손에 드는 것: 뼈다귀 모양 간식, 츄르 봉지
+export function makeCareItem(THREE, a) {
+  const g = new THREE.Group();
+  if (a === "treat") {
+    const mat = new THREE.MeshLambertMaterial({ color: 0xc99a62 });
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.075, 8), mat); bar.rotation.z = Math.PI / 2; g.add(bar);
+    for (const s of [-1, 1]) for (const k of [-1, 1]) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 6), mat); b.position.set(s * 0.04, k * 0.012, 0); g.add(b); }
+  } else {
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.012), new THREE.MeshLambertMaterial({ color: 0xf6eee4 }));
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.04, 0.014), new THREE.MeshLambertMaterial({ color: 0xe7798f })); band.position.y = -0.02;
+    const paste = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd9a06a })); paste.position.y = 0.062; paste.scale.y = 1.5;
+    g.add(pack, band, paste); g.rotation.x = -1.1;
+  }
+  return g;
 }

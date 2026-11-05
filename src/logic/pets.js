@@ -82,12 +82,26 @@ export function petAt(tl, tMs) {
   return { state: "rest", x: seg.at.x, z: seg.at.z, yaw: seg.yaw, pose: seg.pose, left: seg.dur - e };
 }
 
-/* 쓰다듬기: 개가 앉거나 누워 있고, 쓰다듬는 동안(PET_SECONDS) 일어나 걷지 않을 때만, 곁에서 */
+/* 돌보기: 동물이 앉거나 누워 있고, 쓰다듬는 동안(PET_SECONDS) 일어나 걷지 않을 때만, 곁에서 */
 export const PET_SECONDS = 4;
 const PET_RANGE = 1.2;                               // 몸을 숙여 뻗은 손이 닿는 거리
-export const canPet = (dog, p) => dog.state !== "walk" && dog.left >= PET_SECONDS && dist2(dog, p) <= PET_RANGE * PET_RANGE;
+export const canPet = (dog, p, sec = PET_SECONDS) => dog.state !== "walk" && dog.left >= sec && dist2(dog, p) <= PET_RANGE * PET_RANGE;
 export const faceDog = (p, dog) => headingOf(p, dog);
-// 여러 마리 중 가장 가까운 개의 번호. 쓰다듬을 수 있는 개만 볼 때는 pettableDog (없으면 -1)
-const nearest = (dogs, p, ok) => { let best = -1, d = Infinity; dogs.forEach((a, i) => { const q = dist2(a, p); if (ok(a) && q < d) { d = q; best = i; } }); return best; };
-export const nearestDog = (dogs, p) => nearest(dogs, p, () => true);
-export const pettableDog = (dogs, p) => nearest(dogs, p, (a) => canPet(a, p));
+// 동물 순서와 머리 위 이름, 돌보기 종류. who = 받을 수 있는 동물, sec = 걸리는 시간
+export const PET_IDS = ["dog", "baek", "cat"];
+export const PET_NAMES = { dog: "바둑이", baek: "설탕", cat: "나비" };
+export const CARE = {
+  pet: { who: ["dog", "baek"], sec: PET_SECONDS, pose: "pet" },
+  treat: { who: ["dog", "baek"], sec: 5, pose: "feed", item: 1.1 },   // item: 손에 든 것이 입으로 들어가는 때까지
+  churu: { who: ["cat"], sec: 6, pose: "feed", item: 6 },
+  pat: { who: ["cat"], sec: 4, pose: "pat" },
+};
+export const canCare = (w, a) => !!CARE[a] && CARE[a].who.includes(w);
+// 곁에 있는 동물 중 이 돌보기를 받을 수 있는 가장 가까운 번호 (없으면 -1)
+export function carePick(pets, p, a) {
+  let best = -1, d = Infinity;
+  pets.forEach((x, i) => { const q = dist2(x, p); if (canCare(PET_IDS[i], a) && canPet(x, p, CARE[a].sec) && q < d) { d = q; best = i; } });
+  return best;
+}
+// 돌보는 동안 동물이 볼 쪽: 먹을 땐 사람을 보고, 궁디팡팡은 엉덩이를 사람 쪽으로
+export const careYaw = (animal, person, a) => (a === "pat" ? headingOf(person, animal) : headingOf(animal, person));

@@ -4,10 +4,10 @@ import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
-import { createPets } from "./scene/pets.js";
+import { createPets, makeCareItem } from "./scene/pets.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
-import { pettableDog, nearestDog, faceDog, PET_SECONDS } from "./logic/pets.js";
+import { carePick, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -87,12 +87,14 @@ bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");
 scene.add(bosal.root);
-// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기, 바둑이, 백구, 하얀 고양이: 서버 시계로 자리가 정해져 모두의 화면에서 같다
+// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기, 바둑이, 설탕이(백구), 고양이 나비: 서버 시계로 자리가 정해져 모두의 화면에서 같다
 const critters = createCritters(THREE);
 scene.add(critters.group);
 const pets = createPets(THREE, KENNEL, BAEK_KENNEL);
 scene.add(pets.group, pets.house);
-let dogsNow = [KENNEL.dog, BAEK_KENNEL.dog].map(({ x, z }) => ({ state: "walk", left: 0, x, z })), dogPetUntil = [0, 0];   // [바둑이, 백구]
+let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕, 나비]
+const petActs = {}, petSeen = {};   // 돌보는 중인 것 { a, until, sec, yaw }, 이미 받은 신호 시각
+let careHeldUntil = 0;
 let bosalUntil = 0, gotBongsong = false, myBundle = null;
 const bosalDo = (pose, sec) => { bosal.setPose(pose); bosalUntil = performance.now() + sec * 1000; };
 // 다른 분이 봉송을 받을 때: 내 화면의 보살님도 꾸러미를 두 손으로 내밀어 건네시고, 건너가는 순간 손에서 사라진다
@@ -104,7 +106,7 @@ function bosalGive(cloth) {
 }
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petDog() {}, litForSuneung: async () => false };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petAct() {}, litForSuneung: async () => false };
 let snapshot = null, peers = [];
 const sharedNow = () => net.now() + timeOffset;   // 모두 같은 시계 (?time=은 점검용)
 let traceRecords = [], visits = {}, lastTraceAt = null;
@@ -262,17 +264,19 @@ ui.onBongsong(() => {
     ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
   }, GIVE_SECONDS * 1000);
 });
-// 쓰다듬기: 곁에 있는 개(바둑이·백구)를 몸을 숙여 쓰다듬고 그 개는 꼬리를 흔든다. 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
-ui.onPet(() => {
+// 돌보기: 쓰다듬기·간식(바둑이·설탕), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
+const startPetAct = (w, a, ms, yaw) => { petActs[w] = { a, sec: CARE[a].sec, until: performance.now() + ms, yaw }; };
+ui.onCare((a) => {
   if (state.base === "walk" || state.bow108) return;
-  const p = positionAt(state.move, net.now());
-  const which = pettableDog(dogsNow, p);
-  if (which < 0) return;
-  state.yaw = faceDog(p, dogsNow[which]); rig.turnTo(state.yaw);
-  me.setPose("pet");
-  state.gestureUntil = performance.now() + PET_SECONDS * 1000;
-  dogPetUntil[which] = state.gestureUntil;
-  net.petDog();
+  const p = positionAt(state.move, net.now()), i = carePick(petsNow, p, a);
+  if (i < 0) return;
+  const c = CARE[a], animal = petsNow[i];
+  state.yaw = faceDog(p, animal); rig.turnTo(state.yaw + 1.05);   // 등 뒤에서 보면 내 몸이 동물을 가려서 비스듬히 옆에서 본다
+  me.setPose(c.pose);
+  state.gestureUntil = performance.now() + c.sec * 1000;
+  startPetAct(PET_IDS[i], a, c.sec * 1000, careYaw(animal, p, a));
+  if (c.item) { me.hold(makeCareItem(THREE, a), "hand"); careHeldUntil = performance.now() + c.item * 1000; }
+  net.petAct(PET_IDS[i], a);
 });
 ui.onIncense(() => { const k = offerPlace(positionAt(state.move, net.now())); if (k && OFFER_PLACES[k].kind === "incense") makeOffer(k); });
 ui.onCandle(() => {
@@ -550,8 +554,9 @@ function frame(t) {
   if (bosalUntil && performance.now() >= bosalUntil) { bosalUntil = 0; bosal.setPose("stand"); }
   bosal.update(dt);
   critters.update(dt, sharedNow());
-  dogsNow = pets.update(dt, sharedNow(), dogPetUntil.map((u) => u > performance.now()));
-  ui.setNearDog(state.base !== "walk" && !state.bow108 && pettableDog(dogsNow, p) >= 0);
+  petsNow = pets.update(dt, sharedNow(), petActs);
+  if (careHeldUntil && (performance.now() >= careHeldUntil || !state.gestureUntil)) { careHeldUntil = 0; me.hold(myBundle != null ? makeBundle(THREE, CLOTHS[myBundle]) : null, "hang"); }   // 먹인 것을 내려놓고 들고 있던 꾸러미로
+  for (const a of Object.keys(CARE)) ui.setCare(a, state.base !== "walk" && !state.bow108 && !state.gestureUntil && carePick(petsNow, p, a) >= 0);
   ui.setSuneungButton(suneungActive(net.now()) && !suLitHere && !state.bow108 && offerPlace(p) !== "gwan");
   ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);
@@ -609,9 +614,10 @@ function drawOthers(now, mePos, dt) {
     if (onSeat && sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
-    const petting = pos.arrived && o.petUntil > performance.now();
-    if (petting) o.avatar.root.rotation.y = faceDog(pos, dogsNow[o.petDog]);
-    o.avatar.setPose(petting ? "pet" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
+    const care = o.care && o.care.until > performance.now() && pos.arrived ? o.care : null;
+    if (o.care && o.care.heldUntil && (!care || performance.now() >= o.care.heldUntil)) { o.care.heldUntil = 0; o.avatar.hold(o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), "hang"); }
+    if (care) o.avatar.root.rotation.y = faceDog(pos, petsNow[care.i]);
+    o.avatar.setPose(care ? care.pose : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
     o.avatar.update(dt);
   }
@@ -680,13 +686,18 @@ function adopt(p) {
     net.onSuneungCount((n) => { suneungCount = n; });
     setTimeout(() => { const t = countLine(suneungCount); if (t && suneungActive(net.now())) ui.notify(t, 6000); }, 5000);
   }
-  net.onDogPet((v) => {
-    if (!v || net.now() - v.at > PET_SECONDS * 1000) return;   // 들어오기 전에 있었던 일은 보여 주지 않는다
-    const o = others.get(v.u);
-    if (!o) return;                                  // 내 쓰다듬기는 이미 그렸다. 신호엔 어느 개인지 없어 그분 곁의 개로 안다
-    const until = performance.now() + PET_SECONDS * 1000, which = nearestDog(dogsNow, o.avatar.root.position);
-    dogPetUntil[which] = until;
-    o.petUntil = until; o.petDog = which;
+  net.onPetAct((all) => {
+    for (const [i, w] of PET_IDS.entries()) {
+      const v = all && all[w];
+      if (!v || v.at === petSeen[w]) continue;
+      petSeen[w] = v.at;
+      if (v.u === net.uid || !canCare(w, v.a)) continue;       // 내 것은 이미 그렸다
+      const c = CARE[v.a], left = c.sec * 1000 - (net.now() - v.at), o = others.get(v.u);
+      if (left < 300 || !o) continue;                          // 들어오기 전에 끝난 일은 보여 주지 않는다
+      startPetAct(w, v.a, left, careYaw(petsNow[i], o.avatar.root.position, v.a));
+      o.care = { i, pose: c.pose, until: performance.now() + left, heldUntil: 0 };
+      if (c.item && left > (c.sec - c.item) * 1000) { o.avatar.hold(makeCareItem(THREE, v.a), "hand"); o.care.heldUntil = performance.now() + left - (c.sec - c.item) * 1000; }
+    }
   });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);
@@ -743,4 +754,4 @@ function adopt(p) {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, renderer, scene, get dogsNow() { return dogsNow; }, get dogPetUntil() { return dogPetUntil; }, ui };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, renderer, scene, get petsNow() { return petsNow; }, petActs, ui };
