@@ -1,15 +1,15 @@
-/* 바둑이와 하얀 고양이의 하루. 그림은 scene/pets.js.
+/* 바둑이·백구와 하얀 고양이의 하루. 그림은 scene/pets.js.
    서버 시계만으로 자리가 정해져 모두의 화면에서 같다. 집 앞에서 시작해 마당을 돌고 집 앞으로 돌아오기를 되풀이하고,
    해가 진 뒤 처음 집에 돌아오면 거기서 자고, 해가 뜬 뒤 그 쉬는 시간이 끝날 때 다시 나선다 (순간 이동이 없다). */
-import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL } from "./layout.js";
+import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 import { sunTimesKST } from "./sky.js";
 
 const PAD = 0.4;
-const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD, ...[[11.2, 10], [11, 15.2], [25, 12]].map(([x, z]) => ({ x, z, r: 0.5 }))];   // 법당 왼쪽 소나무
+const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD, ...[[11.2, 10], [11, 15.2], [25, 12], [-11.2, 9], [-11, 14.5], [-25, 9]].map(([x, z]) => ({ x, z, r: 0.5 }))];   // 법당 양옆 소나무
 const inPrayer = (p) => p.x > PRAYER.minX - PAD && p.x < PRAYER.maxX + PAD && p.z > PRAYER.minZ - PAD && p.z < PRAYER.maxZ + PAD;
 const inYard = (p) => p.x >= -24.5 && p.x <= 24.5 && p.z >= RAIL_Z + 1.2 && p.z <= 3.2;      // 법당 앞마당
-const inSide = (p) => p.x >= 10.3 && p.x <= 24.5 && p.z >= 3.2 && p.z <= 15.8;               // 법당 왼쪽 강아지집 둘레
+const inSide = (p) => Math.abs(p.x) >= 10.3 && Math.abs(p.x) <= 24.5 && p.z >= 3.2 && p.z <= 15.8;   // 법당 양옆 개집 둘레
 
 export const petSpotOk = (p) => (inYard(p) || inSide(p)) && !inPrayer(p) && ROUNDS.every((o) => dist2(p, o) >= (o.r + PAD) ** 2);
 
@@ -47,6 +47,7 @@ function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses }) {
 }
 
 export const DOG = buildPet({ seed: 505, home: KENNEL.dog, speed: 1.1, legs: 5, leg: [3, 9], rest: [12, 35], homeRest: [40, 90], poses: DOG_POSES });
+export const BAEK = buildPet({ seed: 717, home: BAEK_KENNEL.dog, speed: 1.25, legs: 4, leg: [4, 10], rest: [15, 40], homeRest: [50, 110], poses: DOG_POSES });
 export const CAT = buildPet({ seed: 606, home: KENNEL.cat, speed: 0.55, legs: 3, leg: [2, 6], rest: [45, 120], homeRest: [90, 180], poses: CAT_POSES });
 
 // sec 이후 처음으로 집에 도착하는(또는 쉼을 마치고 떠나는) 시각(초)
@@ -81,8 +82,12 @@ export function petAt(tl, tMs) {
   return { state: "rest", x: seg.at.x, z: seg.at.z, yaw: seg.yaw, pose: seg.pose, left: seg.dur - e };
 }
 
-/* 쓰다듬기: 바둑이가 앉거나 누워 있고, 쓰다듬는 동안(PET_SECONDS) 일어나 걷지 않을 때만, 곁에서 */
+/* 쓰다듬기: 개가 앉거나 누워 있고, 쓰다듬는 동안(PET_SECONDS) 일어나 걷지 않을 때만, 곁에서 */
 export const PET_SECONDS = 4;
 const PET_RANGE = 1.2;                               // 몸을 숙여 뻗은 손이 닿는 거리
 export const canPet = (dog, p) => dog.state !== "walk" && dog.left >= PET_SECONDS && dist2(dog, p) <= PET_RANGE * PET_RANGE;
 export const faceDog = (p, dog) => headingOf(p, dog);
+// 여러 마리 중 가장 가까운 개의 번호. 쓰다듬을 수 있는 개만 볼 때는 pettableDog (없으면 -1)
+const nearest = (dogs, p, ok) => { let best = -1, d = Infinity; dogs.forEach((a, i) => { const q = dist2(a, p); if (ok(a) && q < d) { d = q; best = i; } }); return best; };
+export const nearestDog = (dogs, p) => nearest(dogs, p, () => true);
+export const pettableDog = (dogs, p) => nearest(dogs, p, (a) => canPet(a, p));

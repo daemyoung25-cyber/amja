@@ -1,4 +1,4 @@
-/* 바둑이와 하얀 고양이의 몸. 머리는 -z. 코드로 빚은 매끈한 살과 칠한 털빛으로 만든다 (외부 모델·그림 없음).
+/* 바둑이·백구와 하얀 고양이의 몸. 머리는 -z. 코드로 빚은 매끈한 살과 칠한 털빛으로 만든다 (외부 모델·그림 없음).
    뼈대: root - body(몸통·허벅지) - head(얼굴), legs[4], tail(마디마디). 움직임은 logic/pets.js 상태를 받아 update에서. */
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
@@ -147,7 +147,7 @@ function assemble(THREE, look) {
     if (look.iris) {
       const iris = new THREE.SphereGeometry(R * 0.94, 14, 10); iris.scale(look.eyeWide, 1, 0.5);
       const i = new THREE.Mesh(iris, new THREE.MeshBasicMaterial({ color: look.iris })); i.position.z = R * 0.08; open.add(i);
-      const pupil = new THREE.SphereGeometry(R * 0.62, 10, 8); pupil.scale(0.42, 1, 0.42);
+      const pupil = new THREE.SphereGeometry(R * 0.62, 10, 8); pupil.scale(look.pupilW || 0.42, 1, 0.42);
       const pm = new THREE.Mesh(pupil, dark); pm.position.z = R * 0.24; open.add(pm);
     }
     const glint = new THREE.Mesh(new THREE.SphereGeometry(R * 0.26, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
@@ -270,7 +270,7 @@ function assemble(THREE, look) {
     blinkAt -= dt;
     if (blinkAt < 0) { blink = 1; blinkAt = 2.2 + Math.random() * 3.5; }
     blink = Math.max(0, blink - dt * 7);
-    const closed = (sleeping && !petted) || (petted && !look.iris) ? 1 : Math.sin(blink * Math.PI);
+    const closed = (sleeping && !petted) || (petted && (!look.iris || look.petClose)) ? 1 : Math.sin(blink * Math.PI);
     for (const e of eyes) { e.e.scale.y = Math.max(0.1, 1 - closed); e.open.visible = closed < 0.6; }
     if (tongue) tongue.visible = !!petted;
     look.moveTail(tail, tailSegs, { t, walking, sleeping, petted, pose: s.pose });
@@ -336,6 +336,70 @@ export function createDog(THREE) {
       const speed = petted ? 24 : walking ? 13 : 4.6, amp = petted ? 0.62 : walking ? 0.25 : sleeping ? 0 : 0.17;
       tail.rotation.z = Math.sin(t * speed) * amp;
       segs.forEach((s, i) => { if (!i) return; s.rotation.x = lying || pose === "sit" ? -0.28 : 0.4; s.rotation.z = Math.sin(t * speed - i * 0.9) * amp * 0.65; });
+    },
+  });
+}
+
+/* 백구: 흰 진돗개 (사용자가 준 사진 참고). 긴 다리, 깊은 가슴과 잘록한 허리, 곧게 선 굵은 목과 목털, 역삼각형 얼굴,
+   작은 갈색 아몬드 눈, 크게 선 세모 귀, 끝이 황토빛인 낫 모양 꼬리 */
+export function createBaekgu(THREE) {
+  const WHITE = rgb(0xf1eadb), BELLY = rgb(0xfbf7ee), WARM = rgb(0xe2d3b6), TAN = rgb(0xd9b98a);
+  const paintBody = (x, y, z, c) => { mixC(WHITE, BELLY, sstep(-0.03, -0.08, y) * 0.7, c); mixC(c, WARM, sstep(0.05, 0.1, y) * (1 - sstep(-0.12, -0.2, z)) * 0.6, c); };
+  const MUZ = norm([0, -0.28, -0.96]);
+  const headRadius = (d) => {
+    const R = 0.071 * (1 + 0.07 * Math.abs(d[0]) - 0.1 * Math.max(0, d[1]) - 0.05 * Math.max(0, -d[1]) - 0.16 * Math.max(0, d[2]));
+    const muzzle = 0.066 * gauss(d, MUZ, 0.085);
+    const cheek = 0.008 * (gauss(d, [0.84, -0.34, -0.1], 0.09) + gauss(d, [-0.84, -0.34, -0.1], 0.09));
+    const brow = 0.004 * (gauss(d, [0.38, 0.4, -0.83], 0.025) + gauss(d, [-0.38, 0.4, -0.83], 0.025));
+    return R + muzzle + cheek + brow;
+  };
+  const paintHead = (x, y, z, c) => { mixC(WHITE, BELLY, z < -0.06 && y < 0.01 ? 0.8 : 0, c); mixC(c, WARM, sstep(0.03, 0.07, y) * 0.45, c); };
+  const toe = [-0.192, -0.026, 0.0096];
+  const paintLeg = (x, y, z, c) => mixC(WHITE, BELLY, 0.3, c);
+  return assemble(THREE, {
+    scale: 1.15,
+    torso: [[0.25, 0, 0.012, 0.0005, 0.0005], [0.24, 0, 0.012, 0.045, 0.05], [0.19, 0, 0.012, 0.078, 0.085], [0.11, 0, 0.018, 0.071, 0.073], [0.02, 0, 0.008, 0.077, 0.087], [-0.08, 0, -0.004, 0.087, 0.106], [-0.16, 0, 0.015, 0.092, 0.108], [-0.225, 0, 0.098, 0.087, 0.102], [-0.262, 0, 0.158, 0.076, 0.086], [-0.285, 0, 0.19, 0.0005, 0.0005]],
+    torsoBump: (th, a) => {       // 목둘레와 앞가슴은 털이 수북하다
+      const down = sstep(-0.1, -0.8, Math.sin(th)), chest = sstep(-0.1, -0.17, a) * (1 - sstep(-0.22, -0.27, a));
+      return (noise(Math.cos(th) * 8 + 2, Math.sin(th) * 8, a * 20) - 0.5) * (0.006 + 0.035 * sstep(-0.13, -0.2, a)) + down * chest * 0.07;
+    },
+    haunch: { x: 0.043, y: -0.02, z: 0.15, rx: 0.04, ry: 0.068, rz: 0.078 },
+    paintBody,
+    legFur: () => ({ toe }),
+    headAt: [0, 0.185, -0.275], headRadius, paintHead,
+    eyeDir: [0.42, 0.14, -0.9], eyeR: 0.0096, eyeWide: 1.32, eyeTilt: 0.3, iris: 0x3b2415, pupilW: 0.85, petClose: true,
+    nose: 0x2c1c19, noseR: 0.0135, noseDir: [0, -0.17, -0.985], noseShine: true,
+    mouth: 0x4a3a33, mouthR: 0.0115, tongue: true, tongueDir: [0, -0.46, -0.89],
+    mouthPaths: [[[0, -0.25, -0.97], [0, -0.37, -0.93]], [[-0.15, -0.39, -0.91], [-0.07, -0.43, -0.9], [0, -0.37, -0.93], [0.07, -0.43, -0.9], [0.15, -0.39, -0.91]]],
+    earDir: [0.5, 0.85, -0.04],
+    ear: {
+      keys: [[-0.012, 0, 0, 0.0005, 0.0005], [0, 0, 0, 0.038, 0.017], [0.032, 0, 0.002, 0.029, 0.013], [0.062, 0, 0.004, 0.015, 0.008], [0.08, 0, 0.005, 0.005, 0.004], [0.086, 0, 0.005, 0.0005, 0.0005]],
+      inner: [[0.002, 0, -0.007, 0.0005, 0.0005], [0.008, 0, -0.007, 0.026, 0.009], [0.034, 0, -0.006, 0.018, 0.007], [0.056, 0, -0.004, 0.008, 0.004], [0.066, 0, -0.002, 0.0005, 0.0005]],
+      innerC: rgb(0xe8bfb2),
+      paint: (s, x, y, z, c) => mixC(WHITE, TAN, sstep(0.01, 0.07, y) * 0.75, c),
+      rx: -0.1, ry: 0.24, rz: -0.13, happy: 0.42, flop: 0.03,
+    },
+    frontHip: { x: 0.052, y: -0.06, z: -0.135 }, rearHip: { x: 0.056, y: -0.055, z: 0.16 },
+    legKeys: (front) => front
+      ? [[0.03, 0, 0, 0.0005, 0.0005], [0.012, 0, 0, 0.032, 0.042], [-0.05, 0, 0, 0.025, 0.031], [-0.12, 0, 0.002, 0.0175, 0.021], [-0.175, 0, 0.002, 0.016, 0.018], [-0.195, 0, -0.005, 0.0205, 0.026], [-0.206, 0, -0.009, 0.0215, 0.03], [-0.213, 0, -0.009, 0.014, 0.02], [-0.215, 0, -0.009, 0.0005, 0.0005]]
+      : [[0.03, 0, 0, 0.0005, 0.0005], [0.01, 0, 0, 0.03, 0.052], [-0.05, 0, 0.018, 0.026, 0.04], [-0.115, 0, 0.04, 0.0175, 0.022], [-0.16, 0, 0.028, 0.016, 0.018], [-0.193, 0, 0.002, 0.0205, 0.026], [-0.204, 0, -0.006, 0.0215, 0.03], [-0.211, 0, -0.006, 0.014, 0.02], [-0.213, 0, -0.006, 0.0005, 0.0005]],
+    paintLeg,
+    tailAt: [0, 0.06, 0.225], tailN: 5, tailSeg: 0.046, tailR: 0.032, tailTaper: 0.93,
+    paintTail: (v, c) => mixC(WHITE, TAN, sstep(0.3, 0.9, v) * 0.8, c),
+    shadow: [0.13, 0.31], stride: 10, swing: 0.5, bounce: 0.01,
+    sleepHead: -0.4,
+    poses: {
+      walk: { y: 0.272, pitch: 0, front: 0, rear: 0, head: 0.04 },
+      sit: { y: 0.18, pitch: 0.6, front: 0, rear: 1.46, head: -0.04 },
+      lie: { y: 0.1, pitch: 0, front: 1.42, rear: 1.38, head: -0.05 },
+      curl: { y: 0.1, pitch: 0, front: 1.42, rear: 1.38, head: -0.25 },
+    },
+    moveTail(tail, segs, { t, walking, sleeping, petted, pose }) {
+      const lying = sleeping || pose === "lie", sitting = pose === "sit";   // 서면 낫처럼 세워 말고, 앉으면 낮추고, 누우면 바닥에 내린다
+      tail.rotation.x = lying ? 1.42 : sitting ? 0.98 : 0.3;
+      const speed = petted ? 20 : walking ? 10 : 3.6, amp = petted ? 0.42 : walking ? 0.08 : sleeping ? 0 : 0.04;
+      tail.rotation.z = Math.sin(t * speed) * amp;
+      segs.forEach((s, i) => { if (!i) return; s.rotation.x = lying ? -0.1 : sitting ? -0.3 : -0.62; s.rotation.z = Math.sin(t * speed - i * 0.9) * amp * 0.45; });
     },
   });
 }

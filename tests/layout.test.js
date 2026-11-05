@@ -175,7 +175,7 @@ test("nothing in the front yard overlaps another thing or the hall", () => {
   const all = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
   for (let i = 0; i < all.length; i++) {
     for (let j = i + 1; j < all.length; j++) assert.ok(Math.hypot(all[i].x - all[j].x, all[i].z - all[j].z) > all[i].r + all[j].r + 0.6, `${JSON.stringify(all[i])} ~ ${JSON.stringify(all[j])}`);
-    assert.ok(all[i].z + all[i].r < HALL.minZ || all[i].x - all[i].r > HALL.maxX, JSON.stringify(all[i]));   // 법당 앞이거나 강아지집처럼 법당 옆
+    assert.ok(all[i].z + all[i].r < HALL.minZ || Math.abs(all[i].x) - all[i].r > HALL.maxX, JSON.stringify(all[i]));   // 법당 앞이거나 개집처럼 법당 옆
     assert.ok(walkable({ x: all[i].x - all[i].r, z: all[i].z }) && walkable({ x: all[i].x + all[i].r, z: all[i].z }), JSON.stringify(all[i]));
   }
 });

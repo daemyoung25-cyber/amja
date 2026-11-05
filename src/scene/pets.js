@@ -1,7 +1,26 @@
-/* 강아지집과 바둑이·하얀 고양이 배치. 몸은 scene/beasts.js, 움직임은 logic/pets.js.
+/* 강아지집과 바둑이·백구·하얀 고양이 배치. 몸은 scene/beasts.js, 움직임은 logic/pets.js.
    동물은 움직이는 그림자 대신 발밑 둥근 그림자를 쓰고, 누르기·카메라 충돌에 걸리지 않는다. 강아지집은 마당 물건처럼 그림자를 드리운다. */
-import { DOG, CAT, petAt } from "../logic/pets.js";
-import { createDog, createCat } from "./beasts.js";
+import { DOG, BAEK, CAT, petAt } from "../logic/pets.js";
+import { createDog, createBaekgu, createCat } from "./beasts.js";
+
+// 옹기 밥그릇(사료)과 백자 물그릇
+function createBowls(THREE, { food, water }) {
+  const g = new THREE.Group();
+  const profile = [[0.001, 0], [0.12, 0], [0.165, 0.075], [0.15, 0.08], [0.11, 0.022], [0.001, 0.02]].map(([r, y]) => new THREE.Vector2(r, y));
+  const shell = new THREE.LatheGeometry(profile, 22);
+  const bowl = (at, color) => { const m = new THREE.Mesh(shell, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })); m.position.set(at.x, 0, at.z); g.add(m); return m; };
+  const f = bowl(food, 0x6b4a33), w = bowl(water, 0xdcd8cc);
+  const surface = new THREE.Mesh(new THREE.CircleGeometry(0.13, 22), new THREE.MeshLambertMaterial({ color: 0x86bccd, emissive: 0x16323c }));
+  surface.rotation.x = -Math.PI / 2; surface.position.y = 0.058; w.add(surface);
+  const N = 34, kibble = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.017, 0), new THREE.MeshLambertMaterial({ color: 0xa8743f }), N), m = new THREE.Matrix4();
+  for (let i = 0; i < N; i++) {                      // 해바라기 씨 배열로 고르게 담는다
+    const rr = 0.115 * Math.sqrt((i + 0.5) / N), th = i * 2.399;
+    m.makeRotationY(i); m.setPosition(rr * Math.cos(th), 0.052 + 0.018 * (1 - rr / 0.115) + (i % 3) * 0.003, rr * Math.sin(th));
+    kibble.setMatrixAt(i, m);
+  }
+  f.add(kibble);
+  return g;
+}
 
 function createKennel(THREE, { x, z }) {
   const g = new THREE.Group();
@@ -39,20 +58,22 @@ function createKennel(THREE, { x, z }) {
   return g;
 }
 
-export function createPets(THREE, kennel) {
+export function createPets(THREE, kennel, baekKennel) {
   const group = new THREE.Group();
   group.userData.noShadow = true;
-  const house = createKennel(THREE, kennel);
+  const house = new THREE.Group();
+  house.add(createKennel(THREE, kennel), createKennel(THREE, baekKennel), createBowls(THREE, baekKennel));
 
-  const dog = createDog(THREE), cat = createCat(THREE);
-  group.add(dog.root, cat.root);
+  const dog = createDog(THREE), baek = createBaekgu(THREE), cat = createCat(THREE);
+  group.add(dog.root, baek.root, cat.root);
 
-  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 바둑이 상태를 돌려준다 (쓰다듬기 버튼이 본다)
+  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 개들의 상태 [바둑이, 백구]를 돌려준다 (쓰다듬기 버튼이 본다)
   function update(dt, tMs, petting) {
-    const d = petAt(DOG, tMs), c = petAt(CAT, tMs);
-    dog.update(dt, d, petting);
+    const d = petAt(DOG, tMs), b = petAt(BAEK, tMs), c = petAt(CAT, tMs);
+    dog.update(dt, d, petting[0]);
+    baek.update(dt, b, petting[1]);
     cat.update(dt, c, false);
-    return d;
+    return [d, b];
   }
-  return { group, house, update, dog, cat };
+  return { group, house, update, dog, baek, cat };
 }
