@@ -104,6 +104,9 @@ export const BONGSONG = { x: 0, z: -14.9, r: 0.85, bosal: { x: 0, z: -15.25 }, t
 YARD.push({ kind: "bongsong", x: BONGSONG.x, z: BONGSONG.z, r: BONGSONG.r });
 export const faceBongsong = (p) => Math.atan2(-(BONGSONG.bosal.x - p.x), -(BONGSONG.bosal.z - p.z));
 export const nearBongsong = (p) => Math.hypot(p.x - BONGSONG.spot.x, p.z - BONGSONG.spot.z) <= 1.2;
+// 강아지집: 법당을 볼 때 왼쪽 뒤, 소나무 옆 빈터. 문이 마당 쪽. dog·cat은 집 앞 쉬는 자리
+export const KENNEL = { x: 15.5, z: 14, r: 0.75, dog: { x: 15.5, z: 12.6 }, cat: { x: 13.3, z: 12.8 } };
+YARD.push({ kind: "kennel", x: KENNEL.x, z: KENNEL.z, r: KENNEL.r });
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
 const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];

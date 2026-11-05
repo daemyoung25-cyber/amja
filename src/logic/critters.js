@@ -1,127 +1,107 @@
-/* 마당의 작은 새, 연꽃 화분 곁 나비, 바다 위 갈매기의 움직임. 그림은 scene/critters.js.
-   서버에 올리지 않고 사람마다 자기 화면에서 따로 돈다. */
-import { COURTYARD, RAIL_Z, YARD, STATUE, PRAYER } from "./layout.js";
+/* 마당의 작은 새, 연꽃에 앉았다 나는 나비, 바다 위 갈매기의 움직임. 그림은 scene/critters.js.
+   서버 시계(초)만으로 자리가 정해져 모두의 화면에서 같다. 사람에 따라 달라지는 반응은 넣지 않는다. */
+import { RAIL_Z, YARD, STATUE, PRAYER } from "./layout.js";
+import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 
-const clampDt = (dt) => Math.min(dt, 0.1);          // 탭을 오래 비웠다 와도 한 걸음에 멀리 튀지 않게
-
-/* ---------- 마당의 작은 새: 쉬기(콕콕) - 총총 - 낮게 날기 ---------- */
-const GROUND = { minX: COURTYARD.minX + 1, maxX: COURTYARD.maxX - 1, minZ: RAIL_Z + 1, maxZ: 3.2 };   // 법당 앞 석등 줄보다 바다 쪽
+/* ---------- 마당의 작은 새: 쉬기(콕콕·두리번) - 총총 - 낮게 날기 ---------- */
+const GROUND = { minX: -14, maxX: 14, minZ: -20, maxZ: 3.2 };   // 사람이 많이 다니는 가운데: 넓은 마당에서 두 마리를 만날 수 있게
 const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
 const PAD = 0.35;
 const inPrayer = (p) => p.x > PRAYER.minX - PAD && p.x < PRAYER.maxX + PAD && p.z > PRAYER.minZ - PAD && p.z < PRAYER.maxZ + PAD;
 
 export const birdSpotOk = (p) => p.x >= GROUND.minX && p.x <= GROUND.maxX && p.z >= GROUND.minZ && p.z <= GROUND.maxZ
-  && !inPrayer(p) && ROUNDS.every((o) => Math.hypot(p.x - o.x, p.z - o.z) >= o.r + PAD);
-
-function lineClear(a, b) {
-  const L = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(L / 0.25));
-  for (let i = 1; i <= n; i++) if (!birdSpotOk({ x: a.x + (b.x - a.x) * i / n, z: a.z + (b.z - a.z) * i / n })) return false;
-  return true;
-}
-
-const PLAYER_NEAR = 1.5, PLAYER_FAR = 14, LAND_GAP = 3;
-const inYard = (p) => !!p && p.x >= COURTYARD.minX && p.x <= COURTYARD.maxX && p.z >= RAIL_Z && p.z <= 4;
-
-// 방향(라디안)과 거리 범위 안에서 갈 수 있는 곳을 찾는다. 사람 바로 곁에는 내려앉지 않는다
-function pickSpot(b, rnd, { dir = null, spread = Math.PI, min, max, player }) {
-  for (let i = 0; i < 24; i++) {
-    const a = (dir ?? 0) + (rnd() * 2 - 1) * spread, d = min + rnd() * (max - min);
-    const to = { x: b.x + Math.sin(a) * d, z: b.z + Math.cos(a) * d };
-    if (!birdSpotOk(to) || !lineClear(b, to)) continue;
-    if (inYard(player) && Math.hypot(to.x - player.x, to.z - player.z) < LAND_GAP) continue;
-    return to;
-  }
-  return null;
-}
-
-const face = (b, to) => { b.yaw = Math.atan2(-(to.x - b.x), -(to.z - b.z)); };
-
-function rest(b, rnd) {
-  Object.assign(b, { state: "rest", y: 0, timer: 0.6 + rnd() * 1.8, pecking: rnd() < 0.6, wing: 0 });
-}
-function startFly(b, to, rnd) {
-  face(b, to);
-  Object.assign(b, { state: "fly", from: { x: b.x, z: b.z }, to, u: 0, len: Math.hypot(to.x - b.x, to.z - b.z), top: 0.6 + rnd() * 0.6, peck: 0 });
-}
-function startHop(b, to) {
-  face(b, to);
-  Object.assign(b, { state: "hop", to, cycle: 0, peck: 0, wing: 0 });
-}
-
-export function newBird(rnd = Math.random) {
-  let x = 0, z = -8;
-  for (let i = 0; i < 40; i++) {
-    const p = { x: GROUND.minX + rnd() * (GROUND.maxX - GROUND.minX), z: GROUND.minZ + rnd() * (GROUND.maxZ - GROUND.minZ) };
-    if (birdSpotOk(p)) { x = p.x; z = p.z; break; }
-  }
-  const b = { x, z, y: 0, yaw: rnd() * Math.PI * 2, clock: rnd() * 10, peck: 0, wing: 0 };
-  rest(b, rnd);
-  return b;
-}
-
-function next(b, player, rnd) {
-  const far = inYard(player) && Math.hypot(player.x - b.x, player.z - b.z) > PLAYER_FAR;
-  if (far) {                                        // 넓은 마당에서 영영 못 만나지 않게, 멀리 있으면 사람 쪽으로 날아온다
-    const to = pickSpot(b, rnd, { dir: Math.atan2(player.x - b.x, player.z - b.z), spread: 0.6, min: 8, max: 12, player });
-    if (to) return startFly(b, to, rnd);
-  }
-  if (rnd() < 0.72) {
-    const to = pickSpot(b, rnd, { min: 0.8, max: 2.6, player });
-    if (to) return startHop(b, to);
-  } else {
-    const to = pickSpot(b, rnd, { min: 3, max: 8, player });
-    if (to) return startFly(b, to, rnd);
-  }
-  rest(b, rnd);
-}
+  && !inPrayer(p) && ROUNDS.every((o) => dist2(p, o) >= (o.r + PAD) ** 2);
 
 const HOP_AIR = 0.2, HOP_GAP = 0.08, HOP_LEN = 0.22, HOP_H = 0.07, FLY_SPEED = 3.2;
+const BIRD_HOURS = 2;
 
-export function stepBird(b, rawDt, player, rnd = Math.random) {
-  const dt = clampDt(rawDt);
-  b.clock += dt;
-  if (b.state !== "fly" && inYard(player) && Math.hypot(player.x - b.x, player.z - b.z) < PLAYER_NEAR) {
-    const to = pickSpot(b, rnd, { dir: Math.atan2(b.x - player.x, b.z - player.z), spread: 1.1, min: 3, max: 6, player });
-    if (to) { startFly(b, to, rnd); return b; }
+function buildBird(seed, start) {
+  const rnd = mulberry32(seed), tl = makeTimeline();
+  let at = start, yaw = rnd() * 6.28;
+  const rest = () => tl.add({ kind: "rest", at, yaw, dur: 0.6 + rnd() * 1.8, pecking: rnd() < 0.6 });
+  const go = (kind, to) => {
+    const len = Math.sqrt(dist2(at, to));
+    yaw = headingOf(at, to);
+    tl.add(kind === "hop"
+      ? { kind, from: at, to, len, yaw, dur: Math.ceil(len / HOP_LEN) * (HOP_AIR + HOP_GAP) }
+      : { kind, from: at, to, len, yaw, dur: len / FLY_SPEED, top: 0.6 + rnd() * 0.6 });
+    at = to;
+  };
+  rest();
+  while (tl.total < BIRD_HOURS * 3600) {
+    const hop = rnd() < 0.72;
+    const to = pickStep(at, rnd, birdSpotOk, hop ? { min: 0.8, max: 2.6 } : { min: 3, max: 8 });
+    if (to) go(hop ? "hop" : "fly", to);
+    rest();
   }
-  if (b.state === "rest") {
-    b.timer -= dt;
-    b.peck = b.pecking ? Math.max(0, Math.sin(b.clock * 9)) : 0;
-    if (b.timer <= 0) next(b, player, rnd);
-  } else if (b.state === "hop") {
-    b.cycle = (b.cycle + dt) % (HOP_AIR + HOP_GAP);
-    if (b.cycle < HOP_AIR) {
-      const left = Math.hypot(b.to.x - b.x, b.to.z - b.z), step = (HOP_LEN / HOP_AIR) * dt;
-      if (left <= step) { b.x = b.to.x; b.z = b.to.z; rest(b, rnd); return b; }
-      b.x += ((b.to.x - b.x) / left) * step;
-      b.z += ((b.to.z - b.z) / left) * step;
-      const u = b.cycle / HOP_AIR;
-      b.y = HOP_H * 4 * u * (1 - u);
-    } else b.y = 0;
-  } else {
-    b.u = Math.min(1, b.u + (dt * FLY_SPEED) / Math.max(b.len, 0.1));
-    b.x = b.from.x + (b.to.x - b.from.x) * b.u;
-    b.z = b.from.z + (b.to.z - b.from.z) * b.u;
-    b.y = b.top * Math.sin(Math.PI * b.u) ** 0.7;
-    b.wing = Math.sin(b.clock * 34);
-    if (b.u >= 1) { b.x = b.to.x; b.z = b.to.z; rest(b, rnd); }
+  // 한 바퀴 끝에 처음 자리로 돌아와야 일정이 되풀이될 때 튀지 않는다
+  while (at.x !== start.x || at.z !== start.z) {
+    if (lineClear(at, start, birdSpotOk)) go("fly", start);
+    else { const to = pickStep(at, rnd, birdSpotOk, { min: 3, max: 8, toward: start }); if (to) go("fly", to); }
+    rest();
   }
-  return b;
+  return tl;
 }
 
-/* ---------- 나비: 양쪽 연꽃 화분 곁에서 팔랑팔랑 (오른쪽 공양대와 양쪽 석탑에 닿지 않는 넓이) ---------- */
-export const BUTTERFLIES = [
-  { x: -24, z: 0.9, ph: 0.7, color: 0xf3d25a },
-  { x: 24, z: 0.9, ph: 3.1, color: 0xf6f1df },
-];
+export const BIRDS = [buildBird(101, { x: -3.4, z: -6.5 }), buildBird(202, { x: 4.6, z: -3.2 })];
+
+export function birdAt(tl, t) {
+  const { seg, e } = segAt(tl, t);
+  if (seg.kind === "rest") {
+    return { state: "rest", x: seg.at.x, z: seg.at.z, y: 0, yaw: seg.yaw, peck: seg.pecking ? Math.max(0, Math.sin(t * 9)) : 0, look: seg.pecking ? 0 : Math.sin(t * 1.7) * 0.6, wing: 0 };
+  }
+  if (seg.kind === "hop") {
+    const cycle = HOP_AIR + HOP_GAP, n = Math.floor(e / cycle), c = e - n * cycle, air = c < HOP_AIR;
+    const u = Math.min(1, ((n + (air ? c / HOP_AIR : 1)) * HOP_LEN) / Math.max(seg.len, 0.01));
+    const a = air ? c / HOP_AIR : 0;
+    return { state: "hop", x: seg.from.x + (seg.to.x - seg.from.x) * u, z: seg.from.z + (seg.to.z - seg.from.z) * u, y: u < 1 ? HOP_H * 4 * a * (1 - a) : 0, yaw: seg.yaw, peck: 0, look: 0, wing: 0 };
+  }
+  const u = Math.min(1, e / seg.dur);
+  return { state: "fly", x: seg.from.x + (seg.to.x - seg.from.x) * u, z: seg.from.z + (seg.to.z - seg.from.z) * u, y: seg.top * Math.sin(Math.PI * u) ** 0.7, yaw: seg.yaw, peck: 0, look: 0, wing: Math.sin(t * 34) };
+}
+
+/* ---------- 나비: 화분 곁을 팔랑이다 가끔 연꽃에 앉아 천천히 날개를 여닫으며 쉰다 ---------- */
+const FLOWER_Y = 0.93;                               // 연꽃 봉오리 끝 (scene/yard.js lotusPot)
+const flowers = (side) => [0, 1.6, 3.2].map((z) => ({ x: side * 24.8 + 0.05, z }));
 const flyPos = (h, t) => ({
   x: h.x + 1.0 * Math.sin(0.43 * t + h.ph) + 0.5 * Math.sin(1.1 * t + h.ph * 2),
   z: h.z + 1.3 * Math.sin(0.31 * t + h.ph * 1.7) + 0.7 * Math.sin(0.9 * t + h.ph * 0.6),
   y: 1.3 + 0.3 * Math.sin(0.6 * t + h.ph) + 0.1 * Math.sin(7 * t + h.ph),
 });
+const smooth = (u) => u * u * (3 - 2 * u);
+const LIFT = 2.5, LAND = 3;
+
+function buildButterfly(seed, side) {
+  const rnd = mulberry32(seed), tl = makeTimeline(), list = flowers(side);
+  const first = list[Math.floor(rnd() * 3)];
+  let on = first;
+  do {
+    tl.add({ kind: "lift", flower: on, dur: LIFT });
+    tl.add({ kind: "fly", dur: 18 + rnd() * 27 });
+    const next = tl.total > 3600 ? first : list[Math.floor(rnd() * 3)];
+    tl.add({ kind: "land", flower: next, dur: LAND });
+    tl.add({ kind: "sit", flower: next, dur: 7 + rnd() * 8, yaw: rnd() * 6.28 });
+    on = next;
+  } while (tl.total <= 3600 || on !== first);
+  return tl;
+}
+
+export const BUTTERFLIES = [
+  { x: -24, z: 0.9, ph: 0.7, color: 0xf3d25a, tl: buildButterfly(303, -1) },
+  { x: 24, z: 0.9, ph: 3.1, color: 0xf6f1df, tl: buildButterfly(404, 1) },
+];
+
 export function butterflyAt(h, t) {
-  const p = flyPos(h, t), q = flyPos(h, t + 0.05);
-  return { ...p, yaw: Math.atan2(-(q.x - p.x), -(q.z - p.z)), wing: Math.abs(Math.sin(t * 13 + h.ph)) };
+  const { seg, e, local } = segAt(h.tl, t);
+  const slow = { state: "sit", wing: 0.55 + 0.35 * Math.sin(t * 1.5) };
+  const quick = Math.abs(Math.sin(t * 13 + h.ph));
+  if (seg.kind === "sit") return { x: seg.flower.x, y: FLOWER_Y, z: seg.flower.z, yaw: seg.yaw, ...slow };
+  const p = flyPos(h, local), q = flyPos(h, local + 0.05);
+  const yaw = Math.atan2(-(q.x - p.x), -(q.z - p.z));
+  if (seg.kind === "fly") return { ...p, yaw, state: "fly", wing: quick };
+  const s = smooth(e / seg.dur), k = seg.kind === "lift" ? s : 1 - s;   // k: 0 = 꽃 위, 1 = 나는 길 위
+  const lerp = (a, b) => a + (b - a) * k;
+  return { x: lerp(seg.flower.x, p.x), y: lerp(FLOWER_Y, p.y), z: lerp(seg.flower.z, p.z), yaw, state: seg.kind, wing: quick };
 }
 
 /* ---------- 갈매기: 난간 너머 바다 위에서 큰 원. 주로 활공하고 날갯짓은 가끔 ---------- */

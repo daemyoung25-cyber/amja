@@ -1,6 +1,6 @@
 /* 작은 새 2마리, 나비 2마리, 갈매기 5마리의 그림. 움직임은 logic/critters.js.
-   그림자 지도에는 넣지 않고(움직이는 그림자는 비싸다) 새 발밑에만 둥근 그림자를 둔다. 누르기·카메라 충돌에도 안 걸린다. */
-import { newBird, stepBird, BUTTERFLIES, butterflyAt, GULLS, gullAt, critterDay } from "../logic/critters.js";
+   자리는 서버 시계로 정해져 모두의 화면에서 같다. 그림자 지도에는 넣지 않고(움직이는 그림자는 비싸다) 새 발밑에만 둥근 그림자를 둔다. 누르기·카메라 충돌에도 안 걸린다. */
+import { BIRDS, birdAt, BUTTERFLIES, butterflyAt, GULLS, gullAt, critterDay } from "../logic/critters.js";
 import { skyAt } from "../logic/sky.js";
 
 export function createCritters(THREE) {
@@ -29,8 +29,7 @@ export function createCritters(THREE) {
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x1c1712, transparent: true, opacity: 0.28, depthWrite: false });
   const BIRD_SCALE = 1.7;                           // 실제보다 조금 크게: 뒤따르는 카메라에서도 보이게
 
-  const birds = [0, 1].map(() => {
-    const state = newBird();
+  const birds = BIRDS.map((tl) => {
     const root = new THREE.Group();
     mesh(bodyGeo, brown, root, 0, 0.095, 0);
     mesh(bellyGeo, cream, root, 0, 0.084, -0.03);
@@ -46,7 +45,7 @@ export function createCritters(THREE) {
     root.scale.setScalar(BIRD_SCALE);
     const shadow = new THREE.Mesh(shadowGeo, shadowMat);
     group.add(root, shadow);
-    return { state, root, head, wings, shadow };
+    return { tl, root, head, wings, shadow };
   });
 
   /* 나비: 두 장의 둥근 날개 */
@@ -90,16 +89,17 @@ export function createCritters(THREE) {
     return { g, root, wings };
   });
 
-  let t = 0, skyTimer = 1, day = false, vis = 0;
+  let skyTimer = 1, day = false, vis = 0;
+  const turn = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
   group.visible = false;
 
-  function update(rawDt, player, date) {
+  function update(rawDt, tMs) {
     const dt = Math.min(rawDt, 0.1);
-    t += dt;
+    const t = tMs / 1000;
     skyTimer += dt;
     if (skyTimer >= 1) {
       skyTimer = 0;
-      const sky = skyAt(date);
+      const sky = skyAt(new Date(tMs));
       day = critterDay(sky.sunElevation);
       const lit = 0.3 + 0.7 * sky.light;
       gullWhite.color.setScalar(lit); gullWingMat.color.setScalar(lit);
@@ -109,13 +109,13 @@ export function createCritters(THREE) {
     if (!group.visible) return;
 
     for (const b of birds) {
-      const s = stepBird(b.state, dt, player);
+      const s = birdAt(b.tl, t);
       b.root.position.set(s.x, s.y, s.z);
       b.root.rotation.y = s.yaw;
       b.root.scale.setScalar(BIRD_SCALE * vis);
       b.root.rotation.x = s.state === "fly" ? 0.18 : 0;
       b.head.rotation.x = -s.peck * 0.75;
-      b.head.rotation.y = s.state === "rest" && !s.pecking ? Math.sin(s.clock * 1.7) * 0.6 : 0;    // 콕콕 안 할 땐 두리번
+      b.head.rotation.y = s.look;                    // 콕콕 안 할 땐 두리번
       b.wings.set(s.state === "fly" ? 0.2 + s.wing * 0.8 : -1.42);
       b.shadow.position.set(s.x, 0.018, s.z);
       b.shadow.scale.setScalar(Math.max(0.45, 1 - s.y * 0.5) * vis);
@@ -123,8 +123,9 @@ export function createCritters(THREE) {
     for (const f of butterflies) {
       const p = butterflyAt(f.home, t);
       f.root.position.set(p.x, p.y, p.z);
-      f.root.rotation.y = p.yaw;
-      f.root.rotation.x = 0.45;
+      const ease = 1 - Math.exp(-dt * 6);             // 앉을 때 날개 접는 쪽으로 몸을 고르게
+      f.root.rotation.y = turn(f.root.rotation.y, p.yaw, ease);
+      f.root.rotation.x += ((p.state === "sit" ? 0.04 : 0.45) - f.root.rotation.x) * ease;
       f.root.scale.setScalar(1.4 * vis);
       f.wings.set(0.1 + p.wing * 1.15);
     }

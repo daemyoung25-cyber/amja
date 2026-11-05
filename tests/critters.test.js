@@ -1,86 +1,88 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { newBird, stepBird, birdSpotOk, butterflyAt, BUTTERFLIES, gullAt, GULLS, critterDay } from "../src/logic/critters.js";
+import { BIRDS, birdAt, birdSpotOk, butterflyAt, BUTTERFLIES, gullAt, GULLS, critterDay } from "../src/logic/critters.js";
+import { mulberry32, segAt } from "../src/logic/itinerary.js";
 import { COURTYARD, HALL, RAIL_Z, YARD, STATUE, ISLAND, PRAYER, insideHall, insideCave, insideHermitage } from "../src/logic/layout.js";
-import { mulberry32 } from "./helpers-rng.js";
 
-const run = (seed, seconds, player = null, each = () => {}) => {
-  const rnd = mulberry32(seed);
-  const b = newBird(rnd);
-  for (let i = 0; i < seconds * 30; i++) { stepBird(b, 1 / 30, player, rnd); each(b); }
-  return b;
-};
+const T0 = 1793800000;   // 2026년 11월쯤의 서버 시계(초)
+
+test("every viewer computes the same bird from the same clock", () => {
+  for (const t of [T0, T0 + 123.4, T0 + 99999.9]) assert.deepEqual(birdAt(BIRDS[0], t), birdAt(BIRDS[0], t));
+  const a = birdAt(BIRDS[0], T0), b = birdAt(BIRDS[1], T0);
+  assert.ok(a.x !== b.x || a.z !== b.z, "the two birds are in different places");
+});
 
 test("a yard bird stays in the open yard, never in a hall, cave, hermitage or an object", () => {
-  for (const seed of [1, 2, 3, 4]) {
-    run(seed, 300, null, (b) => {
+  for (const tl of BIRDS) {
+    for (let t = T0; t < T0 + tl.total; t += 0.7) {
+      const b = birdAt(tl, t), p = { x: b.x, z: b.z };
       assert.ok(b.x > COURTYARD.minX && b.x < COURTYARD.maxX && b.z > RAIL_Z && b.z < HALL.minZ, `in yard ${b.x},${b.z}`);
-      const p = { x: b.x, z: b.z };
       assert.ok(!insideHall(p) && !insideCave(p) && !insideHermitage(p));
       for (const o of [...YARD, { x: STATUE.x, z: STATUE.z, r: STATUE.baseR }]) assert.ok(Math.hypot(b.x - o.x, b.z - o.z) >= o.r, `${o.kind} ${b.x},${b.z}`);
       assert.ok(!(b.x > PRAYER.minX && b.x < PRAYER.maxX && b.z > PRAYER.minZ && b.z < PRAYER.maxZ), "not on the prayer cushions");
-    });
+    }
   }
 });
 
-test("a yard bird both hops on the ground and flies low, and rests on the ground", () => {
+test("a yard bird rests, hops and flies low, resting on the ground", () => {
   const seen = new Set();
   let top = 0;
-  run(7, 300, null, (b) => {
+  for (let t = T0; t < T0 + 1800; t += 0.05) {
+    const b = birdAt(BIRDS[0], t);
     seen.add(b.state);
     top = Math.max(top, b.y);
     if (b.state === "rest") assert.equal(b.y, 0);
     if (b.state === "hop") assert.ok(b.y <= 0.1, "a hop stays near the ground");
     assert.ok(b.y >= 0);
-  });
+  }
   assert.deepEqual([...seen].sort(), ["fly", "hop", "rest"]);
   assert.ok(top > 0.4 && top <= 1.5, `flies low, top ${top}`);
 });
 
-test("a yard bird flies away from someone who comes very close", () => {
-  const rnd = mulberry32(11);
-  const b = newBird(rnd);
-  b.x = 5; b.z = -10; b.state = "rest"; b.timer = 5;
-  const player = { x: 5.5, z: -10 };
-  stepBird(b, 1 / 30, player, rnd);
-  assert.equal(b.state, "fly");
-  for (let i = 0; i < 600 && b.state === "fly"; i++) stepBird(b, 1 / 30, player, rnd);
-  assert.ok(Math.hypot(b.x - player.x, b.z - player.z) > 2.5, "lands farther away");
+test("a bird never jumps, even where its schedule repeats", () => {
+  for (const tl of BIRDS) {
+    const start = Math.ceil(T0 / tl.total) * tl.total - 600;
+    let prev = birdAt(tl, start);
+    for (let t = start + 0.1; t < start + 1200; t += 0.1) {
+      const b = birdAt(tl, t);
+      assert.ok(Math.hypot(b.x - prev.x, b.z - prev.z) < 0.6, `jump at ${t - start}`);
+      prev = b;
+    }
+  }
 });
 
-test("a yard bird far from someone in the yard drifts toward them, so it can be seen in the big yard", () => {
-  const player = { x: 20, z: -20 };
-  const rnd = mulberry32(5);
-  const b = newBird(rnd);
-  b.x = -20; b.z = 0;
-  const start = Math.hypot(b.x - player.x, b.z - player.z);
-  let closest = start;
-  for (let i = 0; i < 30 * 180; i++) { stepBird(b, 1 / 30, player, rnd); closest = Math.min(closest, Math.hypot(b.x - player.x, b.z - player.z)); }
-  assert.ok(closest < 12, `closest ${closest}`);
-});
-
-test("a huge frame gap (tab came back) does not throw a bird out of the yard", () => {
-  const rnd = mulberry32(3);
-  const b = newBird(rnd);
-  for (let i = 0; i < 200; i++) stepBird(b, 60, null, rnd);
-  assert.ok(birdSpotOk(b) || b.state !== "rest");
-  assert.ok(b.x > COURTYARD.minX && b.x < COURTYARD.maxX);
-});
-
-test("butterflies flutter by the lotus pots without passing through the stone things", () => {
+test("a butterfly mostly flutters but sometimes sits on a lotus flower, slowly opening and closing", () => {
   assert.equal(BUTTERFLIES.length, 2);
-  const solid = [...YARD.filter((o) => o.kind !== "pot")];
-  for (const home of BUTTERFLIES) {
-    let lo = Infinity, hi = -Infinity;
-    for (let t = 0; t < 1200; t += 0.1) {
-      const f = butterflyAt(home, t);
-      lo = Math.min(lo, f.y); hi = Math.max(hi, f.y);
+  for (const h of BUTTERFLIES) {
+    let sits = 0, n = 0, slowest = 0, prevSit = null;
+    for (let t = T0; t < T0 + h.tl.total; t += 0.1, n++) {
+      const f = butterflyAt(h, t);
+      if (f.state !== "sit") { prevSit = null; continue; }
+      sits++;
+      assert.ok(YARD.some((o) => o.kind === "pot" && Math.abs(o.x - f.x) < 0.1 && Math.abs(o.z - f.z) < 0.01), `on a pot's flower ${f.x},${f.z}`);
+      assert.ok(Math.abs(f.y - 0.93) < 0.01);
+      if (prevSit != null) slowest = Math.max(slowest, Math.abs(f.wing - prevSit));
+      prevSit = f.wing;
+    }
+    assert.ok(sits / n > 0.15 && sits / n < 0.4, `sits ${sits / n}`);
+    assert.ok(slowest < 0.06, `slow wings ${slowest}`);
+  }
+});
+
+test("butterflies never jump, and stay by the pots without passing through stone things", () => {
+  const solid = YARD.filter((o) => o.kind !== "pot");
+  for (const h of BUTTERFLIES) {
+    const start = Math.ceil(T0 / h.tl.total) * h.tl.total - 300;
+    let prev = butterflyAt(h, start);
+    for (let t = start; t < start + h.tl.total; t += 0.1) {
+      const f = butterflyAt(h, t);
+      assert.ok(Math.hypot(f.x - prev.x, f.y - prev.y, f.z - prev.z) < 0.35, `jump at ${t - start}`);
       assert.ok(Math.abs(f.x) < COURTYARD.maxX, `inside the wall ${f.x}`);
+      assert.ok(f.y > 0.6 && f.y < 2, `height ${f.y}`);
       for (const o of solid) assert.ok(Math.hypot(f.x - o.x, f.z - o.z) > o.r, `${o.kind} ${f.x},${f.z}`);
       assert.ok(f.wing >= 0 && f.wing <= 1);
+      prev = f;
     }
-    assert.ok(lo > 0.6 && hi < 2, `height ${lo}..${hi}`);
-    assert.ok(Math.hypot(home.x - 24.8 * Math.sign(home.x), home.z - 1.6) < 3, "by the pots");
   }
 });
 
@@ -110,4 +112,11 @@ test("the creatures are out by day and gone at night", () => {
   assert.equal(critterDay(30), true);
   assert.equal(critterDay(0), true);
   assert.equal(critterDay(-6), false);
+});
+
+test("the seeded numbers are pure integer math, so every browser builds the same schedule", () => {
+  const r = mulberry32(1);
+  assert.deepEqual([r(), r()], [0.6270739405881613, 0.002735721180215478]);
+  assert.ok(segAt(BIRDS[0], T0).seg);
+  assert.ok(birdSpotOk({ x: 1, z: -8 }));
 });

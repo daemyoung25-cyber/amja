@@ -111,6 +111,14 @@
         ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000"
       }
     },
+    "dogPet": {
+      ".read": "auth != null",
+      ".write": "auth != null && newData.exists() && (!data.exists() || data.child('at').val() < now - 3000)",
+      ".validate": "newData.hasChildren(['at','u'])",
+      "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000" },
+      "u": { ".validate": "newData.val() === auth.uid" },
+      "$other": { ".validate": false }
+    },
     "visits": {
       ".read": "auth != null",
       ".indexOn": ["at"],

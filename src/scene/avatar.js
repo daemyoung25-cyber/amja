@@ -33,7 +33,7 @@ function robeTexture(THREE) {
 }
 import { bowPhase, BOW108_SECONDS } from "../logic/bows.js";
 
-const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4 };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4, pet: 4 };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -209,11 +209,13 @@ export function createAvatar(THREE, { color, monk = false }) {
       target = poseT < 2 ? hands.offer : hands.hapjang;
       hipTilt = poseT < 2 ? -0.22 : poseT < 2.8 ? -0.3 : -0.05;
     }
+    else if (pose === "pet") { target = hands.offer; hipTilt = -0.72; }   // 바둑이를 쓰다듬는다
     else if (pose === "give") {                                   // 두 손으로 꾸러미를 내밀거나 받고(1.6초), 고개 숙여 인사
       target = poseT < 1.6 ? hands.offer : hands.stand;
       hipTilt = poseT < 1.6 ? -0.15 : poseT < 2.2 ? -0.3 : -0.05;
     }
     let kneel = 0, drop = 0;
+    if (pose === "pet") kneel = 0.8;
     if (pose === "bow" || pose === "bow108") {
       const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
       hipTilt = b.tilt; kneel = b.kneel; drop = b.drop;

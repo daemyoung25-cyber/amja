@@ -1,9 +1,11 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong, KENNEL } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
+import { createPets } from "./scene/pets.js";
+import { canPet, faceDog, PET_SECONDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -79,9 +81,12 @@ bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");
 scene.add(bosal.root);
-// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기 (낮에만, 사람마다 자기 화면에서 따로)
+// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기, 바둑이, 하얀 고양이: 서버 시계로 자리가 정해져 모두의 화면에서 같다
 const critters = createCritters(THREE);
 scene.add(critters.group);
+const pets = createPets(THREE, KENNEL);
+scene.add(pets.group, pets.house);
+let dogNow = { state: "walk", left: 0, x: KENNEL.dog.x, z: KENNEL.dog.z }, dogPetUntil = 0;
 let bosalUntil = 0, gotBongsong = false, myBundle = null;
 const bosalDo = (pose, sec) => { bosal.setPose(pose); bosalUntil = performance.now() + sec * 1000; };
 // 다른 분이 봉송을 받을 때: 내 화면의 보살님도 꾸러미를 두 손으로 내밀어 건네시고, 건너가는 순간 손에서 사라진다
@@ -93,8 +98,9 @@ function bosalGive(cloth) {
 }
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {} };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petDog() {} };
 let snapshot = null, peers = [];
+const sharedNow = () => net.now() + timeOffset;   // 모두 같은 시계 (?time=은 점검용)
 let traceRecords = [], visits = {}, lastTraceAt = null;
 let candleRecords = [], lastCandleAt = null;
 let offerRecords = [];                  // 향·초 공양 (대웅전·섬 암자 향, 동굴·해수관음 초)
@@ -226,6 +232,17 @@ ui.onBongsong(() => {
     setTimeout(() => me.hold(bundle, "hang"), 900);
     ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
   }, GIVE_SECONDS * 1000);
+});
+// 바둑이 쓰다듬기: 몸을 숙여 쓰다듬고 바둑이는 꼬리를 흔든다. 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
+ui.onPet(() => {
+  if (state.base === "walk" || state.bow108) return;
+  const p = positionAt(state.move, net.now());
+  if (!canPet(dogNow, p)) return;
+  state.yaw = faceDog(p, dogNow); rig.turnTo(state.yaw);
+  me.setPose("pet");
+  state.gestureUntil = performance.now() + PET_SECONDS * 1000;
+  dogPetUntil = state.gestureUntil;
+  net.petDog();
 });
 ui.onIncense(() => { const k = offerPlace(positionAt(state.move, net.now())); if (k && OFFER_PLACES[k].kind === "incense") makeOffer(k); });
 ui.onCandle(() => {
@@ -485,7 +502,9 @@ function frame(t) {
   monk.update(dt);
   if (bosalUntil && performance.now() >= bosalUntil) { bosalUntil = 0; bosal.setPose("stand"); }
   bosal.update(dt);
-  critters.update(dt, p, new Date(clockNow()));
+  critters.update(dt, sharedNow());
+  dogNow = pets.update(dt, sharedNow(), dogPetUntil > performance.now());
+  ui.setNearDog(state.base !== "walk" && !state.bow108 && canPet(dogNow, p));
   ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);
   const inHerm = insideHermitage(p);
@@ -542,7 +561,9 @@ function drawOthers(now, mePos, dt) {
     if (onSeat && sat) o.yaw = faceSeat(pos);
     o.avatar.setSeated(!!sat);
     o.avatar.root.rotation.y = o.yaw || 0;
-    o.avatar.setPose(!pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
+    const petting = pos.arrived && o.petUntil > performance.now();
+    if (petting) o.avatar.root.rotation.y = faceDog(pos, dogNow);
+    o.avatar.setPose(petting ? "pet" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
     o.avatar.update(dt);
   }
@@ -606,6 +627,12 @@ function adopt(p) {
   net.sendPose(state.base);
   if (myBundle != null) net.sendCarry(myBundle);
   net.onPeers((val) => { snapshot = val; });
+  net.onDogPet((v) => {
+    if (!v || net.now() - v.at > PET_SECONDS * 1000) return;   // 들어오기 전에 있었던 일은 보여 주지 않는다
+    const until = performance.now() + PET_SECONDS * 1000, o = others.get(v.u);
+    dogPetUntil = until;
+    if (o) o.petUntil = until;
+  });
   net.onGreeted((from) => {
     const who = peers.find((x) => x.uid === from);
     ui.notify(`${who ? whoTag(who.n, who.h) : "누군가"} 합장으로 인사했어요 🙏`);
@@ -661,4 +688,4 @@ function adopt(p) {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, renderer, scene };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, renderer, scene, get dogNow() { return dogNow; }, ui };

@@ -98,3 +98,14 @@ test("presence accepts the bongsong give pose and a carried bundle colour 0-5, n
   assert.equal(await put(`presence/${me.uid}`, presence({ p: "give", b: 2 }), me.token), 200);
   for (const b of [6, -1, 1.5, "red"]) assert.notEqual(await put(`presence/${me.uid}`, presence({ b }), me.token), 200, String(b));
 });
+
+test("anyone signed in can pet the dog as themselves, but not as someone else or too often", opts, async () => {
+  const me = await signIn(), other = await signIn(), at = Date.now();
+  assert.notEqual(await put("dogPet", { at, u: other.uid }, me.token), 200, "not in someone else's name");
+  assert.notEqual(await put("dogPet", { at, u: me.uid, junk: 1 }, me.token), 200, "no extra fields");
+  assert.notEqual(await put("dogPet", { at: at - 3600000, u: me.uid }, me.token), 200, "not an old time");
+  await new Promise((r) => setTimeout(r, 3100));   // 앞선 테스트의 쓰다듬기가 3초 지나도록
+  assert.equal(await put("dogPet", { at: Date.now(), u: me.uid }, me.token), 200);
+  assert.notEqual(await put("dogPet", { at: Date.now(), u: other.uid }, other.token), 200, "too soon after the last pet");
+  assert.notEqual(await put("dogPet", null, other.token), 200, "cannot delete");
+});

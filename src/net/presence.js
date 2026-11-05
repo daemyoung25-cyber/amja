@@ -18,7 +18,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petDog: noop, onDogPet: noop,
   };
 }
 
@@ -102,6 +102,9 @@ async function connect(config, loadSdk, me) {
     sendPose(p) { state.p = p; state.pt = now(); if (present) db.update(mine, { p, pt: state.pt }); },
     sendCarry(b) { state.b = b; if (present) db.update(mine, { b }); },   // 든 봉송 꾸러미 (보자기 색 번호 0~5)
     greet(to) { const g = { to, at: now() }; state.g = g; if (present) db.update(mine, { g }); },
+    // 바둑이 쓰다듬기: dogPet = { at, u } 하나만 덮어쓴다. 규칙이 막아도 내 화면의 쓰다듬기는 그대로 간다
+    petDog() { Promise.resolve(db.set(db.ref(database, "dogPet"), { at: now(), u: uid })).catch(() => {}); },
+    onDogPet(cb) { db.onValue(db.ref(database, "dogPet"), (snap) => cb(snap.val()), () => {}); },
     close() {
       clearInterval(beat);
       stopPeers();
