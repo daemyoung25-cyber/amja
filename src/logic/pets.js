@@ -4,6 +4,7 @@
 import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 import { sunTimesKST } from "./sky.js";
+import { WALK_SPEED } from "../config.js";
 
 const PAD = 0.4;
 const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD, ...[[11.2, 10], [11, 15.2], [25, 12], [-11.2, 9], [-11, 14.5], [-25, 9]].map(([x, z]) => ({ x, z, r: 0.5 }))];   // 법당 양옆 소나무
@@ -82,10 +83,23 @@ export function petAt(tl, tMs) {
   return { state: "rest", x: seg.at.x, z: seg.at.z, yaw: seg.yaw, pose: seg.pose, left: seg.dur - e };
 }
 
-/* 돌보기: 동물이 앉거나 누워 있고, 쓰다듬는 동안(PET_SECONDS) 일어나 걷지 않을 때만, 곁에서 */
+/* 돌보기: 동물이 앉거나 누워 있고, 곁까지 걸어가 돌보는 동안 일어나 걷지 않을 때만. 몇 걸음 떨어져도 버튼이 뜨고, 손이 안 닿으면 걸어가서 준다 */
 export const PET_SECONDS = 4;
-const PET_RANGE = 1.2;                               // 몸을 숙여 뻗은 손이 닿는 거리
-export const canPet = (dog, p, sec = PET_SECONDS) => dog.state !== "walk" && dog.left >= sec && dist2(dog, p) <= PET_RANGE * PET_RANGE;
+const PET_RANGE = 3;                                 // 버튼이 뜨는 거리
+const PET_REACH = 1.2;                               // 몸을 숙여 뻗은 손이 닿는 거리
+const CARE_STOP = 0.85;                              // 걸어가서 멈추는 자리 (동물에서 이만큼)
+const walkUpSec = (d) => (d <= PET_REACH ? 0 : (d - CARE_STOP) / WALK_SPEED + 1);   // 1초는 둘러 가는 여유
+export const canPet = (dog, p, sec = PET_SECONDS) => {
+  const d = Math.sqrt(dist2(dog, p));
+  return dog.state !== "walk" && d <= PET_RANGE && dog.left >= sec + walkUpSec(d);
+};
+// 손이 안 닿으면 걸어가 멈출 자리(내 쪽에서 동물 곁), 닿으면 null
+export function careSpot(animal, p) {
+  const d = Math.sqrt(dist2(animal, p));
+  if (d <= PET_REACH) return null;
+  const k = CARE_STOP / d;
+  return { x: animal.x + (p.x - animal.x) * k, z: animal.z + (p.z - animal.z) * k };
+}
 export const faceDog = (p, dog) => headingOf(p, dog);
 // 동물 순서와 머리 위 이름, 돌보기 종류. who = 받을 수 있는 동물, sec = 걸리는 시간
 export const PET_IDS = ["dog", "baek", "cat"];

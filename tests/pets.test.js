@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DOG, BAEK, CAT, petAt, isAsleep, petSpotOk, canPet, carePick, careYaw, canCare, CARE, PET_NAMES, faceDog, PET_SECONDS } from "../src/logic/pets.js";
+import { insideHermitage } from "../src/logic/layout.js";
+import { DOG, BAEK, CAT, petAt, isAsleep, petSpotOk, canPet, carePick, careYaw, canCare, CARE, PET_NAMES, faceDog, PET_SECONDS, careSpot } from "../src/logic/pets.js";
 import { KENNEL, BAEK_KENNEL, CAVE, YARD, STATUE, PRAYER, COURTYARD, HALL, insideHall, insideCave, clampToWalkable, routeAround } from "../src/logic/layout.js";
 import { sunTimesKST } from "../src/logic/sky.js";
 
@@ -94,7 +95,7 @@ test("after dusk each comes home soon, and after dawn leaves soon", () => {
 test("you can pet the dog only beside it while it stays put long enough", () => {
   const dog = { state: "rest", x: 1, z: 1, left: PET_SECONDS + 1 };
   assert.equal(canPet(dog, { x: 2, z: 1 }), true);
-  assert.equal(canPet(dog, { x: 4, z: 1 }), false, "too far");
+  assert.equal(canPet(dog, { x: 6, z: 1 }), false, "too far");
   assert.equal(canPet({ ...dog, state: "walk", left: 0 }, { x: 2, z: 1 }), false, "walking");
   assert.equal(canPet({ ...dog, left: PET_SECONDS - 1 }, { x: 2, z: 1 }), false, "about to get up");
   assert.equal(canPet({ ...dog, state: "sleep", left: Infinity }, { x: 2, z: 1 }), true, "a sleeping dog can be petted");
@@ -130,6 +131,17 @@ test("care goes to the nearest animal that can take it, and each animal has its 
   assert.deepEqual(PET_NAMES, { dog: "바둑이", baek: "설탕", cat: "나비" });
 });
 
+test("the buttons show from a few steps away, and you walk up to the animal to reach it", () => {
+  const dog = { state: "rest", x: 0, z: 0, left: 30 };
+  assert.equal(canPet(dog, { x: 2.9, z: 0 }), true, "a few steps away");
+  assert.equal(canPet(dog, { x: 3.1, z: 0 }), false, "too far");
+  assert.equal(canPet({ ...dog, left: PET_SECONDS + 0.5 }, { x: 1, z: 0 }), true, "beside it, no walk needed");
+  assert.equal(canPet({ ...dog, left: PET_SECONDS + 0.5 }, { x: 2.9, z: 0 }), false, "it would get up before you arrive");
+  assert.equal(careSpot(dog, { x: 1, z: 0 }), null, "already within reach");
+  const s = careSpot(dog, { x: 0, z: 3 });
+  assert.ok(Math.abs(s.x) < 1e-9 && Math.abs(s.z - 0.85) < 1e-9, "stops beside it on your side");
+});
+
 test("the fed animal looks at you, the patted one turns its rump to you", () => {
   const animal = { x: 0, z: 0 }, person = { x: 0, z: -1 };
   assert.ok(Math.abs(careYaw(animal, person, "treat")) < 1e-9, "faces -z towards the person");
@@ -145,4 +157,24 @@ test("seoltang's house stands midway between the right wall and the cave steps, 
   const foot = { x: CAVE.foot.x, z: CAVE.foot.z }, p = clampToWalkable(foot);
   assert.ok(Math.hypot(p.x - foot.x, p.z - foot.z) < 0.01, "the foot of the cave steps stays free");
   assert.ok(routeAround({ x: BAEK_KENNEL.x, z: 11 }, { x: BAEK_KENNEL.x, z: 16 }).length > 1, "people walk round the house");
+});
+
+test("walking up to an animal from any side ends beside it, never inside a building", () => {
+  let tried = 0, bad = [];
+  for (const [name, tl] of [["dog", DOG], ["baek", BAEK], ["cat", CAT]]) {
+    for (const seg of tl.segs.filter((s) => s.kind === "rest")) {
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2;
+        const me = clampToWalkable({ x: seg.at.x + Math.cos(a) * 2.6, z: seg.at.z + Math.sin(a) * 2.6 });
+        if (insideHall(me) || insideCave(me) || insideHermitage(me) || Math.hypot(me.x - seg.at.x, me.z - seg.at.z) > 3) continue;
+        const spot = careSpot(seg.at, me);
+        if (!spot) continue;
+        const to = clampToWalkable(spot), d = Math.hypot(to.x - seg.at.x, to.z - seg.at.z);
+        tried++;
+        if (insideHall(to) || insideCave(to) || insideHermitage(to) || d > 1.2) bad.push([name, seg.at.x, seg.at.z, k, +d.toFixed(2)]);
+      }
+    }
+  }
+  assert.ok(tried > 500, `tried ${tried}`);
+  assert.deepEqual(bad.slice(0, 10), [], `${bad.length} of ${tried}`);
 });

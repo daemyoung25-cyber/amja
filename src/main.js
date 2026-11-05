@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, clampToWalkable, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, BONGSONG, faceBongsong, nearBongsong, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
 import { createPets, makeCareItem } from "./scene/pets.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
-import { carePick, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
+import { carePick, careSpot, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
@@ -136,6 +136,7 @@ const state = {
   wishOnArrive: false,
   noteOnArrive: false,
   bongsongOnArrive: false,
+  careOnArrive: null,
   route: [],                // 불상·법당을 돌아가는 남은 경유지
   base: "stand",            // 합장/절이 끝나면 돌아갈 자세
   gestureUntil: 0,
@@ -157,8 +158,8 @@ function onTap(cx, cy) {
   if (hit) goTo({ x: hit.point.x, z: hit.point.z });
 }
 
-function goTo(point) {
-  const r = resolveTap(point);
+function goTo(point, plain = false) {             // plain: 자리에 앉거나 기대지 않고 그 지점까지만 걷는다
+  const r = plain ? { kind: "walk", to: clampToWalkable(point) } : resolveTap(point);
   const now = net.now();
   const here = positionAt(state.move, now);
   // 이미 기대 있는 자리 근처의 바다를 눌렀으면 그대로 있는다 (버튼만 돌아온다)
@@ -173,6 +174,7 @@ function goTo(point) {
   state.wishOnArrive = r.kind === "wish";
   state.noteOnArrive = r.kind === "note";
   state.bongsongOnArrive = r.kind === "bongsong";
+  state.careOnArrive = null;
   net.sendMove(state.move);
   setBase("walk");
 }
@@ -270,6 +272,13 @@ ui.onCare((a) => {
   if (state.base === "walk" || state.bow108) return;
   const p = positionAt(state.move, net.now()), i = carePick(petsNow, p, a);
   if (i < 0) return;
+  const spot = careSpot(petsNow[i], p);
+  if (spot) { goTo(spot, true); state.careOnArrive = a; return; }   // 손이 안 닿으면 곁까지 걸어가서 준다
+  doCare(a);
+});
+function doCare(a) {
+  const p = positionAt(state.move, net.now()), i = carePick(petsNow, p, a);
+  if (i < 0) return;                                  // 걸어가는 사이 동물이 떠났으면 조용히 그친다
   const c = CARE[a], animal = petsNow[i];
   state.yaw = faceDog(p, animal); rig.turnTo(state.yaw + 1.05);   // 등 뒤에서 보면 내 몸이 동물을 가려서 비스듬히 옆에서 본다
   me.setPose(c.pose);
@@ -277,7 +286,7 @@ ui.onCare((a) => {
   startPetAct(PET_IDS[i], a, c.sec * 1000, careYaw(animal, p, a));
   if (c.item) { me.hold(makeCareItem(THREE, a), "hand"); careHeldUntil = performance.now() + c.item * 1000; }
   net.petAct(PET_IDS[i], a);
-});
+}
 ui.onIncense(() => { const k = offerPlace(positionAt(state.move, net.now())); if (k && OFFER_PLACES[k].kind === "incense") makeOffer(k); });
 ui.onCandle(() => {
   if (state.base === "walk") return;
@@ -528,6 +537,7 @@ function frame(t) {
       }
       if (state.noteOnArrive) { state.noteOnArrive = false; state.yaw = faceNote(p); rig.turnTo(state.yaw); ui.openNoteSheet(myNotes); }   // 방명록 앞에 서면 적는 칸이 열린다
       setBase("stand");
+      if (state.careOnArrive) { const a = state.careOnArrive; state.careOnArrive = null; doCare(a); }
     }
   }
   if (state.bow108) ui.setBowCount(bowsDone((t - state.bow108.start) / 1000), BOWS);
@@ -556,7 +566,8 @@ function frame(t) {
   critters.update(dt, sharedNow());
   petsNow = pets.update(dt, sharedNow(), petActs);
   if (careHeldUntil && (performance.now() >= careHeldUntil || !state.gestureUntil)) { careHeldUntil = 0; me.hold(myBundle != null ? makeBundle(THREE, CLOTHS[myBundle]) : null, "hang"); }   // 먹인 것을 내려놓고 들고 있던 꾸러미로
-  for (const a of Object.keys(CARE)) ui.setCare(a, state.base !== "walk" && !state.bow108 && !state.gestureUntil && carePick(petsNow, p, a) >= 0);
+  const outdoors = !insideHall(p) && !insideCave(p) && !insideHermitage(p);   // 벽 너머 동물에게는 버튼이 뜨지 않게
+  for (const a of Object.keys(CARE)) ui.setCare(a, outdoors && state.base !== "walk" && !state.bow108 && !state.gestureUntil && carePick(petsNow, p, a) >= 0);
   ui.setSuneungButton(suneungActive(net.now()) && !suLitHere && !state.bow108 && offerPlace(p) !== "gwan");
   ui.setNearBongsong(state.base !== "walk" && !gotBongsong && nearBongsong(p));
   const inside = insideHall(p);

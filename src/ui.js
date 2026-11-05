@@ -10,6 +10,10 @@ export function createUI({ placeName }) {
   const hud = $("hud"), count = $("count"), hint = $("hint"), whisper = $("whisper");
   const btnHapjang = $("btn-hapjang"), btnBow = $("btn-bow"), btnBow108 = $("btn-bow108"), bowCount = $("bowcount"), btnSound = $("btn-sound"), btnCandle = $("btn-candle"), btnIncense = $("btn-incense"), btnWish = $("btn-wish"), btnWishRead = $("btn-wish-read"), btnBongsong = $("btn-bongsong"), careButtons = { pet: $("btn-pet"), treat: $("btn-treat"), churu: $("btn-churu"), pat: $("btn-pat") }, btnShare = $("btn-share"), btnSuneung = $("btn-suneung");
 
+  // 버튼이 여러 줄이 되면 그 위의 글자도 같이 올라가게 높이를 알려 준다
+  const actionsBar = hud.querySelector(".actions");
+  new ResizeObserver(() => { if (actionsBar.offsetHeight) document.documentElement.style.setProperty("--actions-h", `${actionsBar.offsetHeight}px`); }).observe(actionsBar);
+
   let leaning = false, fadeTimer = 0, whisperTimer = 0;
   const fadeSoon = (ms) => { clearTimeout(fadeTimer); fadeTimer = setTimeout(() => leaning && hud.classList.add("faded"), ms); };
 
