@@ -118,7 +118,12 @@ async function connect(config, loadSdk, me) {
       const q = db.query(db.ref(database, "traces"), db.orderByChild("at"), db.startAt(now() - HOUR), db.limitToLast(TRACE_READ_MAX));
       db.onValue(q, (snap) => cb(Object.values(snap.val() || {})));
     },
-    markVisit() { db.set(db.ref(database, `visits/${uid}`), { at: now() }); },
+    markVisit() {
+      db.set(db.ref(database, `visits/${uid}`), { at: now() });
+      // 하루 방문자 수: 날짜(한국)마다 이 기기 한 칸. 읽는 건 아침 메일뿐. 규칙이 막아도 입장에는 영향 없게
+      const day = new Date(now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, "");
+      Promise.resolve(db.set(db.ref(database, `visitDays/${day}/${uid}`), now())).catch(() => {});
+    },
     onVisits(cb) {
       const q = db.query(db.ref(database, "visits"), db.orderByChild("at"), db.startAt(now() - HOUR));
       db.onValue(q, (snap) => cb(snap.val() || {}));

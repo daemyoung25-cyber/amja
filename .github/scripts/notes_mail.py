@@ -27,6 +27,29 @@ last = get("notesMailedAt")
 since = last or now_ms - 24 * 3600 * 1000       # 처음엔 지난 하루
 notes = sorted((v for v in (get("notes") or {}).values() if isinstance(v, dict) and since < v.get("at", 0) <= now_ms), key=lambda v: v["at"])
 print(f"since {since}, new {len(notes)}")
+# 방문자 수: visitDays/{YYYYMMDD}/{uid}. 같은 기기는 하루 1명. 집계가 안 돼도 바라는 점 메일은 나가야 한다
+def visitors(day):
+    try:
+        r = requests.get(f"{DB}/visitDays/{day:%Y%m%d}.json", headers=H, params={"shallow": "true"}, timeout=30); r.raise_for_status()
+        return len(r.json() or {})
+    except Exception as e:
+        print("visitor count failed:", type(e).__name__)
+        return None
+
+kst_now = datetime.fromtimestamp(now_ms / 1000, KST)
+yesterday = visitors(kst_now - timedelta(days=1))
+today_so_far = visitors(kst_now)
+print(f"visitors yesterday {yesterday}, today {today_so_far}")
+visit_short = f"어제 방문 {yesterday}명" if yesterday else "어제 방문 기록 없음"
+visit_line = f"{visit_short} · 오늘 지금까지 {today_so_far if today_so_far is not None else '-'}명 (같은 기기는 하루 1명)"
+try:                                                            # 60일 지난 집계는 지운다
+    days = requests.get(f"{DB}/visitDays.json", headers=H, params={"shallow": "true"}, timeout=30).json() or {}
+    cutoff = f"{kst_now - timedelta(days=60):%Y%m%d}"
+    for d in days:
+        if d < cutoff: requests.delete(f"{DB}/visitDays/{d}.json", headers=H, timeout=30)
+except Exception as e:
+    print("visitor cleanup failed:", type(e).__name__)
+
 kst_day = lambda ms: datetime.fromtimestamp(ms / 1000, KST).date()
 ran_today = bool(last) and kst_day(last) == kst_day(now_ms)
 if notes or not (os.environ.get("GITHUB_EVENT_NAME") == "schedule" and ran_today):
@@ -35,13 +58,13 @@ if notes or not (os.environ.get("GITHUB_EVENT_NAME") == "schedule" and ran_today
     msg = EmailMessage()
     msg["From"], msg["To"] = MAIL_FROM, MAIL_TO
     if notes:
-        msg["Subject"] = f"[해조암] 바라는 점 {len(notes)}개 ({today})"
-        msg.set_content("\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
+        msg["Subject"] = f"[해조암] {visit_short} · 바라는 점 {len(notes)}개 ({today})"
+        msg.set_content(visit_line + "\n\n" + "\n\n".join(f"· {when(n['at'])}\n{n.get('t', '')}" for n in notes) + "\n\n— www.amja.co.kr 대웅전 앞 방명록")
         items = "".join(f'<li style="margin:0 0 14px"><div style="color:#888;font-size:12px">{when(n["at"])}</div><div style="white-space:pre-wrap;font-size:15px">{escape(n.get("t", ""))}</div></li>' for n in notes)
-        msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
+        msg.add_alternative(f'<div style="font-family:sans-serif;max-width:560px"><p style="font-size:15px;margin:0 0 12px">{visit_line}</p><h2 style="font-size:17px">해조암 바라는 점 {len(notes)}개</h2><ul style="padding-left:18px">{items}</ul><p style="color:#888;font-size:12px">www.amja.co.kr 대웅전 앞 방명록</p></div>', subtype="html")
     else:
-        msg["Subject"] = f"[해조암] 새 글 없음 ({today})"
-        msg.set_content("지난번 메일 뒤로 들어온 바라는 점이 없습니다. 메일 시스템은 정상으로 돌았습니다.\n\n— www.amja.co.kr 대웅전 앞 방명록")
+        msg["Subject"] = f"[해조암] {visit_short} · 새 글 없음 ({today})"
+        msg.set_content(visit_line + "\n\n지난번 메일 뒤로 들어온 바라는 점이 없습니다. 메일 시스템은 정상으로 돌았습니다.\n\n— www.amja.co.kr 대웅전 앞 방명록")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as s:
         s.login(MAIL_FROM, os.environ["GMAIL_APP_PASSWORD"].replace(" ", ""))
         s.send_message(msg)

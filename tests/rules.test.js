@@ -109,3 +109,14 @@ test("anyone signed in can pet the dog as themselves, but not as someone else or
   assert.notEqual(await put("dogPet", { at: Date.now(), u: other.uid }, other.token), 200, "too soon after the last pet");
   assert.notEqual(await put("dogPet", null, other.token), 200, "cannot delete");
 });
+
+test("a visitor can mark only their own day, nobody can read the list, and the day must look like a date", opts, async () => {
+  const me = await signIn(), other = await signIn(), at = Date.now();
+  assert.equal(await put(`visitDays/20261105/${me.uid}`, at, me.token), 200);
+  assert.notEqual(await put(`visitDays/20261105/${other.uid}`, at, me.token), 200, "not someone else");
+  assert.notEqual(await put(`visitDays/hello/${me.uid}`, at, me.token), 200, "not a date");
+  assert.notEqual(await put(`visitDays/20261105/${me.uid}`, "x", me.token), 200, "a time, not text");
+  assert.notEqual(await put(`visitDays/20261105/${me.uid}`, at - 3600000, me.token), 200, "not an old time");
+  const read = await fetch(`${DB}/visitDays.json?${NS}&auth=${me.token}`).then((r) => r.status);
+  assert.notEqual(read, 200, "visitors cannot read the list");
+});
