@@ -1,7 +1,7 @@
 /* 바둑이·백구와 하얀 고양이의 하루. 그림은 scene/pets.js.
    서버 시계만으로 자리가 정해져 모두의 화면에서 같다. 집 앞에서 시작해 마당을 돌고 집 앞으로 돌아오기를 되풀이하고,
    해가 진 뒤 처음 집에 돌아오면 거기서 자고, 해가 뜬 뒤 그 쉬는 시간이 끝날 때 다시 나선다 (순간 이동이 없다). */
-import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL } from "./layout.js";
+import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL, COURTYARD, TEA } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 import { sunTimesKST } from "./sky.js";
 import { WALK_SPEED } from "../config.js";
@@ -9,10 +9,12 @@ import { WALK_SPEED } from "../config.js";
 const PAD = 0.4;
 const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD, ...[[11.2, 10], [11, 15.2], [25, 12], [-11.2, 9], [-11, 14.5], [-25, 9]].map(([x, z]) => ({ x, z, r: 0.5 }))];   // 법당 양옆 소나무
 const inPrayer = (p) => p.x > PRAYER.minX - PAD && p.x < PRAYER.maxX + PAD && p.z > PRAYER.minZ - PAD && p.z < PRAYER.maxZ + PAD;
-const inYard = (p) => p.x >= -24.5 && p.x <= 24.5 && p.z >= RAIL_Z + 1.2 && p.z <= 3.2;      // 법당 앞마당
-const inSide = (p) => Math.abs(p.x) >= 10.3 && Math.abs(p.x) <= 24.5 && p.z >= 3.2 && p.z <= 15.8;   // 법당 양옆 개집 둘레
+const X0 = COURTYARD.minX + 1.5, X1 = COURTYARD.maxX - 1.5;
+const inYard = (p) => p.x >= X0 && p.x <= X1 && p.z >= RAIL_Z + 1.2 && p.z <= 3.2;      // 법당 앞마당
+const inSide = (p) => p.x >= X0 && p.x <= X1 && Math.abs(p.x) >= 10.3 && p.z >= 3.2 && p.z <= 15.8;   // 법당 양옆 개집 둘레
+const inTea = (p) => p.x > TEA.x - TEA.w / 2 - PAD && p.x < TEA.x + TEA.w / 2 + PAD && p.z > TEA.door.z - PAD && p.z < TEA.z + TEA.d / 2 + PAD;   // 다실과 앞 디딤돌
 
-export const petSpotOk = (p) => (inYard(p) || inSide(p)) && !inPrayer(p) && ROUNDS.every((o) => dist2(p, o) >= (o.r + PAD) ** 2);
+export const petSpotOk = (p) => (inYard(p) || inSide(p)) && !inPrayer(p) && !inTea(p) && ROUNDS.every((o) => dist2(p, o) >= (o.r + PAD) ** 2);
 
 const HOUR = 3600, HOME_YAW = 0;                     // 집 앞에선 마당 쪽(바다 쪽)을 본다
 const CAT_POSES = ["sit", "curl"], DOG_POSES = ["sit", "lie"];
@@ -31,7 +33,7 @@ function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses }) {
   do {
     stay(range(homeRest), true);
     // 나들이마다 앞마당 한 곳을 목적지로 삼는다: 그냥 헤매면 집 둘레만 맴돈다
-    const goal = { x: -22 + rnd() * 44, z: -23 + rnd() * 25 };
+    const goal = { x: -37 + rnd() * 59, z: -23 + rnd() * 25 };
     for (let i = 0; i < legs; i++) {
       const to = pickStep(at, rnd, petSpotOk, { min: leg[0], max: leg[1], toward: goal }) || pickStep(at, rnd, petSpotOk, { min: leg[0], max: leg[1] });
       if (to) walk(to);

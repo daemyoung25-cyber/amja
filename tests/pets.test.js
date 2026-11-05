@@ -28,7 +28,7 @@ test("pets stay in the yard and round the kennel, out of halls, objects and the 
   for (const tl of [DOG, BAEK, CAT]) {
     for (let t = NOON; t < NOON + tl.total * 1000; t += 1700) {
       const a = petAt(tl, t), p = { x: a.x, z: a.z };
-      assert.ok(Math.abs(a.x) < COURTYARD.maxX && a.z < COURTYARD.maxZ);
+      assert.ok(a.x > COURTYARD.minX && a.x < COURTYARD.maxX && a.z < COURTYARD.maxZ);
       assert.ok(!insideHall(p) && !insideCave(p));
       for (const o of [...YARD, { x: STATUE.x, z: STATUE.z, r: STATUE.baseR }]) assert.ok(Math.hypot(a.x - o.x, a.z - o.z) >= o.r, `${o.kind} ${a.x},${a.z}`);
       assert.ok(!(a.x > PRAYER.minX && a.x < PRAYER.maxX && a.z > PRAYER.minZ && a.z < PRAYER.maxZ));
@@ -149,7 +149,7 @@ test("the fed animal looks at you, the patted one turns its rump to you", () => 
 });
 
 test("seoltang's house stands midway between the right wall and the cave steps, with both bowls side by side by the door", () => {
-  assert.ok(Math.abs(BAEK_KENNEL.x - (COURTYARD.minX + CAVE.x) / 2) < 1e-9);
+  assert.ok(Math.abs(BAEK_KENNEL.x - (-26 + CAVE.x) / 2) < 1e-9);   // 넓히기 전 담장과 계단의 한가운데에 그대로
   const { bowls: B, r, z, dog } = BAEK_KENNEL;
   assert.ok(B.z < z - r, "in front of the house");
   assert.ok(Math.hypot(B.x - dog.x, B.z - dog.z) < 1.3, "near the dog's spot");

@@ -1,6 +1,7 @@
 /* 암자 배치. 단위는 미터, z가 음수인 쪽이 바다(남쪽). yaw 0 = 바다를 바라봄. */
 // 앞마당(난간~법당)은 폭 52m, 깊이 32.5m: 그 전(36m×23m)의 두 배. 법당은 그대로 두고 난간을 바다 쪽으로 물렸다
-export const COURTYARD = { minX: -26, maxX: 26, minZ: -27, maxZ: 16.5 };
+// (2026-11-06) 법당을 볼 때 오른쪽(-x)으로 14m 넓혀 다실 자리를 만들었다 (-26 → -40)
+export const COURTYARD = { minX: -40, maxX: 26, minZ: -27, maxZ: 16.5 };
 export const RAIL_Z = -27;
 export const LEAN_Z = RAIL_Z + 0.6;
 export const HALL = { minX: -9, maxX: 9, minZ: 5.5, maxZ: 15.5, door: { x: 0, z: 5 } };
@@ -107,9 +108,30 @@ export const nearBongsong = (p) => Math.hypot(p.x - BONGSONG.spot.x, p.z - BONGS
 // 강아지집: 법당을 볼 때 왼쪽 뒤, 소나무 옆 빈터. 문이 마당 쪽. dog·cat은 집 앞 쉬는 자리
 export const KENNEL = { x: 15.5, z: 14, r: 0.75, dog: { x: 15.5, z: 12.6 }, cat: { x: 13.3, z: 12.8 } };
 YARD.push({ kind: "kennel", x: KENNEL.x, z: KENNEL.z, r: KENNEL.r });
-// 설탕이(백구) 집: 법당을 볼 때 오른쪽 담장과 동굴 법당 계단의 한가운데. 문 앞 한쪽에 밥그릇과 물그릇을 붙여 둔다
-export const BAEK_KENNEL = { x: (COURTYARD.minX + CAVE.x) / 2, z: 14, r: 0.75, dog: { x: (COURTYARD.minX + CAVE.x) / 2, z: 12.6 }, bowls: { x: (COURTYARD.minX + CAVE.x) / 2 + 1.1, z: 12.6, r: 0.36, gap: 0.17 } };
+// 설탕이(백구) 집: 마당을 넓히기 전 오른쪽 담장(-26)과 동굴 법당 계단의 한가운데. 문 앞 한쪽에 밥그릇과 물그릇을 붙여 둔다
+export const BAEK_KENNEL = { x: -19.75, z: 14, r: 0.75, dog: { x: -19.75, z: 12.6 }, bowls: { x: -18.65, z: 12.6, r: 0.36, gap: 0.17 } };
 YARD.push({ kind: "kennel", x: BAEK_KENNEL.x, z: BAEK_KENNEL.z, r: BAEK_KENNEL.r }, { kind: "bowls", x: BAEK_KENNEL.bowls.x, z: BAEK_KENNEL.bowls.z, r: BAEK_KENNEL.bowls.r });
+// 다실: 넓힌 마당의 바다 쪽 끝. 뒤와 양옆은 벽, 바다 쪽(앞)은 트였고 가운데 디딤돌(door)로 오른다. 방석 넷은 바다를 보고, 사이에 찻상 둘
+export const TEA = (() => {
+  const x = -33, z = -19.9, w = 8, d = 4.6, fy = 0.35, front = z - d / 2, rowZ = front + 1.2;
+  return {
+    x, z, w, d, fy, wallH: 2.5, door: { x, z: front - 0.9 },
+    inside: { minX: x - w / 2 + 0.35, maxX: x + w / 2 - 0.35, minZ: front + 0.3, maxZ: z + d / 2 - 0.4 },
+    seats: [-2.55, -0.85, 0.85, 2.55].map((dx) => ({ x: x + dx, z: rowZ })),
+    tables: [-1.7, 1.7].map((dx) => ({ x: x + dx, z: rowZ, r: 0.4 })),
+  };
+})();
+export const insideTea = (p) => p.x >= TEA.inside.minX && p.x <= TEA.inside.maxX && p.z >= TEA.inside.minZ && p.z <= TEA.inside.maxZ;
+export const teaSeatAt = (p) => TEA.seats.find((c) => Math.hypot(p.x - c.x, p.z - c.z) < 0.05) || null;
+export const TEA_SIP_SEC = 4;                         // 찻잔을 드는 시간
+// 다실 방석에 앉은 분은 자리마다 조금씩 어긋나게 11초에 한 번 찻잔을 든다: 서버 시계로만 정해져 모두의 화면에서 같다
+export function teaSipping(seat, ms) {
+  const i = TEA.seats.findIndex((c) => c.x === seat.x && c.z === seat.z);
+  return i >= 0 && ((ms / 1000 + i * 2.7) % 11) < TEA_SIP_SEC;
+}
+// 다실 안에 있을 때 카메라가 머무를 상자 (앞은 트여 조금 밖까지)
+export const TEA_ROOM = { minX: TEA.x - TEA.w / 2 + 0.25, maxX: TEA.x + TEA.w / 2 - 0.25, minZ: TEA.z - TEA.d / 2 - 1, maxZ: TEA.z + TEA.d / 2 - 0.25, maxY: TEA.fy + TEA.wallH - 0.2 };
+const inTeaBlock = (p, pad = 0) => p.x > TEA.x - TEA.w / 2 - pad && p.x < TEA.x + TEA.w / 2 + pad && p.z > TEA.z - TEA.d / 2 - pad && p.z < TEA.z + TEA.d / 2 + pad;
 export const BAERYE = { x: 0, z: 4.15 };   // 계단 앞 배례석 (밟고 지나가도 되는 납작한 돌)
 // 걸어서 비켜 가야 하는 둥근 것들: 관세음보살 받침과 앞마당 돌들
 const ROUND = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
@@ -145,14 +167,14 @@ export const insideHall = (p) => p.x >= INSIDE.minX && p.x <= INSIDE.maxX && p.z
 const SEAT_R = 0.5;
 const faceAltar = (p) => Math.atan2(-(ALTAR.x - p.x), -(ALTAR.z - p.z));
 const faceStatue = (p) => Math.atan2(-(STATUE.x - p.x), -(STATUE.z - p.z));
-const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats, ...HERMITAGE.seats];
+const SEATS = [...CUSHIONS, ...PRAYER_SEATS, ...CAVE.seats, ...HERMITAGE.seats, ...TEA.seats];
 const faceCandles = (p) => Math.atan2(-(CANDLES.x - p.x), -(CANDLES.z - p.z));
 export const nearCandles = (p) => Math.hypot(p.x - CANDLES.spot.x, p.z - CANDLES.spot.z) <= 1.8;
 export { faceCandles };
 export const faceWish = (p) => Math.atan2(-(WISH.x - p.x), -(WISH.z - p.z));
 export const nearWish = (p) => Math.hypot(p.x - WISH.spot.x, p.z - WISH.spot.z) <= 1.8;
 // 앉는 방향: 법당 안이면 부처님, 밖(기도 터)이면 해수관음
-export const faceSeat = (p) => (insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : insideHermitage(p) ? faceHermAltar(p) : faceStatue(p));
+export const faceSeat = (p) => (insideTea(p) ? 0 : insideHall(p) ? faceAltar(p) : insideCave(p) ? faceCaveAltar(p) : insideHermitage(p) ? faceHermAltar(p) : faceStatue(p));
 // 향·초 공양을 올리는 곳: 대웅전·섬 암자 안이면 향, 동굴 법당 안과 해수관음 앞(기도 터나 받침 둘레)이면 초
 const inPrayer = (p) => p.x >= PRAYER.minX && p.x <= PRAYER.maxX && p.z >= PRAYER.minZ && p.z <= PRAYER.maxZ;
 export function offerPlace(p) {
@@ -167,6 +189,8 @@ export const faceOffer = (p, k) => (k === "hall" ? faceAltar(p) : k === "herm" ?
 // 법당 받침 위는 반 미터 높고, 앞쪽 디딤돌에서 비스듬히 오른다
 const BASE = { minX: HALL.minX - 0.4, maxX: HALL.maxX + 0.4, minZ: 5.2, maxZ: HALL.maxZ + 0.3 }, STEP_Z = 4.9;
 export function floorY({ x, z }) {
+  if (inTeaBlock({ x, z })) return TEA.fy;
+  if (Math.abs(x - TEA.x) <= 2.1 && z >= TEA.door.z && z <= TEA.z - TEA.d / 2) return TEA.fy * clamp((z - (TEA.z - TEA.d / 2 - 0.7)) / 0.7, 0, 1);   // 앞 디딤돌
   if (onHermPlinth({ x, z })) return HERMITAGE.fy;
   if (Math.abs(z - HERMITAGE.z) <= 1.0 && x > HERMITAGE.plinth.maxX && x < HERMITAGE.door.x) return HERMITAGE.fy * (HERMITAGE.door.x - x) / (HERMITAGE.door.x - HERMITAGE.plinth.maxX);   // 디딤돌
   if (onIsland({ x, z })) return 0;
@@ -187,6 +211,7 @@ export function clampToWalkable({ x, z }) {
   }
   if (z > COURTYARD.maxZ && Math.abs(x - CAVE.x) <= STEP_HALF + 0.6) return { x: clamp(x, CAVE.x - STEP_HALF + 0.2, CAVE.x + STEP_HALF - 0.2), z };
   let p = { x: clamp(x, COURTYARD.minX, COURTYARD.maxX), z: clamp(z, COURTYARD.minZ, COURTYARD.maxZ) };
+  if (inTeaBlock(p)) return { x: clamp(p.x, TEA.inside.minX, TEA.inside.maxX), z: clamp(p.z, TEA.inside.minZ, TEA.inside.maxZ) };   // 다실을 누르면 안으로
   // 법당을 누르면 안으로 들어간다 (불단 앞까지)
   if (inHall(p)) {
     const q = { x: clamp(p.x, INSIDE.minX, INSIDE.maxX), z: clamp(p.z, INSIDE.minZ, INSIDE.maxZ) };
@@ -208,7 +233,7 @@ export const seatAt = (p) => SEATS.find((c) => Math.hypot(p.x - c.x, p.z - c.z) 
 export { faceAltar };
 
 export function nearestLeanSpot({ x }) {
-  let lx = clamp(x, -LEAN_X, LEAN_X);
+  let lx = clamp(x, COURTYARD.minX + 0.5, LEAN_X);
   const gap = BRIDGE.w / 2 + 0.3;                     // 다리 들머리 난간 틈엔 기대지 않는다
   if (Math.abs(lx - BRIDGE.a.x) < gap) lx = lx <= BRIDGE.a.x ? BRIDGE.a.x - gap : BRIDGE.a.x + gap;
   const dz = LEAN_Z - STATUE.z, r = STATUE.baseR + MARGIN;
@@ -241,7 +266,8 @@ const HALL_PAD = MARGIN;
 const inRound = (p, o) => Math.hypot(p.x - o.x, p.z - o.z) < o.r + MARGIN;
 const blockedByStatue = (p) => ROUND.some((o) => inRound(p, o));       // 둥근 것 아무거나
 const blockedByHall = (p) => p.x > HALL.minX - HALL_PAD && p.x < HALL.maxX + HALL_PAD && p.z > HALL.minZ - HALL_PAD && p.z < HALL.maxZ + HALL_PAD;
-const okPoint = (p) => inCourtyard(p) && !blockedByStatue(p) && !blockedByHall(p);
+const blockedByTea = (p) => inTeaBlock(p, HALL_PAD);
+const okPoint = (p) => inCourtyard(p) && !blockedByStatue(p) && !blockedByHall(p) && !blockedByTea(p);
 const len = (a, b) => Math.hypot(b.x - a.x, b.z - a.z);
 function hits(a, b, blocked) {
   const n = Math.max(2, Math.ceil(len(a, b) / 0.05));
@@ -249,7 +275,7 @@ function hits(a, b, blocked) {
   return false;
 }
 const pathLen = (a, pts) => pts.reduce((s, p, i) => s + len(i ? pts[i - 1] : a, p), 0);
-const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, blockedByStatue) && !hits(i ? pts[i - 1] : a, p, blockedByHall));
+const clear = (a, pts) => pts.every((p, i) => !hits(i ? pts[i - 1] : a, p, blockedByStatue) && !hits(i ? pts[i - 1] : a, p, blockedByHall) && !hits(i ? pts[i - 1] : a, p, blockedByTea));
 
 export function routeAround(from, to) {
   // 섬과 다리로 오가는 길: 마당 안 들머리(head) - 난간 틈(a) - 다리 - 섬 쪽 끝(b) - 섬
@@ -270,6 +296,10 @@ export function routeAround(from, to) {
   if (ca && cb) return insideCave(from) === insideCave(to) ? [to] : [CAVE.door, to];
   if (ca) return [...(insideCave(from) ? [CAVE.door] : []), CAVE.foot, ...routeAround(CAVE.foot, to)];
   if (cb) return [...routeAround(from, CAVE.foot), ...(insideCave(to) ? [CAVE.door] : []), to];
+  const ta = insideTea(from), tb = insideTea(to);     // 다실은 앞 디딤돌(door)로만 드나든다
+  if (ta && tb) return [to];
+  if (ta) return [TEA.door, ...routeAround(TEA.door, to)];
+  if (tb) return [...routeAround(from, TEA.door), TEA.door, to].filter((p, i, all) => p !== all[i - 1]);
   const a = insideHall(from), b = insideHall(to);
   const inDoorway = Math.abs(from.x) < 0.7 && from.z > HALL.door.z && from.z < DOOR_IN.z;
   if (inDoorway) return b ? [DOOR_IN, to] : [HALL.door, ...routeOutside(HALL.door, to)];
@@ -285,6 +315,10 @@ function routeOutside(from, to, depth = 0) {
   if (hits(from, to, blockedByHall)) {
     const L = { x: HALL.minX - HALL_PAD - 0.4, z: HALL.minZ - HALL_PAD - 0.4 }, R = { x: HALL.maxX + HALL_PAD + 0.4, z: L.z };
     options.push([L, to], [R, to], [L, R, to], [R, L, to]);
+  } else if (hits(from, to, blockedByTea)) {             // 다실: 네 귀퉁이로 돌아간다
+    const m = HALL_PAD + 0.4, x0 = TEA.x - TEA.w / 2 - m, x1 = TEA.x + TEA.w / 2 + m, z0 = TEA.z - TEA.d / 2 - m, z1 = TEA.z + TEA.d / 2 + m;
+    const ring = [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
+    ring.forEach((c, i) => { const n = ring[(i + 1) % 4], p = ring[(i + 3) % 4]; options.push([c, to], [c, n, to], [c, p, to]); });
   } else {
     // 둥근 것(불상 받침·석등·석탑): 길을 막는 것 가운데 가장 먼저 닿는 것을 양쪽으로 비켜 간다
     const dx = to.x - from.x, dz = to.z - from.z, L2 = dx * dx + dz * dz || 1;

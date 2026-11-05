@@ -14,6 +14,7 @@ import { createWishRack } from "./wishes.js";
 import { createBridge } from "./bridge.js";
 import { pavingMaterial } from "./paving.js";
 import { createHermitage } from "./hermitage.js";
+import { createTeahouse } from "./teahouse.js";
 import { createCave } from "./cave.js";
 import { createLandscape, boulderGeometry } from "./landscape.js";
 import { bucketTraces, TRACE_MAX } from "../logic/traces.js";
@@ -163,7 +164,8 @@ export function createWorld(THREE, scene) {
   // 마당: 막돌 박석 (paving.js, 섬 암자 터와 같은 바닥)
   const yardMat = pavingMaterial(THREE, (W + 2) / 10, (D + 2) / 10);
   const ground = add(new THREE.Mesh(new THREE.BoxGeometry(W + 2, 1, D + 2), yardMat), true);
-  ground.position.set(0, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
+  const YARD_MID_X = (COURTYARD.minX + COURTYARD.maxX) / 2;
+  ground.position.set(YARD_MID_X, -0.5, (COURTYARD.minZ + COURTYARD.maxZ) / 2 + 1);
   const rnd = mulberry32(7);
   // 난간 아래 절벽에 붙은 바위: 두 줄로 엇갈려, 꼭대기는 마당보다 낮게 (바다 보는 눈을 가리지 않게)
   const boulderMat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -181,13 +183,13 @@ export function createWorld(THREE, scene) {
   }
   const cliffBody = add(new THREE.Mesh(new THREE.BoxGeometry(W + 30, 30, 40), rockDark));
   obstacles.push(cliffBody);
-  cliffBody.position.set(0, -15.6, COURTYARD.maxZ + 15);
+  cliffBody.position.set(YARD_MID_X, -15.6, COURTYARD.maxZ + 15);
   // 마당 양옆: 낮은 돌담과 그 뒤로 솟은 산자락
   const wallMat = mat(0x8c8273), capMat = mat(0x3a3533);
-  for (const side of [-1, 1]) {
+  for (const wallX of [COURTYARD.minX - 0.5, COURTYARD.maxX + 0.5]) {
     const len = COURTYARD.maxZ - RAIL_Z;
     const sw = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, len), wallMat));
-    sw.position.set(side * (COURTYARD.maxX + 0.5), 0.5, (RAIL_Z + COURTYARD.maxZ) / 2);
+    sw.position.set(wallX, 0.5, (RAIL_Z + COURTYARD.maxZ) / 2);
     const swCap = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, len + 0.2), capMat));
     swCap.position.set(sw.position.x, 1.05, sw.position.z);
     obstacles.push(sw);
@@ -205,7 +207,7 @@ export function createWorld(THREE, scene) {
   };
   pine(-11.2, 9, 5.5); pine(-11, 14.5, 4.6); pine(11.2, 10, 5); pine(11, 15.2, 4.2);
   // 넓어진 마당 양옆 담 따라 몇 그루 더
-  pine(-25, 9, 6); pine(25, 12, 5.6); pine(-28, -5, 4.8); pine(28, 0, 5.2); pine(28, -16, 4.4); pine(-28, -21, 4.6);   // 연등 줄 아래는 담 밖으로
+  pine(-25, 9, 6); pine(25, 12, 5.6); pine(-42.5, -5, 4.8); pine(28, 0, 5.2); pine(28, -16, 4.4); pine(-42.5, -21, 4.6);   // 연등 줄 아래는 담 밖으로
 
   /* 법당: 단청 두른 처마, 붉은 기둥, 꽃살문. 가운데 문으로 들어갈 수 있다. 크기는 layout.js의 WALLS를 따른다. */
   const hall = new THREE.Group();
@@ -389,6 +391,12 @@ export function createWorld(THREE, scene) {
   scene.add(wishRack.group);
   wishRack.group.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { groundMeshes.push(o); obstacles.push(o); } });
 
+  /* 다실: 넓힌 마당의 바다 쪽 끝 */
+  const teahouse = createTeahouse(THREE);
+  scene.add(teahouse.group);
+  const teaPassable = new Set(teahouse.passable);
+  teahouse.group.traverse((o) => { if (o.isMesh) { groundMeshes.push(o); if (!teaPassable.has(o)) obstacles.push(o); } });
+
   /* 풍경: 처마 끝에 매달린 종과 물고기 */
   const chime = new THREE.Group();
   const bronze = mat(0x8a7346);
@@ -569,7 +577,7 @@ export function createWorld(THREE, scene) {
   Object.assign(sun.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, near: 40, far: 200 });
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.04;
-  const SHADOW_MID = new THREE.Vector3(0, 0, (RAIL_Z + COURTYARD.maxZ) / 2);
+  const SHADOW_MID = new THREE.Vector3(YARD_MID_X, 0, (RAIL_Z + COURTYARD.maxZ) / 2);
   sun.target.position.copy(SHADOW_MID);
   // 마당 둘레의 물건은 그림자를 드리우고 받는다. 늦게 불러오는 불상도 잡히게 1초마다 새로 온 것만 본다.
   // 사람(userData.noShadow)은 발밑 둥근 그림자로 대신한다 (움직이는 그림자는 매 프레임 비싸서)
@@ -581,7 +589,7 @@ export function createWorld(THREE, scene) {
       if (!o.isMesh || o.material.isShaderMaterial || o.material.isMeshBasicMaterial) return;
       for (let a = o; a; a = a.parent) if (a.userData.noShadow) return;
       shBox.setFromObject(o).getCenter(mid);
-      if (Math.abs(mid.x) > COURTYARD.maxX + 4 || mid.z < RAIL_Z - 5 || mid.z > 22) return;
+      if (mid.x < COURTYARD.minX - 4 || mid.x > COURTYARD.maxX + 4 || mid.z < RAIL_Z - 5 || mid.z > 22) return;
       o.castShadow = o.receiveShadow = true;
     });
   }

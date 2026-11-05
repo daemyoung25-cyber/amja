@@ -71,6 +71,8 @@ export function createUI({ placeName }) {
   function setBowCount(done, total) { const t = `${done} / ${total}`; if (bowCount.textContent !== t) bowCount.textContent = t; }
   function setNearCandles(near) { btnCandle.hidden = !near; }
   function setNearBongsong(near) { btnBongsong.hidden = !near; }
+  const btnTea = $("btn-tea");
+  function setTea(on) { btnTea.hidden = !on; }
   function setCare(a, on) { careButtons[a].hidden = !on; }
   function setNearIncense(near) { btnIncense.hidden = !near; }
   function setNearWish(near, canRead = false) {
@@ -303,7 +305,7 @@ export function createUI({ placeName }) {
   return {
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
-    onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setCare, onCare: (cb) => { for (const a of Object.keys(careButtons)) careButtons[a].addEventListener("click", () => cb(a)); }, offerShare, onShareSend: (cb) => (shareSend = cb),
+    onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setTea, onTea: (cb) => btnTea.addEventListener("click", cb), setCare, onCare: (cb) => { for (const a of Object.keys(careButtons)) careButtons[a].addEventListener("click", () => cb(a)); }, offerShare, onShareSend: (cb) => (shareSend = cb),
     openSuSheet, onSuSend: (cb) => (suSend = cb), onSuPlain: (cb) => (suPlain = cb), onSuneungButton: (cb) => btnSuneung.addEventListener("click", cb), setSuneungButton: (on) => { btnSuneung.hidden = !on; },
     setSeason: (text) => { const el = $("enter-season"); el.textContent = text; el.hidden = !text; },
     setInvite: (text) => { const el = $("enter-invite"); el.textContent = text; el.hidden = !text; }, setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),

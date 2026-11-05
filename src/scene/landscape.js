@@ -85,7 +85,7 @@ export function createLandscape(THREE, { seaY, railZ, yard, flats = [], clear = 
     const cliff = smooth(0, 1 + 11 * smooth(25, 120, Math.abs(x)), land);         // 물가 벼랑: 난간 바로 아래서 깎아지른다
     let y = seaY + (-seaY + m) * cliff + 4 * fbm(x / 9, z / 9, 3) * cliff * smooth(8, 40, d);
     // 마당과 그 둘레는 평평하게 비워 둔다 (마당 바닥 조금 아래)
-    const inYard = smooth(yard.maxX + 10, yard.maxX + 2, Math.abs(x)) * smooth(railZ - 1, railZ + 1, z) * smooth(yard.maxZ + 14, yard.maxZ + 4, z);
+    const inYard = (x < 0 ? smooth(yard.minX - 10, yard.minX - 2, x) : smooth(yard.maxX + 10, yard.maxX + 2, x)) * smooth(railZ - 1, railZ + 1, z) * smooth(yard.maxZ + 14, yard.maxZ + 4, z);
     return y + (-0.5 - y) * inYard;
   };
 
@@ -243,7 +243,7 @@ function plantTrees(THREE, { height, seaY, railZ, yard, fbm, realAt, flats, clea
   const SECTORS = 8, leaf = [], conifer = [];
   for (let i = 0; i < SECTORS; i++) { leaf.push([]); conifer.push([]); }
 
-  const inYardZone = (x, z) => Math.abs(x) < yard.maxX + 12 && z > railZ - 3 && z < yard.maxZ + 14;   // 마당 둘레는 비워 바다·산이 보이게
+  const inYardZone = (x, z) => x > yard.minX - 12 && x < yard.maxX + 12 && z > railZ - 3 && z < yard.maxZ + 14;   // 마당 둘레는 비워 바다·산이 보이게
   for (let k = 0; k < 8000; k++) {                              // 폰에서도 가볍게: 나무 약 4,700그루
     const a = rnd() * Math.PI * 2, r = 24 + 300 * Math.pow(rnd(), 1.5);
     const x = Math.sin(a) * r, z = Math.cos(a) * r;

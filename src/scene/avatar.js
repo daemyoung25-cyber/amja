@@ -33,7 +33,7 @@ function robeTexture(THREE) {
 }
 import { bowPhase, BOW108_SECONDS } from "../logic/bows.js";
 
-const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4, pet: 4, feed: 6, pat: 4 };
+const POSE_LEN = { hapjang: 2.5, bow: 11.2, light: 3.2, bow108: BOW108_SECONDS, give: 2.4, pet: 4, feed: 6, pat: 4, tea: 4 };
 
 /* 큰절(오체투지): 합장 → 반배 → 무릎 꿇기 → 두 손 바닥에 → 이마 닿기 → 손바닥 위로 귀까지(접족례)
    → 거꾸로 일어나기 → 합장 반배. 키프레임 [초, 무릎(0~1), 몸 낮춤(m), 상체 숙임(rad), 손 자리] */
@@ -155,6 +155,7 @@ export function createAvatar(THREE, { color, monk = false }) {
     moktak: [[-0.1, -0.01, -0.3], [0.13, 0.05, -0.3]],       // 왼손에 목탁, 오른손 채는 목탁 위
     feed: [[-0.22, 0.04, -0.12], [0.05, 0.3, -0.44]],        // 오른손을 내밀어 먹인다
     pat: [[-0.22, 0.04, -0.12], [0.03, 0.26, -0.44]],        // 오른손으로 궁디팡팡
+    tea: [[-0.09, 0.08, -0.26], [0.03, 0.33, -0.2]],         // 오른손 찻잔을 입가로, 왼손은 받친다
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -214,6 +215,7 @@ export function createAvatar(THREE, { color, monk = false }) {
     else if (pose === "pet") { target = hands.offer; hipTilt = -0.72; }   // 개를 쓰다듬는다
     else if (pose === "feed") { target = hands.feed; hipTilt = -0.72; }
     else if (pose === "pat") { target = hands.pat; hipTilt = -0.66; }
+    else if (pose === "tea") { target = poseT < 3.3 ? hands.tea : hands.sit; upperTilt = poseT > 0.8 && poseT < 2.6 ? -0.16 : -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "give") {                                   // 두 손으로 꾸러미를 내밀거나 받고(1.6초), 고개 숙여 인사
       target = poseT < 1.6 ? hands.offer : hands.stand;
       hipTilt = poseT < 1.6 ? -0.15 : poseT < 2.2 ? -0.3 : -0.05;
