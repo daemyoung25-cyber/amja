@@ -1,8 +1,8 @@
-# 바라는 점을 매일 아침 9시(한국)에 메일로. 새 글이 없으면 '새 글 없음'을 보낸다. 손으로 돌리려면 Actions 탭에서 Run workflow
+# 바라는 점을 매일 아침 5시 30분(한국)에 메일로. 새 글이 없으면 '새 글 없음'을 보낸다. 손으로 돌리려면 Actions 탭에서 Run workflow
 name: notes-mail
 on:
   schedule:
-    - cron: "0 0 * * *"        # UTC 0시 = 한국 9시
+    - cron: "30 20 * * *"      # UTC 20:30 = 한국 다음 날 5:30
   workflow_dispatch:
 permissions:
   contents: read
