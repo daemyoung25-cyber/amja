@@ -102,7 +102,7 @@ async function connect(config, loadSdk, me) {
     sendPose(p) { state.p = p; state.pt = now(); if (present) db.update(mine, { p, pt: state.pt }); },
     sendCarry(b) { state.b = b; if (present) db.update(mine, { b }); },   // 든 봉송 꾸러미 (보자기 색 번호 0~5)
     greet(to) { const g = { to, at: now() }; state.g = g; if (present) db.update(mine, { g }); },
-    // 동물 돌보기: petAct/{dog|baek|cat} = { at, u, a } 동물마다 하나만 덮어쓴다. 규칙이 막아도 내 화면에서는 그대로 간다
+    // 동물 돌보기: petAct/{dog|baek|cat|hwang} = { at, u, a } 동물마다 하나만 덮어쓴다. 규칙이 막아도 내 화면에서는 그대로 간다
     petAct(w, a) { Promise.resolve(db.set(db.ref(database, `petAct/${w}`), { at: now(), u: uid, a })).catch(() => {}); },
     onPetAct(cb) { db.onValue(db.ref(database, "petAct"), (snap) => cb(snap.val()), () => {}); },
     // 수험생 기도 누적: suneungCount(수만). 규칙이 기기마다 한 번만 허용한다 (suneungBy/{uid})

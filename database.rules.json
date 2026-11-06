@@ -20,6 +20,7 @@
           "tx": { ".validate": "newData.isNumber()" },
           "tz": { ".validate": "newData.isNumber()" },
           "t": { ".validate": "newData.isNumber()" },
+          "w": { ".validate": "newData.isNumber() && newData.val() >= 0" },
           "$other": { ".validate": false }
         },
         "g": {
@@ -123,7 +124,7 @@
       ".read": "auth != null",
       "$w": {
         ".write": "auth != null && newData.exists() && (!data.exists() || data.child('at').val() < now - 3000)",
-        ".validate": "newData.hasChildren(['at','u','a']) && ($w === 'dog' || $w === 'baek' || $w === 'cat')",
+        ".validate": "newData.hasChildren(['at','u','a']) && ($w === 'dog' || $w === 'baek' || $w === 'cat' || $w === 'hwang')",
         "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000" },
         "u": { ".validate": "newData.val() === auth.uid" },
         "a": { ".validate": "($w === 'cat' && (newData.val() === 'churu' || newData.val() === 'pat')) || ($w !== 'cat' && (newData.val() === 'pet' || newData.val() === 'treat'))" },

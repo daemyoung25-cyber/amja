@@ -101,7 +101,7 @@ export const faceNote = (p) => Math.atan2(-(GUESTBOOK.x - p.x), -(GUESTBOOK.z - 
 export const nearNote = (p) => Math.hypot(p.x - GUESTBOOK.spot.x, p.z - GUESTBOOK.spot.z) <= 1.2;
 // 봉송 나눔: 마당 가운데(들어오는 자리 바로 앞, 바다 쪽)에 공양주 보살님이 낮은 상을 두고 법당 쪽(+z)을 보고 서 있다.
 // 상 앞 디딤 자리(spot)에 서면 '봉송 받기'. 보살님과 상은 함께 못 들어가는 둥근 자리 하나
-export const BONGSONG = { x: 0, z: -14.9, r: 0.85, bosal: { x: 0, z: -15.25 }, table: { x: 0, z: -14.55, w: 1.1, d: 0.5, h: 0.38 }, spot: { x: 0, z: -13.55 } };
+export const BONGSONG = { x: 0, z: -14.9, r: 0.85, bosal: { x: 0, z: -15.25 }, table: { x: 0, z: -14.55, w: 1.1, d: 0.5, h: 0.38 }, spot: { x: 0, z: -13.55 }, dog: { x: -1.15, z: -15.4 } };   // dog: 황구가 앉는 보살님 곁
 YARD.push({ kind: "bongsong", x: BONGSONG.x, z: BONGSONG.z, r: BONGSONG.r });
 export const faceBongsong = (p) => Math.atan2(-(BONGSONG.bosal.x - p.x), -(BONGSONG.bosal.z - p.z));
 export const nearBongsong = (p) => Math.hypot(p.x - BONGSONG.spot.x, p.z - BONGSONG.spot.z) <= 1.2;

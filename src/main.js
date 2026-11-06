@@ -12,7 +12,7 @@ import { carePick, careSpot, careYaw, canCare, faceDog, CARE, PET_IDS } from "./
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
 import { OFFER_PLACES, liveOffers, offerLeft, pickOfferSlot, canOffer } from "./logic/offers.js";
-import { startMove, positionAt } from "./logic/walk.js";
+import { startMove, positionAt, carriedWalk } from "./logic/walk.js";
 import { createWorld } from "./scene/world.js";
 import { createAvatar, AVATAR_COLORS, POSE_SECONDS } from "./scene/avatar.js";
 import { strikeLift } from "./logic/moktak.js";
@@ -88,12 +88,12 @@ bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");
 scene.add(bosal.root);
-// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기, 바둑이, 설탕이(백구), 고양이 나비: 서버 시계로 자리가 정해져 모두의 화면에서 같다
+// 마당의 작은 새, 화분 곁 나비, 바다 위 갈매기, 바둑이, 설탕이(백구), 황구, 고양이 나비: 서버 시계로 자리가 정해져 모두의 화면에서 같다
 const critters = createCritters(THREE);
 scene.add(critters.group);
 const pets = createPets(THREE, KENNEL, BAEK_KENNEL);
 scene.add(pets.group, pets.house);
-let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕이, 나비]
+let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat, BONGSONG.dog].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕이, 나비, 황구]
 const petActs = {}, petSeen = {};   // 돌보는 중인 것 { a, until, sec, yaw }, 이미 받은 신호 시각
 let careHeldUntil = 0;
 let bosalUntil = 0, gotBongsong = false, myBundle = null;
@@ -167,8 +167,9 @@ function goTo(point, plain = false) {             // plain: 자리에 앉거나 
   if (state.base === "lean" && r.kind === "lean" && Math.abs(r.to.x - here.x) < 0.6) return;
   if (state.base === "sit" && r.kind === "sit" && seatAt(here) === seatAt(r.to)) return;
   const [first, ...rest] = routeAround(here, r.to);
+  const walked = carriedWalk(here, state.route.length);   // 경로를 바꾸기 전의 남은 길로 본다
   state.route = rest;
-  state.move = startMove(here, first, now);
+  state.move = startMove(here, first, now, walked);
   state.leanOnArrive = r.kind === "lean";
   state.sitOnArrive = r.kind === "sit";
   state.candleOnArrive = r.kind === "candle";
@@ -267,13 +268,13 @@ ui.onBongsong(() => {
     ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
   }, GIVE_SECONDS * 1000);
 });
-// 돌보기: 쓰다듬기·간식(바둑이·설탕이), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
+// 돌보기: 쓰다듬기·간식(바둑이·설탕이·황구), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
 const startPetAct = (w, a, ms, yaw) => { petActs[w] = { a, sec: CARE[a].sec, until: performance.now() + ms, yaw }; };
 ui.onCare((a) => {
   if (state.base === "walk" || state.bow108) return;
   const p = positionAt(state.move, net.now()), i = carePick(petsNow, p, a);
   if (i < 0) return;
-  const spot = careSpot(petsNow[i], p);
+  const spot = careSpot(petsNow[i], p, PET_IDS[i]);
   if (spot) { goTo(spot, true); state.careOnArrive = a; return; }   // 손이 안 닿으면 곁까지 걸어가서 준다
   doCare(a);
 });
@@ -522,7 +523,7 @@ function frame(t) {
   const p = positionAt(state.move, now);
   if (!p.arrived) state.yaw = p.yaw;
   if (p.arrived && state.base === "walk" && state.route.length) {      // 다음 경유지로
-    state.move = startMove(p, state.route.shift(), now);
+    state.move = startMove(p, state.route.shift(), now, p.walked);
     net.sendMove(state.move);
   } else if (p.arrived && state.base === "walk") {
     if (net.mode === "shared" && shouldWriteTrace(lastTraceAt, now)) {

@@ -31,6 +31,14 @@ test("presence rejects non-numeric move fields and fractional colours", opts, as
   assert.notEqual(await put(`presence/${me.uid}`, presence({ c: 2.5 }), me.token), 200);
 });
 
+test("a move may carry the distance already walked, but only as a number that is not negative", opts, async () => {
+  const me = await signIn(), m = { fx: 0, fz: 0, tx: 1, tz: 1, t: now };
+  assert.equal(await put(`presence/${me.uid}`, presence({ m: { ...m, w: 3.25 } }), me.token), 200);
+  assert.equal(await put(`presence/${me.uid}`, presence({ m }), me.token), 200, "older tabs without it still write");
+  assert.notEqual(await put(`presence/${me.uid}`, presence({ m: { ...m, w: "far" } }), me.token), 200);
+  assert.notEqual(await put(`presence/${me.uid}`, presence({ m: { ...m, w: -1 } }), me.token), 200);
+});
+
 test("greeting target must be a short string", opts, async () => {
   const me = await signIn();
   assert.notEqual(await put(`presence/${me.uid}`, presence({ g: { to: "x".repeat(200), at: now } }), me.token), 200);
@@ -127,6 +135,8 @@ test("feeding and patting signal per animal, as yourself, with the right act, no
   assert.equal(await put("petAct/cat", { at: Date.now(), u: me.uid, a: "pat" }, me.token), 200);
   assert.notEqual(await put("petAct/cat", { at: Date.now(), u: other.uid, a: "churu" }, other.token), 200, "too soon on the same animal");
   assert.equal(await put("petAct/baek", { at: Date.now(), u: other.uid, a: "treat" }, other.token), 200, "another animal is free");
+  assert.equal(await put("petAct/hwang", { at: Date.now(), u: me.uid, a: "pet" }, me.token), 200, "bori can be petted");
+  assert.notEqual(await put("petAct/hwang", { at: Date.now(), u: other.uid, a: "churu" }, other.token), 200, "bori gets no churu");
   assert.notEqual(await put("petAct/cat", null, other.token), 200, "cannot delete");
 });
 

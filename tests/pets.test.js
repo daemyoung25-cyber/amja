@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { insideHermitage } from "../src/logic/layout.js";
-import { DOG, BAEK, CAT, petAt, isAsleep, petSpotOk, canPet, carePick, careYaw, canCare, CARE, PET_NAMES, faceDog, PET_SECONDS, careSpot } from "../src/logic/pets.js";
-import { KENNEL, BAEK_KENNEL, CAVE, YARD, STATUE, PRAYER, COURTYARD, HALL, insideHall, insideCave, clampToWalkable, routeAround } from "../src/logic/layout.js";
+import { DOG, BAEK, CAT, HWANG, HWANG_ROAM, petAt, isAsleep, petSpotOk, canPet, carePick, careYaw, canCare, CARE, PET_NAMES, faceDog, PET_SECONDS, careSpot } from "../src/logic/pets.js";
+import { KENNEL, BAEK_KENNEL, BONGSONG, CAVE, YARD, STATUE, PRAYER, COURTYARD, HALL, insideHall, insideCave, clampToWalkable, routeAround } from "../src/logic/layout.js";
 import { sunTimesKST } from "../src/logic/sky.js";
 
 const kst = (y, m, d, h, min = 0) => Date.UTC(y, m - 1, d, h - 9, min);
@@ -25,7 +25,7 @@ test("the same clock gives everyone the same dog and cat", () => {
 });
 
 test("pets stay in the yard and round the kennel, out of halls, objects and the prayer cushions", () => {
-  for (const tl of [DOG, BAEK, CAT]) {
+  for (const tl of [DOG, BAEK, CAT, HWANG]) {
     for (let t = NOON; t < NOON + tl.total * 1000; t += 1700) {
       const a = petAt(tl, t), p = { x: a.x, z: a.z };
       assert.ok(a.x > COURTYARD.minX && a.x < COURTYARD.maxX && a.z < COURTYARD.maxZ);
@@ -66,7 +66,7 @@ test("at night both sleep by the kennel", () => {
 });
 
 test("going to bed at dusk and getting up at dawn have no teleport, over many days", () => {
-  for (const tl of [DOG, BAEK, CAT]) {
+  for (const tl of [DOG, BAEK, CAT, HWANG]) {
     for (let day = 0; day < 8; day++) {
       const base = kst(2026, 11, 6 + day, 0);
       const { sunrise, sunset } = sunTimesKST(new Date(base + 12 * 3600000));
@@ -86,7 +86,7 @@ test("going to bed at dusk and getting up at dawn have no teleport, over many da
 test("after dusk each comes home soon, and after dawn leaves soon", () => {
   const base = kst(2026, 11, 6, 0);
   const { sunrise, sunset } = sunTimesKST(new Date(base + 12 * 3600000));
-  for (const tl of [DOG, BAEK, CAT]) {
+  for (const tl of [DOG, BAEK, CAT, HWANG]) {
     assert.ok(isAsleep(tl, base + (sunset + 60) * 60000), "asleep within an hour of sunset");
     assert.ok(!isAsleep(tl, base + (sunrise + 60) * 60000), "up within an hour of sunrise");
   }
@@ -128,7 +128,8 @@ test("care goes to the nearest animal that can take it, and each animal has its 
   assert.equal(carePick([{ ...baduk, left: CARE.treat.sec - 1 }, { ...seol, x: 9 }, nabi], { x: 0.4, z: 0 }, "treat"), -1, "not when about to get up");
   assert.equal(carePick([{ ...baduk, left: 1e9, state: "sleep" }, seol, nabi], { x: 0.4, z: 0 }, "treat"), 0, "a sleeping dog can be woken with a treat");
   assert.ok(canCare("cat", "churu") && canCare("cat", "pat") && !canCare("cat", "treat") && !canCare("dog", "churu") && canCare("baek", "treat"));
-  assert.deepEqual(PET_NAMES, { dog: "바둑이", baek: "설탕이", cat: "나비" });
+  assert.deepEqual(PET_NAMES, { dog: "바둑이", baek: "설탕이", cat: "나비", hwang: "보리" });
+  assert.ok(canCare("hwang", "pet") && canCare("hwang", "treat") && !canCare("hwang", "churu"));
 });
 
 test("the buttons show from a few steps away, and you walk up to the animal to reach it", () => {
@@ -161,20 +162,51 @@ test("seoltang's house stands midway between the right wall and the cave steps, 
 
 test("walking up to an animal from any side ends beside it, never inside a building", () => {
   let tried = 0, bad = [];
-  for (const [name, tl] of [["dog", DOG], ["baek", BAEK], ["cat", CAT]]) {
+  for (const [name, tl] of [["dog", DOG], ["baek", BAEK], ["cat", CAT], ["hwang", HWANG]]) {
     for (const seg of tl.segs.filter((s) => s.kind === "rest")) {
       for (let k = 0; k < 16; k++) {
         const a = (k / 16) * Math.PI * 2;
         const me = clampToWalkable({ x: seg.at.x + Math.cos(a) * 2.6, z: seg.at.z + Math.sin(a) * 2.6 });
         if (insideHall(me) || insideCave(me) || insideHermitage(me) || Math.hypot(me.x - seg.at.x, me.z - seg.at.z) > 3) continue;
-        const spot = careSpot(seg.at, me);
+        const spot = careSpot(seg.at, me, name);
         if (!spot) continue;
         const to = clampToWalkable(spot), d = Math.hypot(to.x - seg.at.x, to.z - seg.at.z);
         tried++;
-        if (insideHall(to) || insideCave(to) || insideHermitage(to) || d > 1.2) bad.push([name, seg.at.x, seg.at.z, k, +d.toFixed(2)]);
+        if (insideHall(to) || insideCave(to) || insideHermitage(to) || d > (name === "hwang" ? 1.6 : 1.2)) bad.push([name, seg.at.x, seg.at.z, k, +d.toFixed(2)]);
       }
     }
   }
   assert.ok(tried > 500, `tried ${tried}`);
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} of ${tried}`);
+});
+
+test("the yellow dog stays around the temple cook and mostly sits right beside her, facing her", () => {
+  const bosal = BONGSONG.bosal, home = BONGSONG.dog;
+  assert.ok(Math.hypot(home.x - bosal.x, home.z - bosal.z) < 1.3, "beside her");
+  assert.ok(petSpotOk(home));
+  let beside = 0, walks = 0, n = 0;
+  for (let t = NOON; t < NOON + HWANG.total * 1000; t += 1700, n++) {
+    const a = petAt(HWANG, t);
+    assert.ok(Math.hypot(a.x - bosal.x, a.z - bosal.z) <= HWANG_ROAM + 0.01, `strayed to ${a.x},${a.z}`);
+    if (a.x === home.x && a.z === home.z) { beside++; assert.equal(a.pose, a.state === "sleep" ? "lie" : "sit"); assert.ok(Math.abs(a.yaw - faceDog(home, bosal)) < 1e-9, "looks at her"); }
+    if (a.state === "walk") walks++;
+  }
+  assert.ok(beside / n > 0.6, `beside her ${beside / n}`);
+  assert.ok(walks / n > 0.03, `does wander ${walks / n}`);
+});
+
+test("you stand further from the big yellow dog so your bowed head does not hit its head", () => {
+  const dog = { x: 0, z: 0 };
+  assert.equal(careSpot(dog, { x: 1.3, z: 0 }, "hwang"), null, "already a good distance");
+  const back = careSpot(dog, { x: 0.6, z: 0 }, "hwang");
+  assert.ok(Math.abs(back.x - 1.25) < 1e-9, "steps back from too close");
+  const up = careSpot(dog, { x: 0, z: 2.5 }, "hwang");
+  assert.ok(Math.abs(up.z - 1.25) < 1e-9, "walks up and stops further off");
+  assert.equal(careSpot(dog, { x: 0.6, z: 0 }, "baek"), null, "the smaller dogs stay as they were");
+});
+
+test("the yellow dog sleeps lying down beside her, not at a kennel", () => {
+  const a = petAt(HWANG, MIDNIGHT);
+  assert.equal(a.state, "sleep"); assert.equal(a.pose, "lie");
+  assert.deepEqual([a.x, a.z], [BONGSONG.dog.x, BONGSONG.dog.z]);
 });

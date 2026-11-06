@@ -357,9 +357,9 @@ export function createDog(THREE) {
 
 /* 백구: 흰 진돗개 (사용자가 준 사진 참고). 긴 다리, 깊은 가슴과 잘록한 허리, 곧게 선 굵은 목과 목털, 역삼각형 얼굴,
    작은 갈색 아몬드 눈, 크게 선 세모 귀, 끝이 황토빛인 낫 모양 꼬리 */
-export function createBaekgu(THREE) {
-  const WHITE = rgb(0xf1eadb), BELLY = rgb(0xfbf7ee), WARM = rgb(0xe2d3b6), TAN = rgb(0xd9b98a);
-  const paintBody = (x, y, z, c) => { mixC(WHITE, BELLY, sstep(-0.03, -0.08, y) * 0.7, c); mixC(c, WARM, sstep(0.05, 0.1, y) * (1 - sstep(-0.12, -0.2, z)) * 0.6, c); };
+function createJindo(THREE, { scale, coat, belly, back, tip }) {
+  const COAT = rgb(coat), BELLY = rgb(belly), WARM = rgb(back), TIP = rgb(tip);
+  const paintBody = (x, y, z, c) => { mixC(COAT, BELLY, sstep(-0.03, -0.08, y) * 0.7, c); mixC(c, WARM, sstep(0.05, 0.1, y) * (1 - sstep(-0.12, -0.2, z)) * 0.6, c); };
   const MUZ = norm([0, -0.28, -0.96]);
   const headRadius = (d) => {
     const R = 0.071 * (1 + 0.07 * Math.abs(d[0]) - 0.1 * Math.max(0, d[1]) - 0.05 * Math.max(0, -d[1]) - 0.16 * Math.max(0, d[2]));
@@ -368,11 +368,11 @@ export function createBaekgu(THREE) {
     const brow = 0.004 * (gauss(d, [0.38, 0.4, -0.83], 0.025) + gauss(d, [-0.38, 0.4, -0.83], 0.025));
     return R + muzzle + cheek + brow;
   };
-  const paintHead = (x, y, z, c) => { mixC(WHITE, BELLY, z < -0.06 && y < 0.01 ? 0.8 : 0, c); mixC(c, WARM, sstep(0.03, 0.07, y) * 0.45, c); };
+  const paintHead = (x, y, z, c) => { mixC(COAT, BELLY, z < -0.06 && y < 0.01 ? 0.8 : 0, c); mixC(c, WARM, sstep(0.03, 0.07, y) * 0.45, c); };
   const toe = [-0.192, -0.026, 0.0096];
-  const paintLeg = (x, y, z, c) => mixC(WHITE, BELLY, 0.3, c);
+  const paintLeg = (x, y, z, c) => mixC(COAT, BELLY, 0.3, c);
   return assemble(THREE, {
-    scale: 1.15,
+    scale,
     torso: [[0.25, 0, 0.012, 0.0005, 0.0005], [0.24, 0, 0.012, 0.045, 0.05], [0.19, 0, 0.012, 0.078, 0.085], [0.11, 0, 0.018, 0.071, 0.073], [0.02, 0, 0.008, 0.077, 0.087], [-0.08, 0, -0.004, 0.087, 0.106], [-0.16, 0, 0.015, 0.092, 0.108], [-0.225, 0, 0.098, 0.087, 0.102], [-0.262, 0, 0.158, 0.076, 0.086], [-0.285, 0, 0.19, 0.0005, 0.0005]],
     torsoBump: (th, a) => {       // 목둘레와 앞가슴은 털이 수북하다
       const down = sstep(-0.1, -0.8, Math.sin(th)), chest = sstep(-0.1, -0.17, a) * (1 - sstep(-0.22, -0.27, a));
@@ -391,7 +391,7 @@ export function createBaekgu(THREE) {
       keys: [[-0.012, 0, 0, 0.0005, 0.0005], [0, 0, 0, 0.038, 0.017], [0.032, 0, 0.002, 0.029, 0.013], [0.062, 0, 0.004, 0.015, 0.008], [0.08, 0, 0.005, 0.005, 0.004], [0.086, 0, 0.005, 0.0005, 0.0005]],
       inner: [[0.002, 0, -0.007, 0.0005, 0.0005], [0.008, 0, -0.007, 0.026, 0.009], [0.034, 0, -0.006, 0.018, 0.007], [0.056, 0, -0.004, 0.008, 0.004], [0.066, 0, -0.002, 0.0005, 0.0005]],
       innerC: rgb(0xe8bfb2),
-      paint: (s, x, y, z, c) => mixC(WHITE, TAN, sstep(0.01, 0.07, y) * 0.75, c),
+      paint: (s, x, y, z, c) => mixC(COAT, TIP, sstep(0.01, 0.07, y) * 0.75, c),
       rx: -0.1, ry: 0.24, rz: -0.13, happy: 0.42, flop: 0.03,
     },
     frontHip: { x: 0.052, y: -0.06, z: -0.135 }, rearHip: { x: 0.056, y: -0.055, z: 0.16 },
@@ -400,7 +400,7 @@ export function createBaekgu(THREE) {
       : [[0.03, 0, 0, 0.0005, 0.0005], [0.01, 0, 0, 0.03, 0.052], [-0.05, 0, 0.018, 0.026, 0.04], [-0.115, 0, 0.04, 0.0175, 0.022], [-0.16, 0, 0.028, 0.016, 0.018], [-0.193, 0, 0.002, 0.0205, 0.026], [-0.204, 0, -0.006, 0.0215, 0.03], [-0.211, 0, -0.006, 0.014, 0.02], [-0.213, 0, -0.006, 0.0005, 0.0005]],
     paintLeg,
     tailAt: [0, 0.06, 0.225], tailN: 5, tailSeg: 0.046, tailR: 0.032, tailTaper: 0.93,
-    paintTail: (v, c) => mixC(WHITE, TAN, sstep(0.3, 0.9, v) * 0.8, c),
+    paintTail: (v, c) => mixC(COAT, TIP, sstep(0.3, 0.9, v) * 0.8, c),
     shadow: [0.13, 0.31], stride: 10, swing: 0.5, bounce: 0.01,
     sleepHead: -0.4,
     poses: {
@@ -418,6 +418,10 @@ export function createBaekgu(THREE) {
     },
   });
 }
+
+export const createBaekgu = (THREE) => createJindo(THREE, { scale: 1.15, coat: 0xf1eadb, belly: 0xfbf7ee, back: 0xe2d3b6, tip: 0xd9b98a });
+// 황구: 같은 진돗개 몸에 누런 털, 배와 주둥이는 옅게, 등과 귀끝·꼬리끝은 짙게. 설탕이의 1.5배
+export const createHwanggu = (THREE) => createJindo(THREE, { scale: 1.15 * 1.5, coat: 0xc58a3e, belly: 0xe9d2a6, back: 0xa96f2c, tip: 0x9a6227 });
 
 export function createCat(THREE) {
   const WHITE = rgb(0xfdfaf4), SHADE = rgb(0xeee9e1), PINK = rgb(0xf0a3ac);

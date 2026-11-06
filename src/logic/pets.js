@@ -1,7 +1,7 @@
-/* 바둑이·백구와 하얀 고양이의 하루. 그림은 scene/pets.js.
+/* 바둑이·백구·황구와 하얀 고양이의 하루. 그림은 scene/pets.js.
    서버 시계만으로 자리가 정해져 모두의 화면에서 같다. 집 앞에서 시작해 마당을 돌고 집 앞으로 돌아오기를 되풀이하고,
    해가 진 뒤 처음 집에 돌아오면 거기서 자고, 해가 뜬 뒤 그 쉬는 시간이 끝날 때 다시 나선다 (순간 이동이 없다). */
-import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL, COURTYARD, TEA } from "./layout.js";
+import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL, BONGSONG, COURTYARD, TEA } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 import { sunTimesKST } from "./sky.js";
 import { WALK_SPEED } from "../config.js";
@@ -19,32 +19,33 @@ export const petSpotOk = (p) => (inYard(p) || inSide(p)) && !inPrayer(p) && !inT
 const HOUR = 3600, HOME_YAW = 0;                     // 집 앞에선 마당 쪽(바다 쪽)을 본다
 const CAT_POSES = ["sit", "curl"], DOG_POSES = ["sit", "lie"];
 
-function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses }) {
+function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses, ok = petSpotOk, homeYaw = HOME_YAW, wander = false, sleepPose = null }) {
   const rnd = mulberry32(seed), tl = makeTimeline();
   const range = ([a, b]) => a + rnd() * (b - a);
-  let at = home, yaw = HOME_YAW;
+  let at = home, yaw = homeYaw;
   const walk = (to) => {
     const len = Math.sqrt(dist2(at, to));
     yaw = headingOf(at, to);
     tl.add({ kind: "walk", from: at, to, yaw, dur: len / speed });
     at = to;
   };
-  const stay = (d, isHome = false) => tl.add({ kind: "rest", at, yaw: isHome ? HOME_YAW : yaw, dur: d, pose: isHome ? poses[1] : poses[Math.floor(rnd() * poses.length)], home: isHome });
+  const stay = (d, isHome = false) => tl.add({ kind: "rest", at, yaw: isHome ? homeYaw : yaw, dur: d, pose: isHome ? poses[1] : poses[Math.floor(rnd() * poses.length)], home: isHome });
   do {
     stay(range(homeRest), true);
     // 나들이마다 앞마당 한 곳을 목적지로 삼는다: 그냥 헤매면 집 둘레만 맴돈다
     const goal = { x: -37 + rnd() * 59, z: -23 + rnd() * 25 };
     for (let i = 0; i < legs; i++) {
-      const to = pickStep(at, rnd, petSpotOk, { min: leg[0], max: leg[1], toward: goal }) || pickStep(at, rnd, petSpotOk, { min: leg[0], max: leg[1] });
+      const to = pickStep(at, rnd, ok, { min: leg[0], max: leg[1], toward: wander ? null : goal }) || pickStep(at, rnd, ok, { min: leg[0], max: leg[1] });
       if (to) walk(to);
       stay(range(rest));
     }
     while (at !== home) {                            // 집으로: 곧게 못 가면 가까워지는 쪽으로 한 걸음씩
-      if (lineClear(at, home, petSpotOk)) { walk(home); break; }
-      const to = pickStep(at, rnd, petSpotOk, { min: 2, max: 9, toward: home }) || pickStep(at, rnd, petSpotOk, { min: 2, max: 9 });
+      if (lineClear(at, home, ok)) { walk(home); break; }
+      const to = pickStep(at, rnd, ok, { min: 2, max: 9, toward: home }) || pickStep(at, rnd, ok, { min: 2, max: 9 });
       if (to) walk(to);
     }
   } while (tl.total < 6 * HOUR);
+  tl.homeYaw = homeYaw; tl.sleepPose = sleepPose;
   tl.homes = tl.segs.filter((s) => s.home).map((s) => ({ start: s.start, end: s.start + s.dur }));
   return tl;
 }
@@ -52,6 +53,10 @@ function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses }) {
 export const DOG = buildPet({ seed: 505, home: KENNEL.dog, speed: 1.1, legs: 5, leg: [3, 9], rest: [12, 35], homeRest: [40, 90], poses: DOG_POSES });
 export const BAEK = buildPet({ seed: 717, home: BAEK_KENNEL.dog, speed: 1.25, legs: 4, leg: [4, 10], rest: [15, 40], homeRest: [50, 110], poses: DOG_POSES });
 export const CAT = buildPet({ seed: 606, home: KENNEL.cat, speed: 0.55, legs: 3, leg: [2, 6], rest: [45, 120], homeRest: [90, 180], poses: CAT_POSES });
+// 황구: 공양주 보살님 바라기. 보살님 둘레에서만 맴돌다 돌아와 곁에 앉아 보살님을 본다. 밤에도 집이 아니라 그 곁에서 잔다
+export const HWANG_ROAM = 5;
+const nearBosal = (p) => petSpotOk(p) && dist2(p, BONGSONG.bosal) <= HWANG_ROAM * HWANG_ROAM;
+export const HWANG = buildPet({ seed: 828, home: BONGSONG.dog, speed: 1.15, legs: 2, leg: [1.5, 3.5], rest: [4, 12], homeRest: [70, 170], poses: ["sit", "sit"], ok: nearBosal, homeYaw: headingOf(BONGSONG.dog, BONGSONG.bosal), wander: true, sleepPose: "lie" });
 
 // sec 이후 처음으로 집에 도착하는(또는 쉼을 마치고 떠나는) 시각(초)
 function nextHome(tl, sec, key) {
@@ -76,7 +81,7 @@ export function petAt(tl, tMs) {
   const t = tMs / 1000, { seg, e } = segAt(tl, t);
   if (isAsleep(tl, tMs)) {
     const home = tl.segs[0].at;
-    return { state: "sleep", x: home.x, z: home.z, yaw: HOME_YAW, pose: ASLEEP_POSE[tl.segs[0].pose], left: Infinity };
+    return { state: "sleep", x: home.x, z: home.z, yaw: tl.homeYaw, pose: tl.sleepPose || ASLEEP_POSE[tl.segs[0].pose], left: Infinity };
   }
   if (seg.kind === "walk") {
     const u = e / seg.dur;
@@ -95,20 +100,23 @@ export const canPet = (dog, p, sec = PET_SECONDS) => {
   const d = Math.sqrt(dist2(dog, p));
   return dog.state !== "walk" && d <= PET_RANGE && dog.left >= sec + walkUpSec(d);
 };
-// 손이 안 닿으면 걸어가 멈출 자리(내 쪽에서 동물 곁), 닿으면 null
-export function careSpot(animal, p) {
-  const d = Math.sqrt(dist2(animal, p));
-  if (d <= PET_REACH) return null;
-  const k = CARE_STOP / d;
+// 몸이 큰 황구는 숙인 머리가 겹치지 않게 조금 떨어져 선다: 너무 붙어 있으면 물러나서 준다
+const CARE_ROOM = { hwang: { reach: 1.6, stop: 1.25, near: 1.1 } };
+const ROOM = { reach: PET_REACH, stop: CARE_STOP, near: 0 };
+// 손이 안 닿거나 너무 붙어 있으면 걸어가 멈출 자리(내 쪽에서 동물 곁), 그대로 되면 null
+export function careSpot(animal, p, id) {
+  const d = Math.sqrt(dist2(animal, p)), { reach, stop, near } = CARE_ROOM[id] || ROOM;
+  if (d <= reach && d >= near) return null;
+  const k = stop / Math.max(d, 0.01);
   return { x: animal.x + (p.x - animal.x) * k, z: animal.z + (p.z - animal.z) * k };
 }
 export const faceDog = (p, dog) => headingOf(p, dog);
 // 동물 순서와 머리 위 이름, 돌보기 종류. who = 받을 수 있는 동물, sec = 걸리는 시간
-export const PET_IDS = ["dog", "baek", "cat"];
-export const PET_NAMES = { dog: "바둑이", baek: "설탕이", cat: "나비" };
+export const PET_IDS = ["dog", "baek", "cat", "hwang"];
+export const PET_NAMES = { dog: "바둑이", baek: "설탕이", cat: "나비", hwang: "보리" };
 export const CARE = {
-  pet: { who: ["dog", "baek"], sec: PET_SECONDS, pose: "pet" },
-  treat: { who: ["dog", "baek"], sec: 5, pose: "feed", item: 1.1 },   // item: 손에 든 것이 입으로 들어가는 때까지
+  pet: { who: ["dog", "baek", "hwang"], sec: PET_SECONDS, pose: "pet" },
+  treat: { who: ["dog", "baek", "hwang"], sec: 5, pose: "feed", item: 1.1 },   // item: 손에 든 것이 입으로 들어가는 때까지
   churu: { who: ["cat"], sec: 6, pose: "feed", item: 6 },
   pat: { who: ["cat"], sec: 4, pose: "pat" },
 };

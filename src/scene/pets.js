@@ -1,7 +1,7 @@
 /* 강아지집과 바둑이·백구·하얀 고양이 배치. 몸은 scene/beasts.js, 움직임은 logic/pets.js.
    동물은 움직이는 그림자 대신 발밑 둥근 그림자를 쓰고, 누르기·카메라 충돌에 걸리지 않는다. 강아지집은 마당 물건처럼 그림자를 드리운다. */
-import { DOG, BAEK, CAT, petAt, PET_NAMES } from "../logic/pets.js";
-import { createDog, createBaekgu, createCat } from "./beasts.js";
+import { DOG, BAEK, CAT, HWANG, petAt, PET_NAMES } from "../logic/pets.js";
+import { createDog, createBaekgu, createHwanggu, createCat } from "./beasts.js";
 
 // 옹기 밥그릇(사료)과 백자 물그릇
 function createBowls(THREE, { x, z, gap }) {
@@ -65,8 +65,8 @@ export function createPets(THREE, kennel, baekKennel) {
   const house = new THREE.Group();
   house.add(createKennel(THREE, kennel), createKennel(THREE, baekKennel), createBowls(THREE, baekKennel.bowls));
 
-  const dog = createDog(THREE), baek = createBaekgu(THREE), cat = createCat(THREE);
-  group.add(dog.root, baek.root, cat.root);
+  const dog = createDog(THREE), baek = createBaekgu(THREE), cat = createCat(THREE), hwang = createHwanggu(THREE);
+  group.add(dog.root, baek.root, cat.root, hwang.root);
 
   // 머리 위 이름표: 사람 이름표와 같은 모양으로 조금 작게
   const nameTag = (text) => {
@@ -83,11 +83,11 @@ export function createPets(THREE, kennel, baekKennel) {
     s.scale.set(0.96, 0.24, 1); s.renderOrder = 10; group.add(s);
     return s;
   };
-  const tags = { dog: nameTag(PET_NAMES.dog), baek: nameTag(PET_NAMES.baek), cat: nameTag(PET_NAMES.cat) };
-  const TAG_Y = { dog: 0.72, baek: 0.9, cat: 0.6 };
+  const tags = { dog: nameTag(PET_NAMES.dog), baek: nameTag(PET_NAMES.baek), cat: nameTag(PET_NAMES.cat), hwang: nameTag(PET_NAMES.hwang) };
+  const TAG_Y = { dog: 0.72, baek: 0.9, cat: 0.6, hwang: 1.35 };
 
-  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 상태 [바둑이, 설탕이, 나비]를 돌려준다 (돌보기 버튼이 본다)
-  // acts: { dog|baek|cat: { a, until, sec, yaw } } 돌보는 중인 것 (until은 performance.now 기준)
+  // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 상태 [바둑이, 설탕이, 나비, 황구]를 돌려준다 (돌보기 버튼이 본다)
+  // acts: { dog|baek|cat|hwang: { a, until, sec, yaw } } 돌보는 중인 것 (until은 performance.now 기준)
   function update(dt, tMs, acts = {}) {
     const now = performance.now();
     const drive = (id, beast, tl) => {
@@ -96,9 +96,9 @@ export function createPets(THREE, kennel, baekKennel) {
       tags[id].position.set(s.x, TAG_Y[id], s.z);
       return s;
     };
-    return [drive("dog", dog, DOG), drive("baek", baek, BAEK), drive("cat", cat, CAT)];
+    return [drive("dog", dog, DOG), drive("baek", baek, BAEK), drive("cat", cat, CAT), drive("hwang", hwang, HWANG)];
   }
-  return { group, house, update, dog, baek, cat, tags };
+  return { group, house, update, dog, baek, cat, hwang, tags };
 }
 
 // 손에 드는 것: 뼈다귀 모양 간식, 츄르 봉지
