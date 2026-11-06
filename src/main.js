@@ -26,7 +26,7 @@ import { CREDITS } from "./credits.js";
 import { createPresence } from "./net/presence.js";
 import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
 import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
-import { nameTag, whoTag, cleanName, cleanSex } from "./logic/name.js";
+import { nameTag, whoTag, greeting, cleanName, cleanSex } from "./logic/name.js";
 import { SESSION_KEY, packSession, readSession } from "./logic/session.js";
 import { FIREBASE } from "../firebase-config.js";
 
@@ -93,7 +93,7 @@ const critters = createCritters(THREE);
 scene.add(critters.group);
 const pets = createPets(THREE, KENNEL, BAEK_KENNEL);
 scene.add(pets.group, pets.house);
-let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕, 나비]
+let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕이, 나비]
 const petActs = {}, petSeen = {};   // 돌보는 중인 것 { a, until, sec, yaw }, 이미 받은 신호 시각
 let careHeldUntil = 0;
 let bosalUntil = 0, gotBongsong = false, myBundle = null;
@@ -267,7 +267,7 @@ ui.onBongsong(() => {
     ui.showWhisper(`봉송을 받았어요 · ${pack.text}`);
   }, GIVE_SECONDS * 1000);
 });
-// 돌보기: 쓰다듬기·간식(바둑이·설탕), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
+// 돌보기: 쓰다듬기·간식(바둑이·설탕이), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
 const startPetAct = (w, a, ms, yaw) => { petActs[w] = { a, sec: CARE[a].sec, until: performance.now() + ms, yaw }; };
 ui.onCare((a) => {
   if (state.base === "walk" || state.bow108) return;
@@ -677,6 +677,13 @@ ui.onEnter(async (name, sex) => {
   audio.start();
   ui.showHintOnce();
   if (invite) ui.showWhisper(`${SHARE_PLACES[invite.place].kind === "wish" ? "소원걸이" : SHARE_PLACES[invite.place].kind === "incense" ? "부처님" : "촛불"} 앞이에요. 함께 마음을 모아 주세요`, 6000);
+  // 공양주 보살님의 인사: 내 화면에만. 초대받아 다른 자리에 왔으면 보살님이 안 보이니 위쪽 알림으로, 잠깐 떠났다 이어 들어오면 하지 않는다
+  if (invite) ui.notify(`공양주 보살님: ${greeting(name, sex)}`, 6000);
+  else if (!resumed) {
+    const here = positionAt(state.move, net.now());   // 내 몸과 이름표에 가리지 않게 보살님을 1m쯤 옆에 두고 본다
+    state.yaw = faceBongsong(here) + Math.atan2(1, Math.hypot(here.x - BONGSONG.bosal.x, here.z - BONGSONG.bosal.z)); rig.turnTo(state.yaw);
+    setTimeout(() => { bosal.say(greeting(name, sex), 5.5); bosalDo("hapjang", 2.6); }, 1400);   // 들어가기 화면이 걷힌 뒤
+  }
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;

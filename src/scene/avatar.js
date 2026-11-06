@@ -169,19 +169,49 @@ export function createAvatar(THREE, { color, monk = false }) {
     tagText = text;
     if (tag) { root.remove(tag); tag.material.map.dispose(); tag.material.dispose(); tag = null; }
     if (!text) return;
-    const c = document.createElement("canvas"); c.width = 512; c.height = 128;
+    const c = document.createElement("canvas"); c.height = 128;
     const g = c.getContext("2d");
-    g.font = '600 64px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    const font = '600 64px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    g.font = font;
+    const w = g.measureText(text).width + 56;
+    c.width = Math.max(512, Math.ceil(w) + 12);       // 긴 이름은 글자를 줄이지 않고 표를 넓힌다 (폭을 바꾸면 글꼴 설정이 지워진다)
+    g.font = font;
     g.textAlign = "center"; g.textBaseline = "middle";
-    const w = Math.min(500, g.measureText(text).width + 56);
     g.fillStyle = "rgba(20,22,36,0.55)";
-    g.beginPath(); g.roundRect((512 - w) / 2, 14, w, 100, 50); g.fill();
-    g.fillStyle = "#f8f3e8"; g.fillText(text, 256, 66);
+    g.beginPath(); g.roundRect((c.width - w) / 2, 14, w, 100, 50); g.fill();
+    g.fillStyle = "#f8f3e8"; g.fillText(text, c.width / 2, 66);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    tag.scale.set(1.2, 0.3, 1);
+    tag.scale.set(1.2 * c.width / 512, 0.3, 1);
     tag.renderOrder = 10;
     root.add(tag);
+  }
+
+  // 말풍선: 잠깐 떠서 머리 위에 있다가 옅어진다. 다른 것에 가려지지 않는다.
+  let bubble = null, bubbleFrom = 0, bubbleTo = 0;
+  function dropBubble() { if (bubble) { root.remove(bubble); bubble.material.map.dispose(); bubble.material.dispose(); bubble = null; } }
+  function say(text, sec = 5) {
+    dropBubble();
+    const c = document.createElement("canvas"); c.width = 1024; c.height = 200;
+    const g = c.getContext("2d");
+    const font = (px) => `600 ${px}px "Apple SD Gothic Neo","Noto Sans KR",sans-serif`;
+    let px = 76;
+    g.font = font(px);
+    const room = 930, wide = g.measureText(text).width;
+    if (wide > room) { px = Math.floor(px * room / wide); g.font = font(px); }
+    const w = Math.min(1016, g.measureText(text).width + 72);
+    g.fillStyle = "rgba(250,245,232,0.96)";
+    g.beginPath(); g.roundRect((1024 - w) / 2, 8, w, 150, 60); g.fill();
+    g.beginPath(); g.moveTo(490, 154); g.lineTo(534, 154); g.lineTo(512, 192); g.closePath(); g.fill();   // 말꼬리
+    g.fillStyle = "#2b2a33"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(text, 512, 86);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
+    bubble.scale.set(2.6, 0.508, 1);
+    bubble.position.y = 2.02;
+    bubble.renderOrder = 11;
+    root.add(bubble);
+    bubbleFrom = performance.now(); bubbleTo = bubbleFrom + sec * 1000;
   }
 
   // 앉으면 보이는 포갠 다리: 넓적한 무릎과 정강이 (서 있을 땐 0으로 줄여 숨긴다)
@@ -242,6 +272,11 @@ export function createAvatar(THREE, { color, monk = false }) {
     legs.position.z = 0.12 * (1 - sitK) * kneelK;
     shadow.scale.setScalar(1 + 0.35 * sitK);
     if (tag) tag.position.y = 1.55 + body.position.y;
+    if (bubble) {
+      const now = performance.now();
+      if (now >= bubbleTo) dropBubble();
+      else bubble.material.opacity = Math.min(1, (now - bubbleFrom) / 350, (bubbleTo - now) / 700);
+    }
     handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
     if (pose === "pat") handR.position.y = target[1][1] + Math.abs(Math.sin(t * 8)) * 0.13;   // 팡팡
@@ -269,7 +304,7 @@ export function createAvatar(THREE, { color, monk = false }) {
   }
 
   update(0);
-  return { root, setPose, setSeated, setName, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
+  return { root, setPose, setSeated, setName, say, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

@@ -18,3 +18,5 @@ export const cleanSex = (v) => (v === "m" ? "m" : "f");   // m: 남(처사), f: 
 export const nameTag = (name, sex) => (name && !nameProblem(name) ? `${name}${cleanSex(sex) === "m" ? "처사" : "보살"}` : "");
 // 알림 글머리: "연화보살님이" 또는 "누군가"
 export const whoTag = (name, sex) => { const t = nameTag(name, sex); return t ? `${t}님이` : "누군가"; };
+// 들어올 때 공양주 보살님의 인사: "연화보살님, 어서오세요~"
+export const greeting = (name, sex) => { const t = nameTag(name, sex); return t ? `${t}님, 어서오세요~` : "어서오세요~"; };

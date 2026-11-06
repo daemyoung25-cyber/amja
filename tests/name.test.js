@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanName, nameTag, cleanSex, nameProblem, whoTag } from "../src/logic/name.js";
+import { cleanName, nameTag, cleanSex, nameProblem, whoTag, greeting } from "../src/logic/name.js";
 
 test("a Korean name of one to eight syllables is accepted (spaces trimmed)", () => {
   assert.equal(cleanName(" 연화 "), "연화");
@@ -38,4 +38,10 @@ test("someone else's bad name is not shown: no tag, and notices say 누군가", 
   assert.equal(whoTag("두툼한보지살", "f"), "누군가");
   assert.equal(whoTag("연화", "f"), "연화보살님이");
   assert.equal(whoTag("", "m"), "누군가");
+});
+
+test("공양주 보살님 calls you by name and title when you come in", () => {
+  assert.equal(greeting("연화", "f"), "연화보살님, 어서오세요~");
+  assert.equal(greeting("법운", "m"), "법운처사님, 어서오세요~");
+  assert.equal(greeting("두툼한보지살", "f"), "어서오세요~");
 });

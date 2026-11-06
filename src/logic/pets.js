@@ -105,7 +105,7 @@ export function careSpot(animal, p) {
 export const faceDog = (p, dog) => headingOf(p, dog);
 // 동물 순서와 머리 위 이름, 돌보기 종류. who = 받을 수 있는 동물, sec = 걸리는 시간
 export const PET_IDS = ["dog", "baek", "cat"];
-export const PET_NAMES = { dog: "바둑이", baek: "설탕", cat: "나비" };
+export const PET_NAMES = { dog: "바둑이", baek: "설탕이", cat: "나비" };
 export const CARE = {
   pet: { who: ["dog", "baek"], sec: PET_SECONDS, pose: "pet" },
   treat: { who: ["dog", "baek"], sec: 5, pose: "feed", item: 1.1 },   // item: 손에 든 것이 입으로 들어가는 때까지

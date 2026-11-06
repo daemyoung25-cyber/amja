@@ -128,7 +128,7 @@ test("care goes to the nearest animal that can take it, and each animal has its 
   assert.equal(carePick([{ ...baduk, left: CARE.treat.sec - 1 }, { ...seol, x: 9 }, nabi], { x: 0.4, z: 0 }, "treat"), -1, "not when about to get up");
   assert.equal(carePick([{ ...baduk, left: 1e9, state: "sleep" }, seol, nabi], { x: 0.4, z: 0 }, "treat"), 0, "a sleeping dog can be woken with a treat");
   assert.ok(canCare("cat", "churu") && canCare("cat", "pat") && !canCare("cat", "treat") && !canCare("dog", "churu") && canCare("baek", "treat"));
-  assert.deepEqual(PET_NAMES, { dog: "바둑이", baek: "설탕", cat: "나비" });
+  assert.deepEqual(PET_NAMES, { dog: "바둑이", baek: "설탕이", cat: "나비" });
 });
 
 test("the buttons show from a few steps away, and you walk up to the animal to reach it", () => {
