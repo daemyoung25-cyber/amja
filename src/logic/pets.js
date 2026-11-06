@@ -1,6 +1,7 @@
 /* 바둑이·백구·황구와 하얀 고양이의 하루. 그림은 scene/pets.js.
    서버 시계만으로 자리가 정해져 모두의 화면에서 같다. 집 앞에서 시작해 마당을 돌고 집 앞으로 돌아오기를 되풀이하고,
-   해가 진 뒤 처음 집에 돌아오면 거기서 자고, 해가 뜬 뒤 그 쉬는 시간이 끝날 때 다시 나선다 (순간 이동이 없다). */
+   밤 12시 정각이 되면 어디에 있든 곧장 돌아가 집 안으로 들어가 자고(나비는 바둑이 집, 보리는 집 없이 보살님 곁),
+   해가 뜬 뒤 그 쉬는 시간이 끝날 때 다시 나선다 (순간 이동이 없다). */
 import { RAIL_Z, YARD, STATUE, PRAYER, KENNEL, BAEK_KENNEL, BONGSONG, COURTYARD, TEA } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 import { sunTimesKST } from "./sky.js";
@@ -19,7 +20,23 @@ export const petSpotOk = (p) => (inYard(p) || inSide(p)) && !inPrayer(p) && !inT
 const HOUR = 3600, HOME_YAW = 0;                     // 집 앞에선 마당 쪽(바다 쪽)을 본다
 const CAT_POSES = ["sit", "curl"], DOG_POSES = ["sit", "lie"];
 
-function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses, ok = petSpotOk, homeYaw = HOME_YAW, wander = false, sleepPose = null }) {
+// 집 안 자리(bed)로 들어가는 길: 문 앞을 거쳐 들어간다 (벽을 뚫지 않게)
+const bedSteps = (bed) => [{ x: bed.x, z: bed.z - 0.85 }, { x: bed.x, z: bed.z }];
+// 점들을 잇는 걷는 길. 구간마다 걸리는 시간이 붙는다
+function pathOf(tl, pts) {
+  const legs = []; let dur = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const sec = Math.sqrt(dist2(pts[i - 1], pts[i])) / tl.speed;
+    if (sec > 0) { legs.push({ from: pts[i - 1], to: pts[i], start: dur, dur: sec }); dur += sec; }
+  }
+  return { legs, dur };
+}
+function alongPath(path, e) {
+  const leg = path.legs.find((l) => e < l.start + l.dur) || path.legs[path.legs.length - 1], u = Math.min(1, (e - leg.start) / leg.dur);
+  return { state: "walk", x: leg.from.x + (leg.to.x - leg.from.x) * u, z: leg.from.z + (leg.to.z - leg.from.z) * u, yaw: headingOf(leg.from, leg.to), pose: "walk", left: 0 };
+}
+
+function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses, ok = petSpotOk, homeYaw = HOME_YAW, wander = false, sleepPose = null, bed = null }) {
   const rnd = mulberry32(seed), tl = makeTimeline();
   const range = ([a, b]) => a + rnd() * (b - a);
   let at = home, yaw = homeYaw;
@@ -45,14 +62,15 @@ function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses, ok = pe
       if (to) walk(to);
     }
   } while (tl.total < 6 * HOUR);
-  tl.homeYaw = homeYaw; tl.sleepPose = sleepPose;
+  Object.assign(tl, { homeYaw, sleepPose, seed, speed, ok, bed, nights: new Map() });
+  tl.wakeUp = bed && pathOf(tl, [...bedSteps(bed)].reverse().concat(home));
   tl.homes = tl.segs.filter((s) => s.home).map((s) => ({ start: s.start, end: s.start + s.dur }));
   return tl;
 }
 
-export const DOG = buildPet({ seed: 505, home: KENNEL.dog, speed: 1.1, legs: 5, leg: [3, 9], rest: [12, 35], homeRest: [40, 90], poses: DOG_POSES });
-export const BAEK = buildPet({ seed: 717, home: BAEK_KENNEL.dog, speed: 1.25, legs: 4, leg: [4, 10], rest: [15, 40], homeRest: [50, 110], poses: DOG_POSES });
-export const CAT = buildPet({ seed: 606, home: KENNEL.cat, speed: 0.55, legs: 3, leg: [2, 6], rest: [45, 120], homeRest: [90, 180], poses: CAT_POSES });
+export const DOG = buildPet({ seed: 505, home: KENNEL.dog, speed: 1.1, legs: 5, leg: [3, 9], rest: [12, 35], homeRest: [40, 90], poses: DOG_POSES, bed: KENNEL });
+export const BAEK = buildPet({ seed: 717, home: BAEK_KENNEL.dog, speed: 1.25, legs: 4, leg: [4, 10], rest: [15, 40], homeRest: [50, 110], poses: DOG_POSES, bed: BAEK_KENNEL });
+export const CAT = buildPet({ seed: 606, home: KENNEL.cat, speed: 0.55, legs: 3, leg: [2, 6], rest: [45, 120], homeRest: [90, 180], poses: CAT_POSES, bed: KENNEL });
 // 황구: 공양주 보살님 바라기. 보살님 둘레에서만 맴돌다 돌아와 곁에 앉아 보살님을 본다. 밤에도 집이 아니라 그 곁에서 잔다
 export const HWANG_ROAM = 5;
 const nearBosal = (p) => petSpotOk(p) && dist2(p, BONGSONG.bosal) <= HWANG_ROAM * HWANG_ROAM;
@@ -66,23 +84,44 @@ function nextHome(tl, sec, key) {
 }
 
 const DAY = 86400000, KST = 9 * 3600000;
-export function isAsleep(tl, tMs) {
-  const dayStart = Math.floor((tMs + KST) / DAY) * DAY - KST;
-  const { sunrise, sunset } = sunTimesKST(new Date(tMs));
-  const rise = dayStart + sunrise * 60000, set = dayStart + sunset * 60000;
-  if (tMs >= set) return tMs / 1000 >= nextHome(tl, set / 1000, "start");
-  if (tMs < rise) return tMs / 1000 >= nextHome(tl, (set - DAY) / 1000, "start");
-  return tMs / 1000 < nextHome(tl, rise / 1000, "end");
+const midnightOf = (tMs) => Math.floor((tMs + KST) / DAY) * DAY - KST;
+// 그날 일어나는 시각: 해가 뜬 뒤 첫 쉬는 시간이 끝날 때
+const wakeOf = (tl, tMs) => nextHome(tl, (midnightOf(tMs) + sunTimesKST(new Date(tMs)).sunrise * 60000) / 1000, "end") * 1000;
+// 밤 12시부터 일어날 때까지 (돌아가는 길과 나오는 길을 포함)
+export const isAsleep = (tl, tMs) => tMs < wakeOf(tl, tMs);
+
+// 12시 정각 자리에서 집까지의 길. 그날 날짜를 씨앗으로 삼아 모두의 화면에서 같다
+function nightPath(tl, mid) {
+  if (tl.nights.has(mid)) return tl.nights.get(mid);
+  const rnd = mulberry32(tl.seed ^ Math.floor(mid / DAY)), home = tl.segs[0].at, s = dayAt(tl, mid / 1000);
+  const pts = [{ x: s.x, z: s.z }];
+  let at = pts[0];
+  for (let i = 0; i < 40 && !lineClear(at, home, tl.ok); i++) {
+    const to = pickStep(at, rnd, tl.ok, { min: 2, max: 9, toward: home }) || pickStep(at, rnd, tl.ok, { min: 2, max: 9 });
+    if (to) { pts.push(to); at = to; }
+  }
+  pts.push(home);
+  if (tl.bed) pts.push(...bedSteps(tl.bed));
+  const path = pathOf(tl, pts);
+  tl.nights.clear(); tl.nights.set(mid, path);
+  return path;
 }
 
 const ASLEEP_POSE = { [DOG_POSES[1]]: "lie", [CAT_POSES[1]]: "curl" };
 
 export function petAt(tl, tMs) {
-  const t = tMs / 1000, { seg, e } = segAt(tl, t);
-  if (isAsleep(tl, tMs)) {
-    const home = tl.segs[0].at;
-    return { state: "sleep", x: home.x, z: home.z, yaw: tl.homeYaw, pose: tl.sleepPose || ASLEEP_POSE[tl.segs[0].pose], left: Infinity };
-  }
+  if (!isAsleep(tl, tMs)) return dayAt(tl, tMs / 1000);
+  const mid = midnightOf(tMs), night = nightPath(tl, mid), sinceMid = (tMs - mid) / 1000;
+  if (sinceMid < night.dur) return alongPath(night, sinceMid);
+  const toWake = (wakeOf(tl, tMs) - tMs) / 1000;
+  if (tl.wakeUp && toWake <= tl.wakeUp.dur) return alongPath(tl.wakeUp, tl.wakeUp.dur - toWake);
+  const spot = tl.bed || tl.segs[0].at;
+  return { state: "sleep", x: spot.x, z: spot.z, yaw: tl.homeYaw, pose: tl.sleepPose || ASLEEP_POSE[tl.segs[0].pose], left: Infinity, inside: !!tl.bed };
+}
+
+// 깨어 있는 때의 일정
+function dayAt(tl, t) {
+  const { seg, e } = segAt(tl, t);
   if (seg.kind === "walk") {
     const u = e / seg.dur;
     return { state: "walk", x: seg.from.x + (seg.to.x - seg.from.x) * u, z: seg.from.z + (seg.to.z - seg.from.z) * u, yaw: seg.yaw, pose: "walk", left: 0 };
@@ -98,7 +137,7 @@ const CARE_STOP = 0.85;                              // 걸어가서 멈추는 �
 const walkUpSec = (d) => (d <= PET_REACH ? 0 : (d - CARE_STOP) / WALK_SPEED + 1);   // 1초는 둘러 가는 여유
 export const canPet = (dog, p, sec = PET_SECONDS) => {
   const d = Math.sqrt(dist2(dog, p));
-  return dog.state !== "walk" && d <= PET_RANGE && dog.left >= sec + walkUpSec(d);
+  return dog.state !== "walk" && !dog.inside && d <= PET_RANGE && dog.left >= sec + walkUpSec(d);
 };
 // 몸이 큰 황구는 숙인 머리가 겹치지 않게 조금 떨어져 선다: 너무 붙어 있으면 물러나서 준다
 const CARE_ROOM = { hwang: { reach: 1.6, stop: 1.25, near: 1.1 } };

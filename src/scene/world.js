@@ -1,4 +1,5 @@
 /* 암자 풍경: 하늘, 바다, 절벽, 마당, 법당(안까지), 연등, 풍경, 난간, 관세음보살. 전부 코드로 만든 로우폴리. */
+import { LAMPS, LAMP_COLOR, lampPower, MOON_LIGHT, SKY_LIGHT } from "../logic/lamps.js";
 import { COURTYARD, RAIL_Z, HALL, STATUE, CHIME, ALTAR, CUSHIONS, WALLS, FLOOR_Y, CEILING_Y, YARD, BAERYE, PRAYER, PRAYER_BAERYE, PRAYER_SEATS, CANDLES, WISH, CAVE, BRIDGE, ISLAND, floorY } from "../logic/layout.js";
 import { skyAt, sunTimesKST } from "../logic/sky.js";
 import { createBuddha } from "./buddha.js";
@@ -571,6 +572,8 @@ export function createWorld(THREE, scene) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444033, 0.8);
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   scene.add(hemi, sun, sun.target);
+  // 밤 등불: 낮에는 세기 0. 켜고 끌 때 셰이더를 다시 만들지 않도록 늘 그대로 둔다
+  const lamps = LAMPS.map((l) => { const p = new THREE.PointLight(LAMP_COLOR, 0, l.reach, 1.6); p.position.set(l.x, l.y, l.z); scene.add(p); return p; });
   // 해(달) 그림자: 마당과 법당 둘레 72m 네모만 (가운데를 마당 가운데로). 그림자 지도는 1초에 한 번만 다시 그린다 (main.js)
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -623,8 +626,9 @@ export function createWorld(THREE, scene) {
 
     sun.position.copy(dir).multiplyScalar(100).add(SHADOW_MID);
     sun.color.setRGB(...(isNight ? [0.55, 0.6, 0.8] : s.sun));
-    sun.intensity = isNight ? 0.25 : 0.3 + 1.5 * s.light;              // 햇빛을 세게, 하늘빛(hemi)은 줄여 그림자가 또렷하게
-    hemi.intensity = 0.25 + 0.5 * s.light;
+    sun.intensity = isNight ? 0.25 + MOON_LIGHT * night : 0.3 + 1.5 * s.light;              // 햇빛을 세게, 하늘빛(hemi)은 줄여 그림자가 또렷하게
+    hemi.intensity = 0.25 + 0.5 * s.light + SKY_LIGHT * night;
+    lamps.forEach((p, i) => { p.intensity = lampPower(LAMPS[i], night); });
     hemi.color.setRGB(...s.sky).lerp(tmp.setRGB(1, 1, 1), 0.5);
     scene.fog.color.setRGB(...s.horizon).multiplyScalar(1 - 0.75 * night);   // 밤엔 먼 산이 푸르스름하게 뜨지 않게
     // 먼 산 그림: 낮엔 제 빛깔, 해 뜨고 질 땐 햇빛 물, 밤엔 푸르스름한 어둠
@@ -636,6 +640,7 @@ export function createWorld(THREE, scene) {
     rack.setNight(night);
     hallIncense.setNight(night); gwanCandles.setNight(night);
     if (hermitage.incense) hermitage.incense.setNight(night);
+    hermitage.setNight(night);
     candleLight.intensity = 5 + 7 * night;
   }
 

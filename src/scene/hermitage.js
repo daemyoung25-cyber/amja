@@ -230,6 +230,15 @@ export function createHermitage(THREE) {
     const gm = new THREE.Mesh(gGeo, mat(0x7a2a20, { side: THREE.DoubleSide }));
     gm.rotation.y = Math.PI / 2; gm.position.set(sx * (XG + cell / 2), FY + WH + 0.28, 0); hall.add(gm);
   }
+  // 처마 등 한 쌍: 문 양옆 기둥 앞에 매단 종이 등. 해가 지면 밝아진다 (빛은 logic/lamps.js)
+  const paper = mat(0xf0e2c0, { emissive: 0xffb060, emissiveIntensity: 0 }), cord = mat(0x3a2a20);
+  const lampGeo = new THREE.SphereGeometry(0.17, 12, 10), capGeo = new THREE.CylinderGeometry(0.07, 0.09, 0.05, 8);
+  for (const sx of [-1, 1]) {
+    const lx = sx * 1.1, lz = D / 2 + 0.45, ly = FY + WH - 0.15;
+    const l = new THREE.Mesh(lampGeo, paper); l.scale.y = 1.15; l.position.set(lx, ly, lz); hall.add(l);
+    for (const dy of [-0.2, 0.2]) { const c = new THREE.Mesh(capGeo, cord); c.position.set(lx, ly + dy, lz); hall.add(c); }
+    box(0.015, FY + WH + 0.3 - (ly + 0.2), 0.015, cord, lx, (FY + WH + 0.3 + ly + 0.2) / 2, lz);
+  }
   // 용마루와 양끝 치미
   const ridgeMat = mat(0x24413e);
   box(2 * XG + 0.3, 0.26, 0.3, ridgeMat, 0, FY + WH + 0.28 + H + 0.08, 0);
@@ -237,5 +246,5 @@ export function createHermitage(THREE) {
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 5), ridgeMat);
     tip.position.set(sx * (XG + 0.1), FY + WH + 0.28 + H + 0.35, 0); tip.rotation.z = -sx * 0.35; hall.add(tip);
   }
-  return { group, setStatue, incense };
+  return { group, setStatue, incense, setNight: (night) => { paper.emissiveIntensity = 1.3 * night; } };
 }

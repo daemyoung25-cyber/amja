@@ -6,7 +6,7 @@ import { KENNEL, BAEK_KENNEL, BONGSONG, CAVE, YARD, STATUE, PRAYER, COURTYARD, H
 import { sunTimesKST } from "../src/logic/sky.js";
 
 const kst = (y, m, d, h, min = 0) => Date.UTC(y, m - 1, d, h - 9, min);
-const NOON = kst(2026, 11, 6, 12), MIDNIGHT = kst(2026, 11, 7, 0);
+const NOON = kst(2026, 11, 6, 12), MIDNIGHT = kst(2026, 11, 7, 0), DEEP_NIGHT = kst(2026, 11, 7, 1);
 
 test("the kennel stands left of the hall when facing it, at the back, and people walk round it", () => {
   assert.ok(KENNEL.x > HALL.maxX && KENNEL.z > (HALL.minZ + HALL.maxZ) / 2 && KENNEL.z < COURTYARD.maxZ);
@@ -54,15 +54,28 @@ test("the cat mostly rests, walking only now and then", () => {
   assert.ok(rests / n > 0.8, `rests ${rests / n}`);
 });
 
-test("at night both sleep by the kennel", () => {
-  const d = petAt(DOG, MIDNIGHT), c = petAt(CAT, MIDNIGHT);
-  assert.equal(d.state, "sleep"); assert.equal(c.state, "sleep");
-  assert.deepEqual([d.x, d.z], [KENNEL.dog.x, KENNEL.dog.z]);
-  assert.deepEqual([c.x, c.z], [KENNEL.cat.x, KENNEL.cat.z]);
-  assert.equal(d.pose, "lie"); assert.equal(c.pose, "curl");
-  const b = petAt(BAEK, MIDNIGHT);
-  assert.equal(b.state, "sleep"); assert.equal(b.pose, "lie");
-  assert.deepEqual([b.x, b.z], [BAEK_KENNEL.dog.x, BAEK_KENNEL.dog.z]);
+test("after midnight the dogs and the cat are asleep inside the houses (the cat shares the dog's)", () => {
+  const d = petAt(DOG, DEEP_NIGHT), c = petAt(CAT, DEEP_NIGHT), b = petAt(BAEK, DEEP_NIGHT);
+  for (const a of [d, c, b]) { assert.equal(a.state, "sleep"); assert.equal(a.inside, true); }
+  assert.deepEqual([d.x, d.z], [KENNEL.x, KENNEL.z]);
+  assert.deepEqual([c.x, c.z], [KENNEL.x, KENNEL.z]);
+  assert.deepEqual([b.x, b.z], [BAEK_KENNEL.x, BAEK_KENNEL.z]);
+  assert.equal(canPet(d, { x: KENNEL.x, z: KENNEL.z - 1 }), false, "nobody can reach in to pet them");
+});
+
+test("everyone is up until 11:59 pm, and heads straight home at midnight, in bed within a couple of minutes", () => {
+  for (const [name, tl] of [["dog", DOG], ["baek", BAEK], ["cat", CAT], ["hwang", HWANG]]) {
+    for (let d = 0; d < 8; d++) {
+      const mid = kst(2026, 11, 7 + d, 0);
+      assert.equal(isAsleep(tl, mid - 60000), false, `${name} awake at 11:59`);
+      assert.notEqual(petAt(tl, mid - 60000).state, "sleep");
+      assert.equal(isAsleep(tl, mid), true, `${name} going to bed at midnight`);
+      assert.equal(petAt(tl, mid + 5 * 60000).state, "sleep", `${name} asleep by five past`);
+    }
+  }
+  let moving = 0, n = 0;
+  for (let t = kst(2026, 11, 6, 22); t < MIDNIGHT; t += 4000, n++) if (petAt(BAEK, t).state === "walk") moving++;
+  assert.ok(moving / n > 0.1, `still walking late in the evening ${moving / n}`);
 });
 
 test("going to bed at dusk and getting up at dawn have no teleport, over many days", () => {
@@ -70,7 +83,7 @@ test("going to bed at dusk and getting up at dawn have no teleport, over many da
     for (let day = 0; day < 8; day++) {
       const base = kst(2026, 11, 6 + day, 0);
       const { sunrise, sunset } = sunTimesKST(new Date(base + 12 * 3600000));
-      for (const edge of [sunrise, sunset]) {
+      for (const edge of [sunrise, sunset, 1440]) {
         const c = base + edge * 60000;
         let prev = petAt(tl, c - 60000);
         for (let t = c - 59500; t < c + 40 * 60000; t += 500) {
@@ -83,11 +96,11 @@ test("going to bed at dusk and getting up at dawn have no teleport, over many da
   }
 });
 
-test("after dusk each comes home soon, and after dawn leaves soon", () => {
+test("they stay up after dusk, and after dawn leave soon", () => {
   const base = kst(2026, 11, 6, 0);
   const { sunrise, sunset } = sunTimesKST(new Date(base + 12 * 3600000));
   for (const tl of [DOG, BAEK, CAT, HWANG]) {
-    assert.ok(isAsleep(tl, base + (sunset + 60) * 60000), "asleep within an hour of sunset");
+    assert.ok(!isAsleep(tl, base + (sunset + 60) * 60000), "still up an hour after sunset");
     assert.ok(!isAsleep(tl, base + (sunrise + 60) * 60000), "up within an hour of sunrise");
   }
 });
@@ -206,7 +219,7 @@ test("you stand further from the big yellow dog so your bowed head does not hit 
 });
 
 test("the yellow dog sleeps lying down beside her, not at a kennel", () => {
-  const a = petAt(HWANG, MIDNIGHT);
-  assert.equal(a.state, "sleep"); assert.equal(a.pose, "lie");
+  const a = petAt(HWANG, DEEP_NIGHT);
+  assert.equal(a.state, "sleep"); assert.equal(a.pose, "lie"); assert.ok(!a.inside, "she stays in sight");
   assert.deepEqual([a.x, a.z], [BONGSONG.dog.x, BONGSONG.dog.z]);
 });

@@ -94,6 +94,7 @@ export function createPets(THREE, kennel, baekKennel) {
       const s = petAt(tl, tMs), act = acts[id], on = act && act.until > now;
       beast.update(dt, on ? { ...s, yaw: act.yaw } : s, on ? act.a : null, on ? act.sec - (act.until - now) / 1000 : 0);
       tags[id].position.set(s.x, TAG_Y[id], s.z);
+      beast.root.visible = tags[id].visible = !s.inside;   // 집 안에 들어가 자는 동안은 보이지 않는다
       return s;
     };
     return [drive("dog", dog, DOG), drive("baek", baek, BAEK), drive("cat", cat, CAT), drive("hwang", hwang, HWANG)];
