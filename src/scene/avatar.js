@@ -80,7 +80,7 @@ function vestTexture(THREE) {
    관절 둘짜리 사슬로 잇는다 (손발이 가면 팔꿈치·무릎이 저절로 굽는다). robe를 주면 스님 법복, 없으면 조끼 차림 */
 function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR, materials, robe = null }) {
   const mat = (c, o = {}) => { const m = new THREE.MeshLambertMaterial({ color: c, transparent: true, ...o }); materials.push(m); return m; };
-  const shirt = robe ? mat(color) : mat(0xf6f4ee), pants = mat(color, { side: THREE.DoubleSide }), rubber = mat(0xf7f6f1), inner = mat(0xc9c6bd), vest = mat(0xffffff, { map: vestTexture(THREE), side: THREE.DoubleSide });
+  const shirt = robe ? mat(color, { side: THREE.DoubleSide }) : mat(0xf6f4ee, { side: THREE.DoubleSide }), pants = mat(color, { side: THREE.DoubleSide }), rubber = mat(0xf7f6f1), inner = mat(0xc9c6bd), vest = mat(0xffffff, { map: vestTexture(THREE), side: THREE.DoubleSide });
   const mesh = (geo, m, parent, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
 
   // 머리를 조금 줄이고 올려 목이 보이게 한다 (얼굴은 머리에 붙은 채로)
@@ -119,12 +119,12 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
   }
 
   // 팔: upper 틀에서 어깨 → 팔꿈치 → 손. 긴 소매
-  const ARM = 0.185, SHOULDER = { x: 0.168, y: 0.13, z: 0 };
-  const upperGeo = limbGeo(0.052, 0.046), foreGeo = limbGeo(0.046, 0.039);
+  const ARM = 0.185, SHOULDER = { x: 0.155, y: 0.122, z: 0 };
+  const armBag = (pts) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 12);
+  const upperGeo = armBag([[0.0005, 0], [0.04, 0.05], [0.052, 0.2], [0.048, 0.55], [0.04, 1]]), foreGeo = armBag([[0.04, 0], [0.04, 0.2], [0.032, 0.75], [0.027, 1]]);
   const arms = [[-1, handL], [1, handR]].map(([sx, hand]) => {
-    ball(0.062, shirt, upper).position.set(sx * SHOULDER.x, SHOULDER.y, SHOULDER.z);
-    hand.scale.setScalar(0.86);
-    return { sx, hand, up: mesh(upperGeo, shirt, upper), fore: mesh(foreGeo, shirt, upper), elbow: ball(0.046, shirt, upper) };
+    hand.scale.setScalar(0.82);
+    return { sx, hand, up: mesh(upperGeo, shirt, upper), fore: mesh(foreGeo, shirt, upper), elbow: ball(0.0395, shirt, upper) };
   });
 
   // 고무신: 앞코가 살짝 들린 배 모양, 위는 트여 있다. 원점이 발목, 앞이 -z
@@ -176,7 +176,7 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
       b.copy(arm.hand.position);
       dir.subVectors(b, a);
       if (dir.length() > ARM * 2) { b.copy(a).addScaledVector(dir, (ARM * 2) / dir.length()); arm.hand.position.copy(b); }
-      hint.set(arm.sx * 0.7, -0.5, 0.5);
+      hint.set(arm.sx * 0.55, -0.45, 0.6);
       joint(a, b, ARM, ARM, hint, j);
       arm.elbow.position.copy(j);
       lay(arm.up, a, j); lay(arm.fore, j, b);
@@ -270,7 +270,7 @@ export function createAvatar(THREE, { color, monk = false }) {
   let pose = "stand", poseT = 0, poseAt = performance.now(), t = Math.random() * 10;
   let seated = false, sitK = 0, kneelK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
   const hands = {
-    stand: [[-0.225, -0.19, -0.02], [0.225, -0.19, -0.02]],
+    stand: [[-0.235, -0.205, -0.02], [0.235, -0.205, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
     offer: [[-0.06, 0.3, -0.42], [0.06, 0.3, -0.42]],        // 두 손으로 초를 받쳐 앞으로
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
