@@ -56,6 +56,12 @@ export function createTeahouse(THREE) {
     box(0.16, 0.12, D, timber, sx * (W / 2 - 0.15), FY + 1.0, 0);                      // 옆벽 가운데 띠
   }
 
+  // 벽 위 둘레 도리: 벽과 지붕 사이가 뜨지 않게 처마 밑까지 막는다
+  const PLATE = 0.28;
+  box(W + 0.16, PLATE, 0.2, timber, 0, FY + WH + PLATE / 2 - 0.02, -D / 2 + 0.12);
+  box(W + 0.16, PLATE, 0.2, timber, 0, FY + WH + PLATE / 2 - 0.02, D / 2 - 0.1);
+  for (const sx of [-1, 1]) box(0.2, PLATE, D, timber, sx * (W / 2 - 0.02), FY + WH + PLATE / 2 - 0.02, 0);
+
   /* 천장 */
   const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.1, D - 0.1), mat(0xb8956a, { emissive: 0x5a4630 }));   // 아래를 보는 면은 빛을 못 받아 스스로 밝게 (까맣게 뭉치지 않게)
   ceiling.rotation.x = Math.PI / 2; ceiling.position.y = FY + WH - 0.02; group.add(ceiling); passable.push(ceiling);

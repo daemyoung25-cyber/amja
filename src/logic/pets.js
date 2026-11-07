@@ -62,6 +62,11 @@ function buildPet({ seed, home, speed, legs, leg, rest, homeRest, poses, ok = pe
       if (to) walk(to);
     }
   } while (tl.total < 6 * HOUR);
+  return finishPet(tl, { home, homeYaw, sleepPose, seed, speed, ok, bed });
+}
+
+// 일정표를 마무리한다: 밤에 돌아가는 길과 아침에 나오는 길에 쓸 값을 붙인다 (동자승도 쓴다)
+export function finishPet(tl, { home, homeYaw, sleepPose, seed, speed, ok, bed }) {
   Object.assign(tl, { homeYaw, sleepPose, seed, speed, ok, bed, nights: new Map() });
   tl.wakeUp = bed && pathOf(tl, [...bedSteps(bed)].reverse().concat(home));
   tl.homes = tl.segs.filter((s) => s.home).map((s) => ({ start: s.start, end: s.start + s.dur }));

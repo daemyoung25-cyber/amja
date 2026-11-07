@@ -6,6 +6,7 @@ import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
 import { makeTeaCup } from "./scene/teahouse.js";
 import { createPets, makeCareItem } from "./scene/pets.js";
+import { createNovices } from "./scene/novices.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
 import { carePick, careSpot, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
@@ -93,6 +94,8 @@ const critters = createCritters(THREE);
 scene.add(critters.group);
 const pets = createPets(THREE, KENNEL, BAEK_KENNEL);
 scene.add(pets.group, pets.house);
+const novices = createNovices(THREE);
+scene.add(novices.group);
 let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat, BONGSONG.dog].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕이, 나비, 황구]
 const petActs = {}, petSeen = {};   // 돌보는 중인 것 { a, until, sec, yaw }, 이미 받은 신호 시각
 let careHeldUntil = 0;
@@ -580,6 +583,7 @@ function frame(t) {
   bosal.update(dt);
   critters.update(dt, sharedNow());
   petsNow = pets.update(dt, sharedNow(), petActs);
+  novices.update(dt, sharedNow(), camera.position);
   if (careHeldUntil && (performance.now() >= careHeldUntil || !state.gestureUntil)) { careHeldUntil = 0; me.hold(myBundle != null ? makeBundle(THREE, CLOTHS[myBundle]) : null, "hang"); }   // 먹인 것을 내려놓고 들고 있던 꾸러미로
   ui.setTea(state.base === "sit" && !state.bow108 && !state.gestureUntil && !!teaSeatAt(p));
   const outdoors = !insideHall(p) && !insideCave(p) && !insideHermitage(p) && !insideTea(p);   // 벽 너머 동물에게는 버튼이 뜨지 않게
@@ -620,7 +624,11 @@ function drawOthers(now, mePos, dt) {
     if (!o) {
       o = { avatar: createAvatar(THREE, { color: AVATAR_COLORS[peer.c % AVATAR_COLORS.length] }), gone: 0 };
       // 이미 계시던 분들 말고, 내가 들어온 뒤에 새로 오신 분만 알린다
-      if (performance.now() - joinedAt > 4000) ui.notify(`${whoTag(peer.n, peer.h)} 들어오셨어요`);
+      if (performance.now() - joinedAt > 4000) {
+        ui.notify(`${whoTag(peer.n, peer.h)} 들어오셨어요`);
+        const uid = peer.uid, n = peer.n, h = peer.h;           // 새로 오신 분께도 달려간다 (이름으로 정해 어느 화면에서나 같은 동자승)
+        setTimeout(() => { const v = () => { const q = others.get(uid); return q && !q.gone ? q.avatar.root.position : null; }; novices.greet(v, n, h, sharedNow()); }, 1500);
+      }
       scene.add(o.avatar.root);
       others.set(peer.uid, o);
     }
@@ -688,6 +696,7 @@ ui.onEnter(async (name, sex) => {
     const here = positionAt(state.move, net.now());   // 내 몸과 이름표에 가리지 않게 보살님을 1m쯤 옆에 두고 본다
     state.yaw = faceBongsong(here) + Math.atan2(1, Math.hypot(here.x - BONGSONG.bosal.x, here.z - BONGSONG.bosal.z)); rig.turnTo(state.yaw);
     setTimeout(() => { bosal.say(greeting(name, sex), 5.5); bosalDo("hapjang", 2.6); }, 1400);   // 들어가기 화면이 걷힌 뒤
+    setTimeout(() => novices.greet(() => positionAt(state.move, net.now()), name, sex, sharedNow()), 3200);   // 동자승 하나가 달려와 말을 건다
   }
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
@@ -792,4 +801,4 @@ function adopt(p) {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, renderer, scene, get petsNow() { return petsNow; }, petActs, ui };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, novices, renderer, scene, get petsNow() { return petsNow; }, petActs, ui };
