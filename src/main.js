@@ -83,7 +83,7 @@ scene.add(monk.root);
 const bongTable = createBongsongTable(THREE, BONGSONG);
 scene.add(bongTable.group);
 world.groundMeshes.push(bongTable.hit);
-const bosal = createAvatar(THREE, { color: 0xa8957f });
+const bosal = createAvatar(THREE, { color: 0xa8a69e });
 bosal.root.position.set(BONGSONG.bosal.x, 0, BONGSONG.bosal.z);
 bosal.root.rotation.y = Math.PI;
 bosal.setName("공양주 보살님");

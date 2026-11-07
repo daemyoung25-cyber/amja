@@ -420,8 +420,8 @@ function createJindo(THREE, { scale, coat, belly, back, tip }) {
 }
 
 export const createBaekgu = (THREE) => createJindo(THREE, { scale: 1.15, coat: 0xf1eadb, belly: 0xfbf7ee, back: 0xe2d3b6, tip: 0xd9b98a });
-// 황구: 같은 진돗개 몸에 누런 털, 배와 주둥이는 옅게, 등과 귀끝·꼬리끝은 짙게. 설탕이의 1.5배
-export const createHwanggu = (THREE) => createJindo(THREE, { scale: 1.15 * 1.5, coat: 0xc58a3e, belly: 0xe9d2a6, back: 0xa96f2c, tip: 0x9a6227 });
+// 황구: 같은 진돗개 몸에 누런 털, 배와 주둥이는 옅게, 등과 귀끝·꼬리끝은 짙게. 설탕이의 1.2배
+export const createHwanggu = (THREE) => createJindo(THREE, { scale: 1.15 * 1.2, coat: 0xc58a3e, belly: 0xe9d2a6, back: 0xa96f2c, tip: 0x9a6227 });
 
 export function createCat(THREE) {
   const WHITE = rgb(0xfdfaf4), SHADE = rgb(0xeee9e1), PINK = rgb(0xf0a3ac);

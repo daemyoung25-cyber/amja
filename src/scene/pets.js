@@ -84,7 +84,7 @@ export function createPets(THREE, kennel, baekKennel) {
     return s;
   };
   const tags = { dog: nameTag(PET_NAMES.dog), baek: nameTag(PET_NAMES.baek), cat: nameTag(PET_NAMES.cat), hwang: nameTag(PET_NAMES.hwang) };
-  const TAG_Y = { dog: 0.72, baek: 0.9, cat: 0.6, hwang: 1.35 };
+  const TAG_Y = { dog: 0.72, baek: 0.9, cat: 0.6, hwang: 1.08 };
 
   // 서버 시계(tMs)로 지금 자리를 읽어 그리고, 상태 [바둑이, 설탕이, 나비, 황구]를 돌려준다 (돌보기 버튼이 본다)
   // acts: { dog|baek|cat|hwang: { a, until, sec, yaw } } 돌보는 중인 것 (until은 performance.now 기준)

@@ -1,8 +1,8 @@
-/* 사람 캐릭터: 머리·목·몸·팔·다리·손·발이 있다 (buildBody). 옷은 흰 상의에 회색 조끼, 바지, 흰 고무신.
+/* 사람 캐릭터: 머리·목·몸·팔·다리·손·발이 있다 (buildBody). 옷은 절 생활복: 흰 상의에 허벅지까지 오는 넉넉한 회색 조끼, 발목을 오므린 통 넓은 회색 바지, 흰 고무신. 큰 머리에 짧은 목.
    스님만 회색 법복에 흰 동정, 밤색 가사와 염주 차림이다.
    얼굴은 부처님처럼 눈을 지그시 감고 인자하게 미소 짓는다. (동자승 아님, 머리카락 있음)
    모델 정면은 -z이고, root.rotation.y = yaw (walk.js와 같은 규칙). */
-export const AVATAR_COLORS = [0x4a4f5a, 0x5a5348, 0x3f4650, 0x625a4d, 0x505560, 0x48443d];   // 바지 색 (보안 규칙상 6가지)
+export const AVATAR_COLORS = [0xa8a69e, 0xb0aea6, 0x9f9d96, 0xaba89e, 0xa3a39d, 0xb3b0a8];   // 바지 회색 (보안 규칙상 6가지)
 
 /* 법복 무늬: 흰 동정(V자)과 왼어깨에서 오른 옆구리로 두른 밤색 가사를 옷 표면에 그린다.
    캡슐 UV는 u=0이 등(+z), 0.25가 오른쪽(+x), 0.5가 앞(-z), 0.75가 왼쪽(-x). v=1이 위. 색은 재질 색과 곱해진다. */
@@ -53,26 +53,24 @@ function bowAt(sec) {
   return { kneel: mix(a[1], b[1]), drop: mix(a[2], b[2]), tilt: mix(a[3], b[3]), from: a[4], to: b[4], e };
 }
 
-/* 조끼 무늬: 캡슐 UV는 u=0이 등(+z), 0.5가 앞(-z), v=1이 위. 앞은 V로 트여 흰 상의가 보이고, 밑단 아래와 진동 둘레도 흰 상의다 */
+/* 조끼 무늬: 회전체 UV는 u=0이 등(+z), 0.5가 앞(-z), v=1이 목. 앞은 V로 트여 흰 상의가 보이고, 가운데 여밈에 매듭 단추, 양옆 아래 주머니 */
 let vestTex = null;
 function vestTexture(THREE) {
   if (vestTex) return vestTex;
   const S = 256, c = document.createElement("canvas"); c.width = c.height = S;
   const g = c.getContext("2d");
   const P = (u, v) => [u * S, (1 - v) * S];
-  const poly = (pts, color) => { g.fillStyle = color; g.beginPath(); pts.forEach(([u, v], i) => (i ? g.lineTo(...P(u, v)) : g.moveTo(...P(u, v)))); g.closePath(); g.fill(); };
-  const SHIRT = "#f6f4ee", VEST = "#a3a6ab", EDGE = "#74777c";
+  const line = (pts) => { g.beginPath(); pts.forEach(([u, v], i) => (i ? g.lineTo(...P(u, v)) : g.moveTo(...P(u, v)))); g.stroke(); };
+  const VEST = "#aeaca4", EDGE = "#7f7d76", SHIRT = "#f6f4ee";
   g.fillStyle = VEST; g.fillRect(0, 0, S, S);
-  g.fillStyle = SHIRT; g.fillRect(0, (1 - 0.2) * S, S, 0.2 * S);                        // 밑단 아래로 나온 상의
-  g.fillRect(0, 0, S, 0.07 * S);                                                         // 목둘레
-  poly([[0.39, 1], [0.61, 1], [0.5, 0.46]], SHIRT);                                      // 앞 V
+  g.fillStyle = SHIRT; g.beginPath(); g.moveTo(...P(0.4, 1)); g.lineTo(...P(0.6, 1)); g.lineTo(...P(0.5, 0.66)); g.closePath(); g.fill();   // 앞 V
   g.strokeStyle = EDGE; g.lineWidth = 3;
-  g.beginPath(); g.moveTo(...P(0.39, 0.93)); g.lineTo(...P(0.5, 0.46)); g.lineTo(...P(0.61, 0.93)); g.stroke();
-  g.beginPath(); g.moveTo(...P(0.5, 0.46)); g.lineTo(...P(0.5, 0.2)); g.stroke();
-  g.beginPath(); g.moveTo(0, (1 - 0.2) * S); g.lineTo(S, (1 - 0.2) * S); g.stroke();
-  g.fillStyle = "#3f4145";
-  for (const v of [0.4, 0.31, 0.24]) { g.beginPath(); g.arc(...P(0.515, v), 3, 0, Math.PI * 2); g.fill(); }   // 단추
-  for (const u of [0.25, 0.75]) { g.fillStyle = SHIRT; g.beginPath(); g.ellipse(u * S, (1 - 0.78) * S, 0.05 * S, 0.12 * S, 0, 0, Math.PI * 2); g.fill(); }   // 진동 둘레
+  line([[0.4, 1], [0.5, 0.66], [0.6, 1]]);
+  line([[0.5, 0.66], [0.5, 0]]);                                                       // 여밈
+  line([[0, 0.03], [1, 0.03]]);                                                        // 밑단
+  for (const u of [0.37, 0.56]) line([[u, 0.3], [u + 0.07, 0.3], [u + 0.07, 0.1], [u, 0.1], [u, 0.3]]);   // 주머니
+  g.fillStyle = "#6a6862";
+  for (const v of [0.6, 0.5, 0.4]) { g.beginPath(); g.arc(...P(0.5, v), 3.5, 0, Math.PI * 2); g.fill(); }   // 매듭 단추
   vestTex = new THREE.CanvasTexture(c);
   vestTex.colorSpace = THREE.SRGBColorSpace;
   return vestTex;
@@ -82,23 +80,27 @@ function vestTexture(THREE) {
    관절 둘짜리 사슬로 잇는다 (손발이 가면 팔꿈치·무릎이 저절로 굽는다). robe를 주면 스님 법복, 없으면 조끼 차림 */
 function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR, materials, robe = null }) {
   const mat = (c, o = {}) => { const m = new THREE.MeshLambertMaterial({ color: c, transparent: true, ...o }); materials.push(m); return m; };
-  const shirt = robe ? mat(color) : mat(0xf6f4ee), pants = mat(color), rubber = mat(0xf7f6f1), inner = mat(0xc9c6bd), vest = robe || mat(0xffffff, { map: vestTexture(THREE) });
+  const shirt = robe ? mat(color) : mat(0xf6f4ee), pants = mat(color, { side: THREE.DoubleSide }), rubber = mat(0xf7f6f1), inner = mat(0xc9c6bd), vest = mat(0xffffff, { map: vestTexture(THREE), side: THREE.DoubleSide });
   const mesh = (geo, m, parent, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
 
   // 머리를 조금 줄이고 올려 목이 보이게 한다 (얼굴은 머리에 붙은 채로)
-  const headGroup = new THREE.Group(), HEAD_S = 0.88;
+  const headGroup = new THREE.Group(), HEAD_S = 0.98;
   for (const c of [...upper.children]) if (c !== handL && c !== handR) headGroup.add(c);
   headGroup.scale.setScalar(HEAD_S);
-  headGroup.position.y = 0.42 * (1 - HEAD_S) + 0.025;
+  headGroup.position.y = 0.42 * (1 - HEAD_S) + 0.005;
   upper.add(headGroup);
-  mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.17, 10), skinMat, upper, 0, 0.215, 0);
+  mesh(new THREE.CylinderGeometry(0.062, 0.07, 0.08, 10), skinMat, upper, 0, 0.2, 0);
   if (!robe) { const collar = mesh(new THREE.TorusGeometry(0.073, 0.018, 6, 14), shirt, upper, 0, 0.16, -0.003); collar.rotation.x = Math.PI / 2 - 0.12; }
 
   // 몸통: 엉덩이 관절 기준. 조끼 무늬를 입힌 캡슐
-  const torso = mesh(new THREE.CapsuleGeometry(0.15, 0.2, 5, 16), vest, hip, 0, 0.195, 0);
+  const torso = mesh(new THREE.CapsuleGeometry(0.15, 0.2, 5, 16), robe || shirt, hip, 0, 0.195, 0);
   torso.scale.set(1.05, 1, 0.78);
+  if (!robe) {                                       // 허벅지까지 오는 넉넉한 조끼 (엉덩이 관절 기준 높이)
+    const coat = mesh(new THREE.LatheGeometry([[0.222, -0.09], [0.208, 0.02], [0.186, 0.14], [0.176, 0.27], [0.15, 0.38], [0.082, 0.45]].map(([r, y]) => new THREE.Vector2(r, y)), 24), vest, hip);
+    coat.scale.z = 0.8;
+  }
   const pelvis = mesh(new THREE.SphereGeometry(1, 12, 9), pants, body, 0, 0.325, 0);
-  pelvis.scale.set(0.158, 0.1, 0.125);
+  pelvis.scale.set(0.178, 0.105, 0.14);
 
   const limbGeo = (r0, r1) => { const g = new THREE.CylinderGeometry(r1, r0, 1, 10, 1, true); g.translate(0, 0.5, 0); return g; };
   const ball = (r, m, parent) => mesh(new THREE.SphereGeometry(r, 10, 8), m, parent);
@@ -117,7 +119,7 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
   }
 
   // 팔: upper 틀에서 어깨 → 팔꿈치 → 손. 긴 소매
-  const ARM = 0.235, SHOULDER = { x: 0.175, y: 0.135, z: 0 };
+  const ARM = 0.185, SHOULDER = { x: 0.168, y: 0.13, z: 0 };
   const upperGeo = limbGeo(0.052, 0.046), foreGeo = limbGeo(0.046, 0.039);
   const arms = [[-1, handL], [1, handR]].map(([sx, hand]) => {
     ball(0.062, shirt, upper).position.set(sx * SHOULDER.x, SHOULDER.y, SHOULDER.z);
@@ -136,9 +138,10 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
   };
   // 다리: root 틀에서 엉덩이 → 무릎 → 발목 (몸이 내려가도 발은 바닥에 남는다)
   const THIGH = 0.15, SHIN = 0.15, HIP = { x: 0.085, y: 0.33 }, ANKLE = 0.065;
-  const thighGeo = limbGeo(0.074, 0.06), shinGeo = limbGeo(0.058, 0.05);
+  const bag = (pts) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 12);   // 위에서 아래로 뻗는 통: y 0~1
+  const thighGeo = bag([[0.092, 0], [0.097, 0.5], [0.09, 1]]), shinGeo = bag([[0.088, 0], [0.092, 0.45], [0.08, 0.75], [0.052, 0.95], [0.042, 1]]);   // 발목을 오므린 바지
   const legs = [-1, 1].map((sx) => {
-    const g = { sx, thigh: mesh(thighGeo, pants, root), shin: mesh(shinGeo, pants, root), knee: ball(0.06, pants, root), hipBall: ball(0.074, pants, root), cuff: ball(0.051, pants, root), shoe: makeShoe() };
+    const g = { sx, thigh: mesh(thighGeo, pants, root), shin: mesh(shinGeo, pants, root), knee: ball(0.088, pants, root), hipBall: ball(0.092, pants, root), cuff: ball(0.044, pants, root), shoe: makeShoe() };
     root.add(g.shoe);
     return g;
   });
@@ -171,6 +174,8 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
     for (const arm of arms) {
       a.set(arm.sx * SHOULDER.x, SHOULDER.y, SHOULDER.z);
       b.copy(arm.hand.position);
+      dir.subVectors(b, a);
+      if (dir.length() > ARM * 2) { b.copy(a).addScaledVector(dir, (ARM * 2) / dir.length()); arm.hand.position.copy(b); }
       hint.set(arm.sx * 0.7, -0.5, 0.5);
       joint(a, b, ARM, ARM, hint, j);
       arm.elbow.position.copy(j);
@@ -207,7 +212,7 @@ export function createAvatar(THREE, { color, monk = false }) {
   let setStrike = () => {}, strikeLift = 0;
   if (monk) {
     hairMat.color.set(0xb9a593); hairMat.emissive.set(0x3a2c22);   // 민머리: 깎은 머리빛 (눈썹도 옅게), 피부처럼 그늘이 죽지 않게
-    hair.rotation.x = 0.25;
+    hair.visible = false;                        // 민머리: 머리덮개 없이 매끄러운 머리 그대로
     const wood = m(0x8a4a24);
     const mok = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), wood);
     mok.scale.set(1.05, 0.82, 0.95); mok.position.set(0.07, 0.04, -0.03); handL.add(mok);
@@ -265,19 +270,19 @@ export function createAvatar(THREE, { color, monk = false }) {
   let pose = "stand", poseT = 0, poseAt = performance.now(), t = Math.random() * 10;
   let seated = false, sitK = 0, kneelK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
   const hands = {
-    stand: [[-0.215, -0.29, -0.02], [0.215, -0.29, -0.02]],
+    stand: [[-0.225, -0.19, -0.02], [0.225, -0.19, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
     offer: [[-0.06, 0.3, -0.42], [0.06, 0.3, -0.42]],        // 두 손으로 초를 받쳐 앞으로
     lean: [[-0.22, 0.38, -0.36], [0.22, 0.38, -0.36]],
-    sit: [[-0.08, -0.2, -0.2], [0.08, -0.2, -0.2]],     // 무릎 위에 포갠 손
+    sit: [[-0.08, -0.15, -0.2], [0.08, -0.15, -0.2]],     // 무릎 위에 포갠 손
     knees: [[-0.17, -0.18, -0.16], [0.17, -0.18, -0.16]],      // 꿇어앉아 손은 허벅지 위
     floor: [[-0.2, 0.06, -0.33], [0.2, 0.06, -0.33]],        // 두 손을 앞바닥에 (몸통이 숙은 틀 기준)
     prone: [[-0.24, 0.27, -0.19], [0.24, 0.27, -0.19]],      // 이마 옆 바닥에 손바닥
     lift: [[-0.2, 0.26, -0.06], [0.2, 0.26, -0.06]],         // 손바닥을 위로 귀까지
-    moktak: [[-0.1, -0.12, -0.3], [0.13, -0.06, -0.3]],       // 왼손에 목탁, 오른손 채는 목탁 위
+    moktak: [[-0.1, -0.08, -0.27], [0.13, -0.06, -0.27]],       // 왼손에 목탁, 오른손 채는 목탁 위
     feed: [[-0.22, 0.04, -0.12], [0.05, 0.3, -0.44]],        // 오른손을 내밀어 먹인다
     pat: [[-0.22, 0.04, -0.12], [0.03, 0.26, -0.44]],        // 오른손으로 궁디팡팡
-    tea: [[-0.09, 0.08, -0.26], [0.03, 0.33, -0.2]],         // 오른손 찻잔을 입가로, 왼손은 받친다
+    tea: [[-0.09, 0.06, -0.24], [0.03, 0.27, -0.2]],         // 오른손 찻잔을 입가로, 왼손은 받친다
   };
   const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -385,12 +390,12 @@ export function createAvatar(THREE, { color, monk = false }) {
     handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
     if (pose === "pat") handR.position.y = target[1][1] + Math.abs(Math.sin(t * 8)) * 0.13;   // 팡팡
     if (pose === "moktak") handR.position.y = target[1][1] + 0.15 * strikeLift;   // 채질은 빠르니 따라가지 않고 바로
+    poseBody({ dt, t, walking: pose === "walk", tilt: body.rotation.x, bodyY: body.position.y, kneelK, sitK });
     if (held) {                                   // 든 것: 두 손 사이에 받쳐 들거나(both) 오른손에 늘어뜨린다(hang)
       if (heldMode === "both") held.position.set((handL.position.x + handR.position.x) / 2, (handL.position.y + handR.position.y) / 2 - 0.08, (handL.position.z + handR.position.z) / 2);
       else if (heldMode === "hand") held.position.set(handR.position.x, handR.position.y + 0.02, handR.position.z - 0.05);
       else held.position.set(handR.position.x + 0.02, handR.position.y - 0.2, handR.position.z);
     }
-    poseBody({ dt, t, walking: pose === "walk", tilt: body.rotation.x, bodyY: body.position.y, kneelK, sitK });
   }
 
   // 손에 드는 것 (봉송 꾸러미): obj를 주면 들고, null이면 내려놓는다

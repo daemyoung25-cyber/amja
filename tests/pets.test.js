@@ -185,7 +185,7 @@ test("walking up to an animal from any side ends beside it, never inside a build
         if (!spot) continue;
         const to = clampToWalkable(spot), d = Math.hypot(to.x - seg.at.x, to.z - seg.at.z);
         tried++;
-        if (insideHall(to) || insideCave(to) || insideHermitage(to) || d > (name === "hwang" ? 1.6 : 1.2)) bad.push([name, seg.at.x, seg.at.z, k, +d.toFixed(2)]);
+        if (insideHall(to) || insideCave(to) || insideHermitage(to) || d > (name === "hwang" ? 1.4 : 1.2)) bad.push([name, seg.at.x, seg.at.z, k, +d.toFixed(2)]);
       }
     }
   }
@@ -210,11 +210,11 @@ test("the yellow dog stays around the temple cook and mostly sits right beside h
 
 test("you stand further from the big yellow dog so your bowed head does not hit its head", () => {
   const dog = { x: 0, z: 0 };
-  assert.equal(careSpot(dog, { x: 1.3, z: 0 }, "hwang"), null, "already a good distance");
+  assert.equal(careSpot(dog, { x: 1.2, z: 0 }, "hwang"), null, "already a good distance");
   const back = careSpot(dog, { x: 0.6, z: 0 }, "hwang");
-  assert.ok(Math.abs(back.x - 1.25) < 1e-9, "steps back from too close");
+  assert.ok(Math.abs(back.x - 1) < 1e-9, "steps back from too close");
   const up = careSpot(dog, { x: 0, z: 2.5 }, "hwang");
-  assert.ok(Math.abs(up.z - 1.25) < 1e-9, "walks up and stops further off");
+  assert.ok(Math.abs(up.z - 1) < 1e-9, "walks up and stops further off");
   assert.equal(careSpot(dog, { x: 0.6, z: 0 }, "baek"), null, "the smaller dogs stay as they were");
 });
 
