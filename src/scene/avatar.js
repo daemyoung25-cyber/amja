@@ -184,7 +184,7 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
   };
 }
 
-export function createAvatar(THREE, { color, monk = false }) {
+export function createAvatar(THREE, { color, monk = false, bun = false }) {
   const m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, transparent: true });
   const robeMat = m(color), skinMat = m(0xf0d6bd), hairMat = m(0x2a2522); skinMat.flatShading = false; skinMat.emissive.set(0x4a3528); hairMat.flatShading = false;   // 목이 드러나니 턱 밑이 그늘로 죽지 않게 매끄럽고 조금 밝게
   robeMat.map = robeTexture(THREE);
@@ -208,6 +208,21 @@ export function createAvatar(THREE, { color, monk = false }) {
   const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), skinMat);
   const handR = handL.clone();
   upper.add(head, hair, handL, handR);
+  // 쪽머리: 가운데 가르마로 이마 양옆을 덮고, 뒤로 빗어 뒷목 위에 틀어 올린 뒤 비녀를 꽂는다 (공양주 보살님)
+  if (bun) {
+    const round = new THREE.SphereGeometry(1, 18, 14), hairPart = (x, y, z, sx, sy, sz, rz = 0) => { const o = new THREE.Mesh(round, hairMat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.z = rz; upper.add(o); return o; };
+    hair.rotation.x = 0.85;                                                                         // 이마를 드러낸다
+    for (const s of [-1, 1]) {
+      hairPart(s * 0.092, 0.548, -0.118, 0.112, 0.04, 0.062, s * -0.72);                              // 가르마에서 양옆으로 빗어 내린 머리
+      hairPart(s * 0.172, 0.43, -0.035, 0.04, 0.088, 0.085);                                          // 귀 옆으로 넘긴 머리
+    }
+    hairPart(0, 0.385, 0.098, 0.172, 0.135, 0.118);                                                  // 뒤로 빗은 머리
+    hairPart(0, 0.345, 0.222, 0.092, 0.08, 0.072);                                                   // 쪽
+    const pinMat = m(0xc49a3c); materials.push(pinMat);
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.27, 8), pinMat);
+    pin.rotation.z = Math.PI / 2 - 0.12; pin.position.set(0, 0.35, 0.235); upper.add(pin);
+    for (const s of [-1, 1]) { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.017, 8, 6), pinMat); tip.position.set(s * 0.135, 0.35 - s * 0.016, 0.235); upper.add(tip); }
+  }
   // 스님: 민머리, 왼손에 목탁, 오른손에 목탁채
   let setStrike = () => {}, strikeLift = 0;
   if (monk) {
