@@ -210,12 +210,12 @@ test("the yellow dog stays around the temple cook and mostly sits right beside h
 
 test("you stand further from the big yellow dog so your bowed head does not hit its head", () => {
   const dog = { x: 0, z: 0 };
-  assert.equal(careSpot(dog, { x: 1.2, z: 0 }, "hwang"), null, "already a good distance");
-  const back = careSpot(dog, { x: 0.6, z: 0 }, "hwang");
-  assert.ok(Math.abs(back.x - 1) < 1e-9, "steps back from too close");
+  assert.equal(careSpot(dog, { x: 0.76, z: 0 }, "hwang"), null, "already a good distance");
+  const back = careSpot(dog, { x: 0.4, z: 0 }, "hwang");
+  assert.ok(Math.abs(back.x - 0.74) < 1e-9, "steps back from too close");
   const up = careSpot(dog, { x: 0, z: 2.5 }, "hwang");
-  assert.ok(Math.abs(up.z - 1) < 1e-9, "walks up and stops further off");
-  assert.equal(careSpot(dog, { x: 0.6, z: 0 }, "baek"), null, "the smaller dogs stay as they were");
+  assert.ok(Math.abs(up.z - 0.74) < 1e-9, "walks up and stops further off");
+  assert.ok(careSpot(dog, { x: 1.1, z: 0 }, "baek"), "from a little way off you walk right up, so the hand reaches");
 });
 
 test("the yellow dog sleeps lying down beside her, not at a kennel", () => {

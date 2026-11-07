@@ -139,8 +139,9 @@ export const canPet = (dog, p, sec = PET_SECONDS) => {
   const d = Math.sqrt(dist2(dog, p));
   return dog.state !== "walk" && !dog.inside && d <= PET_RANGE && dog.left >= sec + walkUpSec(d);
 };
-// 몸이 큰 황구는 숙인 머리가 겹치지 않게 조금 떨어져 선다: 너무 붙어 있으면 물러나서 준다
-const CARE_ROOM = { hwang: { reach: 1.4, stop: 1, near: 0.9 } };
+// 동물마다 손이 닿고 머리가 부딪히지 않는 거리에 선다: 멀면 다가가고 너무 붙어 있으면 물러나서 준다
+const roomAt = (stop) => ({ reach: stop + 0.08, stop, near: stop - 0.1 });
+export const CARE_ROOM = { dog: roomAt(0.72), baek: roomAt(0.7), cat: roomAt(0.58), hwang: roomAt(0.74) };
 const ROOM = { reach: PET_REACH, stop: CARE_STOP, near: 0 };
 // 손이 안 닿거나 너무 붙어 있으면 걸어가 멈출 자리(내 쪽에서 동물 곁), 그대로 되면 null
 export function careSpot(animal, p, id) {

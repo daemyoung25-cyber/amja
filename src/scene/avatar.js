@@ -303,6 +303,10 @@ export function createAvatar(THREE, { color, monk = false, bun = false }) {
 
   function setPose(p) { if (p !== pose) { pose = p; poseT = 0; poseAt = performance.now(); } }
   function setSeated(on) { seated = on; }
+  // 돌보는 동안 오른손이 찾아갈 자리(세계 좌표). null이면 정해진 손 자리로
+  let reach = null;
+  const reachLocal = new THREE.Vector3();
+  function setReach(p) { reach = p; }
 
   // 머리 위 이름표 ("연화보살"): 캔버스 글씨를 스프라이트로. 늘 화면을 본다.
   let tag = null, tagText = "";
@@ -379,8 +383,16 @@ export function createAvatar(THREE, { color, monk = false, bun = false }) {
       target = poseT < 1.6 ? hands.offer : hands.stand;
       hipTilt = poseT < 1.6 ? -0.15 : poseT < 2.2 ? -0.3 : -0.05;
     }
+    if (reach && (pose === "pet" || pose === "feed" || pose === "pat")) {
+      // 키 큰 동물은 덜 숙이고 낮은 동물은 더 숙인다. 왼손은 무릎에 두고 오른손이 동물에게 간다
+      hipTilt = -(0.3 + 0.68 * Math.min(1, Math.max(0, (0.62 - reach.y) / 0.42)));
+      root.updateWorldMatrix(true, true);
+      upper.worldToLocal(reachLocal.copy(reach));
+      if (pose === "pet") reachLocal.x += Math.sin(t * 5) * 0.025;   // 쓰다듬는 손길
+      target = [hands.knees[0], [reachLocal.x, reachLocal.y + (pose === "pat" ? 0.02 : 0.015), reachLocal.z]];
+    }
     let kneel = 0;
-    if (pose === "pet" || pose === "feed" || pose === "pat") kneel = 0.8;
+    if (pose === "pet" || pose === "feed" || pose === "pat") kneel = reach ? 0.85 - 0.8 * Math.min(1, Math.max(0, (reach.y - 0.33) / 0.33)) : 0.8;   // 키 큰 동물 앞에선 무릎을 덜 굽힌다
     if (pose === "bow" || pose === "bow108") {
       const b = bowAt(pose === "bow" ? poseT : bowPhase(poseT));
       hipTilt = b.tilt; kneel = b.kneel;
@@ -429,7 +441,7 @@ export function createAvatar(THREE, { color, monk = false, bun = false }) {
   }
 
   update(0);
-  return { root, setPose, setSeated, setName, say, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
+  return { root, setPose, setSeated, setReach, setName, say, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

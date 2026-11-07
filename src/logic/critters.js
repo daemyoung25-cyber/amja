@@ -4,7 +4,7 @@ import { RAIL_Z, YARD, STATUE, PRAYER } from "./layout.js";
 import { mulberry32, dist2, lineClear, pickStep, headingOf, makeTimeline, segAt } from "./itinerary.js";
 
 /* ---------- 마당의 작은 새: 쉬기(콕콕·두리번) - 총총 - 낮게 날기 ---------- */
-const GROUND = { minX: -14, maxX: 14, minZ: -20, maxZ: 3.2 };   // 사람이 많이 다니는 가운데: 넓은 마당에서 두 마리를 만날 수 있게
+const GROUND = { minX: -26, maxX: -20.7, minZ: 10.5, maxZ: 15.8 };   // 설탕이 집 오른쪽(법당을 볼 때 오른쪽, -x) 공터에서만 논다
 const ROUNDS = [{ x: STATUE.x, z: STATUE.z, r: STATUE.baseR }, ...YARD];
 const PAD = 0.35;
 const inPrayer = (p) => p.x > PRAYER.minX - PAD && p.x < PRAYER.maxX + PAD && p.z > PRAYER.minZ - PAD && p.z < PRAYER.maxZ + PAD;
@@ -30,20 +30,20 @@ function buildBird(seed, start) {
   rest();
   while (tl.total < BIRD_HOURS * 3600) {
     const hop = rnd() < 0.72;
-    const to = pickStep(at, rnd, birdSpotOk, hop ? { min: 0.8, max: 2.6 } : { min: 3, max: 8 });
+    const to = pickStep(at, rnd, birdSpotOk, hop ? { min: 0.8, max: 2.6 } : { min: 2.5, max: 5 });
     if (to) go(hop ? "hop" : "fly", to);
     rest();
   }
   // 한 바퀴 끝에 처음 자리로 돌아와야 일정이 되풀이될 때 튀지 않는다
   while (at.x !== start.x || at.z !== start.z) {
     if (lineClear(at, start, birdSpotOk)) go("fly", start);
-    else { const to = pickStep(at, rnd, birdSpotOk, { min: 3, max: 8, toward: start }); if (to) go("fly", to); }
+    else { const to = pickStep(at, rnd, birdSpotOk, { min: 1, max: 5, toward: start }); if (to) go("fly", to); }
     rest();
   }
   return tl;
 }
 
-export const BIRDS = [buildBird(101, { x: -3.4, z: -6.5 }), buildBird(202, { x: 4.6, z: -3.2 })];
+export const BIRDS = [buildBird(101, { x: -22.4, z: 12.2 }), buildBird(202, { x: -24.3, z: 14.2 })];
 
 export function birdAt(tl, t) {
   const { seg, e } = segAt(tl, t);

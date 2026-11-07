@@ -292,7 +292,15 @@ function assemble(THREE, look) {
     for (const [i, e] of ears.entries()) { const side = i ? 1 : -1; e.rotation.x = look.ear.rx + (petted || eating || licking || patted ? look.ear.happy : 0) + (walking ? Math.sin(stride * 2) * look.ear.flop : 0); e.rotation.z = side * look.ear.rz + (walking ? side * Math.sin(stride * 2 + 1) * look.ear.flop * 0.6 : 0); }
     root.scale.setScalar(look.scale);
   }
-  return { root, update };
+  // 돌볼 때 손이 닿는 자리(세계 좌표): 쓰다듬기는 머리 위, 먹이기는 입, 궁디팡팡은 엉덩이
+  const topY = look.headRadius([0, 1, 0]), mouth = onHead(look.tongueDir || look.noseDir, 0.02).p, rump = [0, look.haunch.y + look.haunch.ry, look.haunch.z];
+  function touch(act, out) {
+    root.updateWorldMatrix(true, true);
+    if (act === "pat") return body.localToWorld(out.set(...rump));
+    if (act === "pet") return head.localToWorld(out.set(0, topY * 0.85, -topY * 0.5));
+    return head.localToWorld(out.set(...mouth));
+  }
+  return { root, update, touch };
 }
 
 export function createDog(THREE) {

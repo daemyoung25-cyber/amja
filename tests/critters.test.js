@@ -1,3 +1,4 @@
+import { BAEK_KENNEL } from "../src/logic/layout.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BIRDS, birdAt, birdSpotOk, butterflyAt, BUTTERFLIES, gullAt, GULLS, critterDay } from "../src/logic/critters.js";
@@ -12,11 +13,11 @@ test("every viewer computes the same bird from the same clock", () => {
   assert.ok(a.x !== b.x || a.z !== b.z, "the two birds are in different places");
 });
 
-test("a yard bird stays in the open yard, never in a hall, cave, hermitage or an object", () => {
+test("the sparrows stay in the clearing to the right of Seoltang's house (facing the hall), away from halls and objects", () => {
   for (const tl of BIRDS) {
     for (let t = T0; t < T0 + tl.total; t += 0.7) {
       const b = birdAt(tl, t), p = { x: b.x, z: b.z };
-      assert.ok(b.x > COURTYARD.minX && b.x < COURTYARD.maxX && b.z > RAIL_Z && b.z < HALL.minZ, `in yard ${b.x},${b.z}`);
+      assert.ok(b.x >= -26 && b.x < BAEK_KENNEL.x - BAEK_KENNEL.r && b.z >= 10.5 && b.z <= 15.8, `beside the house ${b.x},${b.z}`);
       assert.ok(!insideHall(p) && !insideCave(p) && !insideHermitage(p));
       for (const o of [...YARD, { x: STATUE.x, z: STATUE.z, r: STATUE.baseR }]) assert.ok(Math.hypot(b.x - o.x, b.z - o.z) >= o.r, `${o.kind} ${b.x},${b.z}`);
       assert.ok(!(b.x > PRAYER.minX && b.x < PRAYER.maxX && b.z > PRAYER.minZ && b.z < PRAYER.maxZ), "not on the prayer cushions");
@@ -118,5 +119,6 @@ test("the seeded numbers are pure integer math, so every browser builds the same
   const r = mulberry32(1);
   assert.deepEqual([r(), r()], [0.6270739405881613, 0.002735721180215478]);
   assert.ok(segAt(BIRDS[0], T0).seg);
-  assert.ok(birdSpotOk({ x: 1, z: -8 }));
+  assert.ok(birdSpotOk({ x: -23, z: 13 }));
+  assert.ok(!birdSpotOk({ x: 1, z: -8 }), "not in the main yard");
 });

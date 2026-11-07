@@ -269,6 +269,7 @@ ui.onBongsong(() => {
   }, GIVE_SECONDS * 1000);
 });
 // 돌보기: 쓰다듬기·간식(바둑이·설탕이·황구), 츄르·궁디팡팡(나비). 곁에 있는 동물이 반응하고 다른 분 화면에도 신호가 간다 (몸짓은 자리처럼 각자 화면에서 그린다)
+let myCare = null; const myCareAt = new THREE.Vector3();   // 돌보는 동물과 손이 닿을 자리
 const startPetAct = (w, a, ms, yaw) => { petActs[w] = { a, sec: CARE[a].sec, until: performance.now() + ms, yaw }; };
 ui.onCare((a) => {
   if (state.base === "walk" || state.bow108) return;
@@ -283,6 +284,7 @@ function doCare(a) {
   if (i < 0) return;                                  // 걸어가는 사이 동물이 떠났으면 조용히 그친다
   const c = CARE[a], animal = petsNow[i];
   state.yaw = faceDog(p, animal); rig.turnTo(state.yaw + 1.05);   // 등 뒤에서 보면 내 몸이 동물을 가려서 비스듬히 옆에서 본다
+  myCare = { w: PET_IDS[i], a };
   me.setPose(c.pose);
   state.gestureUntil = performance.now() + c.sec * 1000;
   startPetAct(PET_IDS[i], a, c.sec * 1000, careYaw(animal, p, a));
@@ -569,6 +571,7 @@ function frame(t) {
   me.root.position.set(p.x, fy, p.z);
   me.root.rotation.y = state.yaw;
   me.setSeated(seated);
+  me.setReach(myCare && state.gestureUntil ? pets[myCare.w].touch(myCare.a, myCareAt) : null);
   me.update(dt);
   const chantNow = audio.chantNow();
   monk.setStrike(chantNow && chantNow.track ? strikeLift(chantNow.t, chantNow.track.hits, chantNow.track.len) : 0);
@@ -646,6 +649,7 @@ function drawOthers(now, mePos, dt) {
     if (sip !== !!o.sip) { o.sip = sip; o.avatar.hold(sip ? (o.cup ??= makeTeaCup(THREE)) : o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), sip ? "hand" : "hang"); }
     o.avatar.setPose(care ? care.pose : sip ? "tea" : peer.p === "tea" ? "sit" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
+    o.avatar.setReach(care ? pets[PET_IDS[care.i]].touch(care.a, o.reachAt ??= new THREE.Vector3()) : null);
     o.avatar.update(dt);
   }
   for (const [uid, o] of others) {
@@ -729,7 +733,7 @@ function adopt(p) {
       const c = CARE[v.a], left = c.sec * 1000 - (net.now() - v.at), o = others.get(v.u);
       if (left < 300 || !o) continue;                          // 들어오기 전에 끝난 일은 보여 주지 않는다
       startPetAct(w, v.a, left, careYaw(petsNow[i], o.avatar.root.position, v.a));
-      o.care = { i, pose: c.pose, until: performance.now() + left, heldUntil: 0 };
+      o.care = { i, a: v.a, pose: c.pose, until: performance.now() + left, heldUntil: 0 };
       if (c.item && left > (c.sec - c.item) * 1000) { o.avatar.hold(makeCareItem(THREE, v.a), "hand"); o.care.heldUntil = performance.now() + left - (c.sec - c.item) * 1000; }
     }
   });
