@@ -1,12 +1,14 @@
 import * as THREE from "three";
 import { PLACE_NAME, BOW_RANGE, GREET_RANGE } from "./config.js";
-import { STATUE, MONK, ROOM, resolveTap, clampToWalkable, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, insideTea, teaSeatAt, TEA_ROOM, TEA_SIP_SEC, BONGSONG, faceBongsong, nearBongsong, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
+import { STATUE, MONK, ROOM, resolveTap, clampToWalkable, routeAround, floorY, insideHall, seatAt, faceAltar, faceSeat, nearCandles, faceCandles, offerPlace, faceOffer, nearWish, faceWish, nearNote, faceNote, insideCave, faceCaveAltar, CAVE_ROOM, insideHermitage, faceHermAltar, HERM_ROOM, insideTea, teaSeatAt, TEA_ROOM, TEA_SIP_SEC, BONGSONG, faceBongsong, nearBongsong, faceGiwa, nearGiwa, KENNEL, BAEK_KENNEL } from "./logic/layout.js";
 import { packBongsong, GIVE_SECONDS } from "./logic/bongsong.js";
 import { createBongsongTable, makeBundle, CLOTHS } from "./scene/bongsong.js";
 import { createCritters } from "./scene/critters.js";
 import { makeTeaCup } from "./scene/teahouse.js";
 import { createPets, makeCareItem } from "./scene/pets.js";
 import { createNovices } from "./scene/novices.js";
+import { createGiwa } from "./scene/giwa.js";
+import { liveGiwa, pickGiwaSlot, canPlaceGiwa, GIWA_KEEP_MINE } from "./logic/giwa.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
 import { carePick, careSpot, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
@@ -94,8 +96,11 @@ const critters = createCritters(THREE);
 scene.add(critters.group);
 const pets = createPets(THREE, KENNEL, BAEK_KENNEL);
 scene.add(pets.group, pets.house);
-const novices = createNovices(THREE);
+const novices = createNovices(THREE, pets);
 scene.add(novices.group);
+const giwa = createGiwa(THREE);
+scene.add(giwa.group);
+world.groundMeshes.push(giwa.hit);
 let petsNow = [KENNEL.dog, BAEK_KENNEL.dog, KENNEL.cat, BONGSONG.dog].map(({ x, z }) => ({ state: "walk", left: 0, x, z }));   // [바둑이, 설탕이, 나비, 황구]
 const petActs = {}, petSeen = {};   // 돌보는 중인 것 { a, until, sec, yaw }, 이미 받은 신호 시각
 let careHeldUntil = 0;
@@ -110,7 +115,7 @@ function bosalGive(cloth) {
 }
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petAct() {}, litForSuneung: async () => false };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petAct() {}, hangWish: () => null, placeGiwa: async () => null, litForSuneung: async () => false };
 let snapshot = null, peers = [];
 const sharedNow = () => net.now() + timeOffset;   // 모두 같은 시계 (?time=은 점검용)
 let traceRecords = [], visits = {}, lastTraceAt = null;
@@ -118,6 +123,10 @@ let candleRecords = [], lastCandleAt = null;
 let offerRecords = [];                  // 향·초 공양 (대웅전·섬 암자 향, 동굴·해수관음 초)
 const lastOfferAt = {};
 let wishRecords = [], lastWishAt = null;
+let giwaRecords = [], lastGiwaAt = null;
+const MY_GIWA_KEY = "amja-giwa";
+let myGiwa = [];
+try { const g = JSON.parse(localStorage.getItem(MY_GIWA_KEY) || "[]"); if (Array.isArray(g)) myGiwa = g.filter((m) => m && typeof m.text === "string" && typeof m.at === "number"); } catch {}
 // 내 소원 글은 이 폰에만: [{ slot, at, text }]
 const MY_WISHES_KEY = "amja-wishes";
 let myWishes = [];
@@ -138,6 +147,7 @@ const state = {
   sitOnArrive: false,
   candleOnArrive: false,
   wishOnArrive: false,
+  giwaOnArrive: false,
   noteOnArrive: false,
   bongsongOnArrive: false,
   careOnArrive: null,
@@ -177,6 +187,7 @@ function goTo(point, plain = false) {             // plain: 자리에 앉거나 
   state.sitOnArrive = r.kind === "sit";
   state.candleOnArrive = r.kind === "candle";
   state.wishOnArrive = r.kind === "wish";
+  state.giwaOnArrive = r.kind === "giwa";
   state.noteOnArrive = r.kind === "note";
   state.bongsongOnArrive = r.kind === "bongsong";
   state.careOnArrive = null;
@@ -354,6 +365,31 @@ ui.onWishSubmit((raw, pub) => {
     redrawWishes();
     ui.showWhisper("소원을 걸었어요");
     ui.offerShare("wish");
+  }, 1600);
+  return null;
+});
+// 기와불사: 테이블 앞에서 소원을 적으면 기와가 담장 아래로 날아가 한 장씩 쌓인다. 글은 이 폰에만
+ui.onGiwaButton(() => ui.openGiwaSheet(myGiwa));
+ui.onGiwaSubmit((raw) => {
+  const text = cleanWish(raw);
+  if (!text) return "한 줄로 30자까지 적어 주세요";
+  const now = net.now();
+  if (!canPlaceGiwa(lastGiwaAt, now)) return "조금 뒤에 또 올릴 수 있어요";
+  if (state.base === "walk") return "테이블 앞에 서서 올려요";
+  lastGiwaAt = now;
+  const p = positionAt(state.move, now);
+  state.yaw = faceGiwa(p);
+  rig.turnTo(state.yaw);
+  gesture("light");
+  setTimeout(() => {
+    const at = net.now(), slot = pickGiwaSlot(liveGiwa(giwaRecords));
+    giwa.fly(slot);
+    giwaRecords = [...giwaRecords, { slot, n: myName, h: mySex, at, mine: true }];   // 연결이 없어도 내 화면엔 바로
+    giwa.setTiles(liveGiwa(giwaRecords));
+    net.placeGiwa({ slot, n: myName, h: mySex });
+    myGiwa = [{ text, at }, ...myGiwa].slice(0, GIWA_KEEP_MINE);
+    try { localStorage.setItem(MY_GIWA_KEY, JSON.stringify(myGiwa)); } catch {}
+    ui.showWhisper("기와를 올렸어요");
   }, 1600);
   return null;
 });
@@ -547,6 +583,7 @@ function frame(t) {
       rig.setLeaning(true);
     } else {
       if (state.candleOnArrive) { state.yaw = faceCandles(p); rig.turnTo(state.yaw); }   // 공양대를 마주 선다
+      if (state.giwaOnArrive) { state.giwaOnArrive = false; state.yaw = faceGiwa(p); rig.turnTo(state.yaw); }   // 기와불사 테이블을 마주 선다
       if (state.wishOnArrive) { state.yaw = faceWish(p); rig.turnTo(state.yaw); }        // 소원걸이를 마주 선다
       if (state.bongsongOnArrive) {   // 상 앞에 서면 보살님을 마주 보고, 보살님이 합장으로 맞아 주신다
         state.bongsongOnArrive = false; state.yaw = faceBongsong(p); rig.turnTo(state.yaw);
@@ -582,7 +619,7 @@ function frame(t) {
   if (bosalUntil && performance.now() >= bosalUntil) { bosalUntil = 0; bosal.setPose("stand"); }
   bosal.update(dt);
   critters.update(dt, sharedNow());
-  petsNow = pets.update(dt, sharedNow(), petActs);
+  petsNow = pets.update(dt, sharedNow(), { ...novices.acts, ...petActs });   // 사람이 돌보는 것이 먼저
   novices.update(dt, sharedNow(), camera.position);
   if (careHeldUntil && (performance.now() >= careHeldUntil || !state.gestureUntil)) { careHeldUntil = 0; me.hold(myBundle != null ? makeBundle(THREE, CLOTHS[myBundle]) : null, "hang"); }   // 먹인 것을 내려놓고 들고 있던 꾸러미로
   ui.setTea(state.base === "sit" && !state.bow108 && !state.gestureUntil && !!teaSeatAt(p));
@@ -597,6 +634,8 @@ function frame(t) {
   ui.setNearCandles(state.base !== "walk" && (nearCandles(p) || offerKind === "candle"));
   ui.setNearIncense(offerKind === "incense");
   ui.setNearWish(state.base !== "walk" && nearWish(p), readable().length > 0);
+  ui.setNearGiwa(state.base !== "walk" && nearGiwa(p));
+  giwa.update(dt);
   ui.setNearNote(nearNote(p));
   const inCave = insideCave(p);
   const inTea = insideTea(p);
@@ -644,7 +683,7 @@ function drawOthers(now, mePos, dt) {
       o.gavePt = peer.pt;
     }
     if ((o.b ?? null) !== peer.b) { o.b = peer.b; o.avatar.hold(peer.b == null ? null : makeBundle(THREE, CLOTHS[peer.b]), "hang"); }   // 든 꾸러미
-    if (peer.p === "light" && pos.arrived) { const k = offerPlace(pos); o.yaw = k ? faceOffer(pos, k) : nearWish(pos) ? faceWish(pos) : faceCandles(pos); }   // 초 켜기와 소원 걸기는 같은 몸짓
+    if (peer.p === "light" && pos.arrived) { const k = offerPlace(pos); o.yaw = k ? faceOffer(pos, k) : nearWish(pos) ? faceWish(pos) : nearGiwa(pos) ? faceGiwa(pos) : faceCandles(pos); }   // 초 켜기와 소원 걸기는 같은 몸짓
     const onSeat = pos.arrived && seatAt(pos);
     const sat = onSeat ? ["sit", "hapjang", "bow", "bow108", "light", "tea"].includes(peer.p) : pos.arrived && peer.p === "sit";   // 108배 마치고 그 자리에 앉기도 한다
     if (onSeat && sat) o.yaw = faceSeat(pos);
@@ -781,6 +820,14 @@ function adopt(p) {
     offerRecords = recs;
     redrawOffers();
   });
+  let giwaSeen = null;
+  net.onGiwa((recs) => {
+    if (giwaSeen) for (const g of recs) if (!giwaSeen.has(g.id) && g.n !== myName && net.now() - g.at < 30000) ui.notify(`${whoTag(g.n, g.h)} 기와를 올렸어요`);
+    giwaSeen = new Set(recs.map((g) => g.id));
+    const waiting = giwaRecords.filter((g) => g.mine && !recs.some((r) => r.slot === g.slot && Math.abs(r.at - g.at) < 60000));   // 아직 서버에서 안 돌아온 내 기와
+    giwaRecords = [...recs, ...waiting];
+    giwa.setTiles(liveGiwa(giwaRecords));
+  });
   let wishesSeen = null;
   net.onWishes((recs) => {
     if (wishesSeen) {
@@ -801,4 +848,4 @@ function adopt(p) {
 requestAnimationFrame(frame);
 
 // 점검용: ?debug=1 일 때만 상태를 밖에서 본다
-if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, novices, renderer, scene, get petsNow() { return petsNow; }, petActs, ui };
+if (new URLSearchParams(location.search).has("debug")) window.__amja = { goTo, state, camera, me, positionAt, audio, get net() { return net; }, get others() { return others; }, get traces() { return traceRecords; }, world, critters, pets, novices, giwaWall: giwa, renderer, scene, get petsNow() { return petsNow; }, petActs, ui };

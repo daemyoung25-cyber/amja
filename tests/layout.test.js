@@ -149,7 +149,7 @@ test("walking straight across the front yard goes round the stones, not through 
 });
 
 test("tapping on a stone lantern or pagoda stands beside it", () => {
-  for (const o of YARD.filter((y) => y.kind !== "candles" && y.kind !== "wish" && y.kind !== "guestbook" && y.kind !== "bongsong")) {   // 촛대·소원걸이·방명록·봉송 상은 앞에 가서 선다
+  for (const o of YARD.filter((y) => y.kind !== "candles" && y.kind !== "wish" && y.kind !== "guestbook" && y.kind !== "bongsong" && y.kind !== "giwaTable")) {   // 촛대·소원걸이·방명록·봉송 상·기와불사 테이블은 앞에 가서 선다
     const r = resolveTap({ x: o.x, z: o.z });
     assert.equal(r.kind, "walk");
     assert.ok(!inYardStone(r.to), `${o.kind}: ${JSON.stringify(r.to)}`);

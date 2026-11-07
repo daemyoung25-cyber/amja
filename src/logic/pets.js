@@ -127,6 +127,7 @@ export function petAt(tl, tMs) {
 // 깨어 있는 때의 일정
 function dayAt(tl, t) {
   const { seg, e } = segAt(tl, t);
+  if (seg.at_t) return seg.at_t(e, t);
   if (seg.kind === "walk") {
     const u = e / seg.dur;
     return { state: "walk", x: seg.from.x + (seg.to.x - seg.from.x) * u, z: seg.from.z + (seg.to.z - seg.from.z) * u, yaw: seg.yaw, pose: "walk", left: 0 };

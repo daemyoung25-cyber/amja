@@ -18,7 +18,7 @@ function solo() {
   return {
     mode: "solo", uid: null, now: () => Date.now(),
     onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, onGreeted: noop, close: noop,
-    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petAct: noop, onPetAct: noop, litForSuneung: async () => false, onSuneungCount: noop,
+    writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, placeGiwa: async () => null, onGiwa: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petAct: noop, onPetAct: noop, litForSuneung: async () => false, onSuneungCount: noop,
   };
 }
 
@@ -154,6 +154,15 @@ async function connect(config, loadSdk, me) {
     },
     onWishes(cb) {
       const q = db.query(db.ref(database, "wishes"), db.orderByChild("at"), db.startAt(now() - WISH_LIFE), db.limitToLast(WISH_READ_MAX));
+      db.onValue(q, (snap) => cb(Object.entries(snap.val() || {}).map(([id, v]) => ({ id, ...v }))));
+    },
+    // 기와불사: giwa/{id} = { slot, n, h, at } (글은 적은 사람 폰에만), giwaLast/{uid}로 1분에 한 번
+    async placeGiwa({ slot, n, h }) {
+      const key = db.push(db.ref(database, "giwa")).key, at = now();
+      try { await db.update(db.ref(database), { [`giwa/${key}`]: { slot, n, ...(h ? { h } : {}), at }, [`giwaLast/${uid}`]: at }); return key; } catch { return null; }
+    },
+    onGiwa(cb) {
+      const q = db.query(db.ref(database, "giwa"), db.orderByChild("at"), db.limitToLast(400));
       db.onValue(q, (snap) => cb(Object.entries(snap.val() || {}).map(([id, v]) => ({ id, ...v }))));
     },
     // 바라는 점: notes/{id} = { t, at } (읽기는 규칙이 막아 만든 사람만), noteLast/{uid}로 1분에 한 번

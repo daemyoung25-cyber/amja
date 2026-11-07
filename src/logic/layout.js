@@ -97,6 +97,12 @@ export const YARD = [
 // 바라는 점 방명록: 대웅전 문 오른쪽 중간(마당에서 법당을 볼 때 오른쪽 = -x), 법당 앞 디딤 자리 앞. 앞에 서서 법당 쪽을 보며 적는다
 export const GUESTBOOK = { x: -4.0, z: 3.6, r: 0.55, spot: { x: -4.0, z: 2.65 } };   // 법당 앞을 돌아가는 길(z 4.8)과 석등 옆은 비운다
 YARD.push({ kind: "guestbook", x: GUESTBOOK.x, z: GUESTBOOK.z, r: GUESTBOOK.r });
+// 기와불사: 소원걸이 앞 기와 단 옆 테이블. 서쪽(spot)에 서서 담장 쪽(+x)을 보고 적으면, 뒤쪽 담장 아래(GIWA_WALL)에 한 장씩 쌓인다
+export const GIWA = { x: 19, z: -13.6, r: 0.8, spot: { x: 17.75, z: -13.6 } };
+export const GIWA_WALL = { x: 25.8, z: -11.2 };       // 담장을 따라 -z(바다 쪽)로 쌓아 간다
+YARD.push({ kind: "giwaTable", x: GIWA.x, z: GIWA.z, r: GIWA.r });
+export const faceGiwa = (p) => Math.atan2(-(GIWA.x - p.x), -(GIWA.z - p.z));
+export const nearGiwa = (p) => Math.hypot(p.x - GIWA.spot.x, p.z - GIWA.spot.z) <= 1.2;
 export const faceNote = (p) => Math.atan2(-(GUESTBOOK.x - p.x), -(GUESTBOOK.z - p.z));
 export const nearNote = (p) => Math.hypot(p.x - GUESTBOOK.spot.x, p.z - GUESTBOOK.spot.z) <= 1.2;
 // 봉송 나눔: 마당 가운데(들어오는 자리 바로 앞, 바다 쪽)에 공양주 보살님이 낮은 상을 두고 법당 쪽(+z)을 보고 서 있다.
@@ -244,6 +250,7 @@ export function resolveTap(p) {
   if (seat) return { kind: "sit", to: { x: seat.x, z: seat.z }, yaw: faceSeat(seat) };
   if (Math.hypot(p.x - CANDLES.x, p.z - CANDLES.z) < CANDLES.r + 0.2) return { kind: "candle", to: { ...CANDLES.spot }, yaw: faceCandles(CANDLES.spot) };
   if (Math.hypot(p.x - WISH.x, p.z - WISH.z) < WISH.r + 0.2) return { kind: "wish", to: { ...WISH.spot }, yaw: faceWish(WISH.spot) };
+  if (Math.hypot(p.x - GIWA.x, p.z - GIWA.z) < GIWA.r + 0.2) return { kind: "giwa", to: { ...GIWA.spot }, yaw: faceGiwa(GIWA.spot) };
   if (Math.hypot(p.x - GUESTBOOK.x, p.z - GUESTBOOK.z) < GUESTBOOK.r + 0.3) return { kind: "note", to: { ...GUESTBOOK.spot }, yaw: faceNote(GUESTBOOK.spot) };
   if (Math.hypot(p.x - BONGSONG.x, p.z - BONGSONG.z) < BONGSONG.r + 0.3) return { kind: "bongsong", to: { ...BONGSONG.spot }, yaw: faceBongsong(BONGSONG.spot) };
   const br = clampToBridge(p);

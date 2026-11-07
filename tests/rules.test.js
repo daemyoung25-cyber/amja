@@ -39,6 +39,19 @@ test("a move may carry the distance already walked, but only as a number that is
   assert.notEqual(await put(`presence/${me.uid}`, presence({ m: { ...m, w: -1 } }), me.token), 200);
 });
 
+test("a giwa tile is written once with its place and name, at most once a minute, and cannot be changed or deleted", opts, async () => {
+  const me = await signIn(), at = Date.now(), multi = (id, v, t) => fetch(`${DB}/.json?${NS}&auth=${t}`, { method: "PATCH", body: JSON.stringify({ [`giwa/${id}`]: v, [`giwaLast/${me.uid}`]: Date.now() }) }).then((r) => r.status);
+  const id = `g-${me.uid}`;
+  assert.notEqual(await put(`giwa/${id}`, { slot: 180, n: "연화", at }, me.token), 200, "no place beyond the wall");
+  assert.notEqual(await put(`giwa/${id}`, { slot: 1.5, n: "연화", at }, me.token), 200);
+  assert.notEqual(await put(`giwa/${id}`, { slot: 1, at }, me.token), 200, "needs a name");
+  assert.notEqual(await put(`giwa/${id}`, { slot: 1, n: "연화", at, t: "소원 글" }, me.token), 200, "the wish text stays on the phone");
+  assert.equal(await multi(id, { slot: 1, n: "연화", h: "f", at }, me.token), 200);
+  assert.notEqual(await put(`giwa/${id}`, { slot: 2, n: "연화", at: Date.now() }, me.token), 200, "cannot be changed");
+  assert.notEqual(await put(`giwa/${id}`, null, me.token), 200, "cannot be deleted");
+  assert.notEqual(await put(`giwa/${id}-2`, { slot: 2, n: "연화", at: Date.now() }, me.token), 200, "too soon after the last tile");
+});
+
 test("greeting target must be a short string", opts, async () => {
   const me = await signIn();
   assert.notEqual(await put(`presence/${me.uid}`, presence({ g: { to: "x".repeat(200), at: now } }), me.token), 200);

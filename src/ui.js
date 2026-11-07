@@ -81,6 +81,30 @@ export function createUI({ placeName }) {
     if (!near) wishSheet.hidden = readSheet.hidden = true;
   }
 
+  // 기와불사 시트: 테이블 앞에 서면 버튼이 뜬다. 아래에 내가 올린 기와의 글
+  const btnGiwa = $("btn-giwa"), giwaSheet = $("giwa-sheet"), giwaText = $("giwa-text"), giwaError = $("giwa-error"), myGiwaList = $("my-giwa");
+  let giwaSubmit = () => null;
+  $("giwa-close").addEventListener("click", () => (giwaSheet.hidden = true));
+  giwaText.addEventListener("input", () => (giwaError.hidden = true));
+  $("giwa-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const err = giwaSubmit(giwaText.value);
+    if (err) { giwaError.textContent = err; giwaError.hidden = false; return; }
+    giwaText.value = ""; giwaText.blur(); giwaSheet.hidden = true;
+  });
+  function setNearGiwa(near) { btnGiwa.hidden = !near; if (!near) giwaSheet.hidden = true; }
+  function openGiwaSheet(mine) {
+    sheet.hidden = creditsSheet.hidden = wishSheet.hidden = readSheet.hidden = noteSheet.hidden = true;
+    giwaError.hidden = true;
+    myGiwaList.replaceChildren(...mine.map((m) => {
+      const li = document.createElement("li"), when = document.createElement("span");
+      const d = new Date(m.at); when.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+      li.append(m.text, when); return li;
+    }));
+    myGiwaList.hidden = !mine.length;
+    giwaSheet.hidden = false;
+  }
+
   // 바라는 점 시트: 방명록 앞에 서면 열린다. 아래에 내가 남긴 글
   const noteSheet = $("note-sheet"), noteText = $("note-text"), noteError = $("note-error"), myNoteList = $("my-notes");
   let noteSubmit = async () => null;
@@ -309,6 +333,7 @@ export function createUI({ placeName }) {
     openSuSheet, onSuSend: (cb) => (suSend = cb), onSuPlain: (cb) => (suPlain = cb), onSuneungButton: (cb) => btnSuneung.addEventListener("click", cb), setSuneungButton: (on) => { btnSuneung.hidden = !on; },
     setSeason: (text) => { const el = $("enter-season"); el.textContent = text; el.hidden = !text; },
     setInvite: (text) => { const el = $("enter-invite"); el.textContent = text; el.hidden = !text; }, setNearIncense, onIncense: (cb) => btnIncense.addEventListener("click", cb),
+    setNearGiwa, openGiwaSheet, onGiwaButton: (cb) => btnGiwa.addEventListener("click", cb), onGiwaSubmit: (cb) => (giwaSubmit = cb),
     setNearWish, openWishSheet, openNoteSheet, setNearNote, onNoteSubmit: (cb) => (noteSubmit = cb), onWishButton: (cb) => btnWish.addEventListener("click", cb), onWishSubmit: (cb) => (wishSubmit = cb),
     showWishRead, onWishRead: (cb) => btnWishRead.addEventListener("click", cb), onReadJoin: (cb) => (readCbs.join = cb), onReadNext: (cb) => (readCbs.next = cb), onReadHide: (cb) => (readCbs.hide = cb), setLeaning, pokeHud, showHintOnce, showWhisper, notify,
     onHapjang: (cb) => btnHapjang.addEventListener("click", cb),

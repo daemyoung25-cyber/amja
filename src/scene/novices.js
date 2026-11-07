@@ -5,7 +5,7 @@ import { petAt } from "../logic/pets.js";
 import { floorY, routeAround, COURTYARD, RAIL_Z } from "../logic/layout.js";
 import { createAvatar } from "./avatar.js";
 
-const DRAW_WITHIN = 45, RUN = 1.6, TALK_GAP = 0.95, TALK_MS = 4200, GIVE_UP_MS = 25000, MAX_TALKING = 2;
+const CLOSE_ENOUGH = 14, DRAW_WITHIN = 45, RUN = 1.6, TALK_GAP = 0.95, TALK_MS = 4200, GIVE_UP_MS = 40000, MAX_TALKING = 2;
 const canVisit = (p) => p && p.x > COURTYARD.minX && p.x < COURTYARD.maxX && p.z > RAIL_Z && p.z < 4.6 && floorY(p) < 0.01;   // 앞마당에 있는 분께만
 
 function createJegi(THREE) {                          // 제기: 엽전에 깃털 술
@@ -25,7 +25,7 @@ function createStones(THREE) {                        // 공깃돌: 바닥에 �
   return { group: g, toss: stones[4] };
 }
 
-export function createNovices(THREE) {
+export function createNovices(THREE, pets) {
   const group = new THREE.Group();
   group.userData.noShadow = true;
   const list = NOVICES.map((tl, i) => {
@@ -38,15 +38,21 @@ export function createNovices(THREE) {
   });
 
   const here = (n, tMs) => (n.talk ? n.talk.at : petAt(n.tl, tMs));
+  const acts = {};                                     // 동자승이 쓰다듬는 동물: 꼬리를 흔들고 동자승 쪽을 본다 (pets.update에 넘긴다)
 
   // 누군가 들어왔을 때: get()은 그분의 지금 자리({x,z}), 못 찾으면 null
   function greet(get, name, sex, tMs) {
     const p = get();
     if (!canVisit(p) || list.filter((n) => n.talk).length >= MAX_TALKING) return false;
+    // 이름으로 정한 아이가 가까우면 그 아이가, 멀면 가장 가까운 아이가 달려간다
+    const free = [];
     for (let k = 0; k < list.length; k++) {
       const n = list[(noviceFor(name) + k) % list.length], s = petAt(n.tl, tMs);
-      if (n.talk || s.inside || s.state === "sleep") continue;
-      const at = { x: s.x, z: s.z };
+      if (!n.talk && !s.inside && s.state !== "sleep") free.push({ n, s, d: Math.hypot(s.x - p.x, s.z - p.z) });
+    }
+    if (free.length) {
+      const pick = free[0].d <= CLOSE_ENOUGH ? free[0] : free.reduce((a, b) => (b.d < a.d ? b : a));
+      const { n, s } = pick, at = { x: s.x, z: s.z };
       n.talk = { get, text: noviceLine(name, sex), phase: "go", at, route: routeAround(at, { x: p.x, z: p.z }), until: 0 };
       return true;
     }
@@ -70,7 +76,7 @@ export function createNovices(THREE) {
     if (t.phase === "go") {
       const p = t.get();
       if (!p || t.spent * 1000 > GIVE_UP_MS) { t.phase = "back"; t.route = routeAround(t.at, s); return "walk"; }
-      if (Math.hypot(p.x - t.at.x, p.z - t.at.z) <= TALK_GAP) { t.phase = "say"; t.until = now + TALK_MS; n.a.say(t.text, TALK_MS / 1000); return "hapjang"; }
+      if (Math.hypot(p.x - t.at.x, p.z - t.at.z) <= TALK_GAP + 0.03) { t.phase = "say"; t.until = now + TALK_MS; n.a.say(t.text, TALK_MS / 1000); return "hapjang"; }
       const next = t.route.length > 1 ? t.route[0] : p;
       if (stepTo(t, next, dt, t.route.length > 1 ? 0.05 : TALK_GAP) && t.route.length > 1) t.route.shift();
       return "walk";
@@ -88,6 +94,7 @@ export function createNovices(THREE) {
 
   function update(dt, tMs, cam) {
     const sec = tMs / 1000;
+    for (const k of Object.keys(acts)) delete acts[k];
     for (const n of list) {
       const s = petAt(n.tl, tMs), pose = n.talk ? runTalk(n, s, dt) : s.state === "walk" ? "walk" : s.pose;
       const p = n.talk ? n.talk.at : s, near = !cam || Math.hypot(p.x - cam.x, p.z - cam.z) < DRAW_WITHIN;
@@ -111,8 +118,11 @@ export function createNovices(THREE) {
         else n.stones.toss.position.set(0.075, 0.2 + air * 0.42, -0.3);
       }
       n.a.setPlay(beat);
+      const stroke = !n.talk && s.petWith;
+      n.a.setReach(stroke ? pets[stroke].touch("pet", n.reachAt ??= new THREE.Vector3()) : null);
+      if (stroke) acts[stroke] = { a: "pet", sec: 4, until: performance.now() + 400, yaw: Math.atan2(-(p.x - pets[stroke].root.position.x), -(p.z - pets[stroke].root.position.z)) };
       n.a.update(dt);
     }
   }
-  return { group, update, greet, list, here };
+  return { group, update, greet, list, here, acts };
 }
