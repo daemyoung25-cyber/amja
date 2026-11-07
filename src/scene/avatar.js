@@ -476,6 +476,27 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
     if (obj) { upper.add(obj); obj.traverse((o) => { if (o.material) { o.material.transparent = true; materials.push(o.material); } }); }
   }
 
+  // '여'를 고른 분: 옆으로 넘긴 앞머리, 턱까지 내려온 옆머리, 뒷목에서 낮게 묶은 머리와 붉은 끈 (보살님 쪽머리와는 다르게)
+  let longHair = null;
+  function setLongHair(on) {
+    if (monk || novice || bun || !!on === !!(longHair && longHair.visible)) return;
+    if (on && !longHair) {
+      longHair = new THREE.Group();
+      const round = new THREE.SphereGeometry(1, 16, 12), part = (x, y, z, sx, sy, sz, rx = 0, rz = 0) => { const o = new THREE.Mesh(round, hairMat); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.set(rx, 0, rz); longHair.add(o); return o; };
+      part(-0.045, 0.545, -0.135, 0.14, 0.05, 0.075, 0, 0.38);                // 옆으로 넘긴 앞머리
+      part(0.1, 0.53, -0.13, 0.08, 0.042, 0.065, 0, -0.5);
+      for (const s of [-1, 1]) part(s * 0.178, 0.385, 0.01, 0.048, 0.125, 0.105, 0.12);   // 귀를 덮고 턱까지
+      part(0, 0.36, 0.105, 0.185, 0.165, 0.115);                               // 뒷머리
+      part(0, 0.17, 0.2, 0.052, 0.1, 0.045, -0.12);                            // 묶은 머리
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.012, 6, 14), m(0x9c3434));
+      tie.material.flatShading = false; materials.push(tie.material); tie.material.opacity = materials[0].opacity;
+      tie.rotation.x = Math.PI / 2 - 0.25; tie.position.set(0, 0.255, 0.198); longHair.add(tie);
+      upper.add(longHair);
+    }
+    if (longHair) longHair.visible = !!on;
+    hair.rotation.x = on ? 0.55 : 0.42;
+  }
+
   function setOpacity(o) {
     for (const mat of materials) mat.opacity = o;
     if (tag) tag.material.opacity = o;
@@ -484,7 +505,7 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
   }
 
   update(0);
-  return { root, setPose, setSeated, setReach, setPlay, setName, say, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
+  return { root, setPose, setSeated, setReach, setPlay, setName, setLongHair, say, update, setOpacity, hold, get held() { return held; }, setStrike: (v) => setStrike(v), get pose() { return pose; } };
 }
 
 export const POSE_SECONDS = POSE_LEN;

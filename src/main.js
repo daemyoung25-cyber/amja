@@ -735,6 +735,7 @@ function drawOthers(now, mePos, dt) {
     if (sip !== !!o.sip) { o.sip = sip; o.avatar.hold(sip ? (o.cup ??= makeTeaCup(THREE)) : o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), sip ? "hand" : "hang"); }
     o.avatar.setPose(care ? care.pose : sip ? "tea" : peer.p === "tea" ? "sit" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
+    o.avatar.setLongHair(peer.h === "f");
     if (shouldShowTalk(peer.t, { shownAt: o.saidAt || 0, now, dist: Math.hypot(pos.x - mePos.x, pos.z - mePos.z), hidden: talkHidden.includes(peer.uid) })) {
       o.saidAt = peer.t.at;
       o.avatar.say(cleanTalk(peer.t.x), TALK_SEC);
@@ -769,6 +770,7 @@ ui.onEnter(async (name, sex) => {
   myName = name;
   mySex = sex;
   me.setName(nameTag(name, sex));
+  me.setLongHair(cleanSex(sex) === "f");
   audio.start();
   ui.showHintOnce();
   if (invite) ui.showWhisper(`${SHARE_PLACES[invite.place].kind === "wish" ? "소원걸이" : SHARE_PLACES[invite.place].kind === "incense" ? "부처님" : "촛불"} 앞이에요. 함께 마음을 모아 주세요`, 6000);
