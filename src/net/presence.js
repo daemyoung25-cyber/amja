@@ -17,7 +17,7 @@ function solo() {
   const noop = () => {};
   return {
     mode: "solo", uid: null, now: () => Date.now(),
-    onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, onGreeted: noop, close: noop,
+    onPeers: noop, sendMove: noop, sendPose: noop, sendCarry: noop, greet: noop, talk: async () => false, onGreeted: noop, close: noop,
     writeTrace: noop, onTraces: noop, markVisit: noop, onVisits: noop, cleanup: noop, lightCandle: noop, onCandles: noop, offer: noop, onOffers: noop, hangWish: () => null, onWishes: noop, placeGiwa: async () => null, onGiwa: noop, writeNote: async () => false, joinWish: noop, onWishJoins: noop, petAct: noop, onPetAct: noop, litForSuneung: async () => false, onSuneungCount: noop,
   };
 }
@@ -54,7 +54,7 @@ async function connect(config, loadSdk, me) {
   const now = () => Date.now() + offset;
 
   const state = { c: me.c, m: me.m, p: me.p, pt: now(), s: now(), ...(me.n ? { n: me.n } : {}), ...(me.h ? { h: me.h } : {}) };
-  let present = false;
+  let present = false, lastTalk = 0;
   async function appear() {
     await db.onDisconnect(mine).remove();
     state.s = now();
@@ -102,6 +102,15 @@ async function connect(config, loadSdk, me) {
     sendPose(p) { state.p = p; state.pt = now(); if (present) db.update(mine, { p, pt: state.pt }); },
     sendCarry(b) { state.b = b; if (present) db.update(mine, { b }); },   // 든 봉송 꾸러미 (보자기 색 번호 0~5)
     greet(to) { const g = { to, at: now() }; state.g = g; if (present) db.update(mine, { g }); },
+    // 말풍선 한마디: presence/{uid}/t = { x, at }. 잠시 뒤 지워 서버에 남지 않게 한다 (state에는 넣지 않는다)
+    async talk(x, clearMs = 8000) {
+      if (!present) return false;
+      const at = now();
+      try { await db.update(mine, { t: { x, at } }); } catch { return false; }
+      lastTalk = at;
+      setTimeout(() => { if (present && lastTalk === at) Promise.resolve(db.update(mine, { t: null })).catch(() => {}); }, clearMs);
+      return true;
+    },
     // 동물 돌보기: petAct/{dog|baek|cat|hwang} = { at, u, a } 동물마다 하나만 덮어쓴다. 규칙이 막아도 내 화면에서는 그대로 간다
     petAct(w, a) { Promise.resolve(db.set(db.ref(database, `petAct/${w}`), { at: now(), u: uid, a })).catch(() => {}); },
     onPetAct(cb) { db.onValue(db.ref(database, "petAct"), (snap) => cb(snap.val()), () => {}); },

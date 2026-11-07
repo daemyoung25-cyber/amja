@@ -321,12 +321,47 @@ export function createUI({ placeName }) {
     creditsSheet.hidden = false;
   }
 
+  // 한마디: [말하기] 버튼 → 바로 누르는 말 또는 한 줄. 보내면 닫힌다
+  const btnTalk = $("btn-talk"), talkSheet = $("talk-sheet"), talkText = $("talk-text"), talkError = $("talk-error");
+  let talkSend = () => null;
+  const closeSheets = () => { for (const s of document.querySelectorAll(".sheet")) s.hidden = true; };
+  const sendTalk = (text) => {
+    const err = talkSend(text);
+    if (err) { talkError.textContent = err; talkError.hidden = false; return; }
+    talkText.value = ""; talkText.blur(); talkSheet.hidden = true;
+  };
+  function setQuickTalk(list) {
+    $("talk-quick").replaceChildren(...list.map((q) => { const b = document.createElement("button"); b.type = "button"; b.textContent = q; b.addEventListener("click", () => sendTalk(q)); return b; }));
+  }
+  btnTalk.addEventListener("click", () => {
+    const open = talkSheet.hidden;
+    closeSheets();
+    talkError.hidden = true;
+    talkSheet.hidden = !open;
+  });
+  $("talk-close").addEventListener("click", () => (talkSheet.hidden = true));
+  talkText.addEventListener("input", () => (talkError.hidden = true));
+  $("talk-form").addEventListener("submit", (e) => { e.preventDefault(); sendTalk(talkText.value); });
+  // 다른 분을 눌렀을 때: 이름과 '말 가리기'
+  const whoSheet = $("who-sheet"), whoHide = $("who-hide");
+  let whoToggle = () => {};
+  $("who-close").addEventListener("click", () => (whoSheet.hidden = true));
+  whoHide.addEventListener("click", () => { whoToggle(); whoSheet.hidden = true; });
+  function openWho(name, hidden, toggle) {
+    closeSheets();
+    $("who-name").textContent = name;
+    whoHide.textContent = hidden ? "가리기 풀기" : "말 가리기";
+    whoToggle = toggle;
+    whoSheet.hidden = false;
+  }
+
   function showSoundResume(cb) {
     resume.hidden = false;
     resume.onclick = () => { resume.hidden = true; cb(); };
   }
 
   return {
+    setTalk: (on) => { btnTalk.hidden = !on; if (!on) talkSheet.hidden = true; }, setQuickTalk, onTalk: (cb) => (talkSend = cb), openWho,
     openSettings, openCredits, showSoundResume, onVolume: (cb) => volumeCbs.push(cb),
     onOpenCredits: (cb) => $("btn-credits").addEventListener("click", cb),
     onEnter, enterAs, setCount, setNearStatue, setNearCandles, onCandle: (cb) => btnCandle.addEventListener("click", cb), setNearBongsong, onBongsong: (cb) => btnBongsong.addEventListener("click", cb), setTea, onTea: (cb) => btnTea.addEventListener("click", cb), setCare, onCare: (cb) => { for (const a of Object.keys(careButtons)) careButtons[a].addEventListener("click", () => cb(a)); }, offerShare, onShareSend: (cb) => (shareSend = cb),

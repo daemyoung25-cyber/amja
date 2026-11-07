@@ -129,6 +129,13 @@ button { font: inherit; color: inherit; }
 }
 .read-actions button:disabled { opacity: .55; cursor: default; }
 .read-actions button:focus-visible, .wish-pub input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 한마디: 바로 누르는 말 + 한 줄 입력 */
+.talk-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.talk-quick button {
+  min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer;
+  background: rgba(255, 255, 255, .08); border: 1px solid var(--glass-line); color: var(--ink);
+}
+.talk-quick button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .my-wishes { list-style: none; margin: 10px 0 0; padding: 0; max-height: 32vh; overflow-y: auto; }
 .my-wishes li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); font-size: 14px; overflow-wrap: anywhere; }
 .my-wishes li span { flex: none; color: var(--ink-soft); font-size: 12px; }

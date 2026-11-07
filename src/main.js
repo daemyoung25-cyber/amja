@@ -31,6 +31,7 @@ import { peersFromSnapshot, nearestPeerWithin } from "./logic/peers.js";
 import { visibleTraces, shouldWriteTrace, recentVisitorCount } from "./logic/traces.js";
 import { nameTag, whoTag, greeting, cleanName, cleanSex } from "./logic/name.js";
 import { SESSION_KEY, packSession, readSession } from "./logic/session.js";
+import { QUICK, TALK_SEC, TALK_CLEAR, talkProblem, shouldShowTalk, cleanTalk, addHidden, removeHidden } from "./logic/talk.js";
 import { FIREBASE } from "../firebase-config.js";
 
 const ui = createUI({ placeName: PLACE_NAME });
@@ -115,7 +116,7 @@ function bosalGive(cloth) {
 }
 
 // 접속 전엔 혼자 모드처럼 동작한다. 시각은 서버 시계에 맞춘 net.now()를 쓴다.
-let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, offer() {}, lightCandle() {}, petAct() {}, hangWish: () => null, placeGiwa: async () => null, litForSuneung: async () => false };
+let net = { mode: "solo", now: () => Date.now(), sendMove() {}, sendPose() {}, sendCarry() {}, greet() {}, talk: async () => false, offer() {}, lightCandle() {}, petAct() {}, hangWish: () => null, placeGiwa: async () => null, litForSuneung: async () => false };
 let snapshot = null, peers = [];
 const sharedNow = () => net.now() + timeOffset;   // 모두 같은 시계 (?time=은 점검용)
 let traceRecords = [], visits = {}, lastTraceAt = null;
@@ -169,7 +170,45 @@ function onTap(cx, cy) {
   ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(world.groundMeshes, false)[0];
+  const who = whoAt(hit ? hit.distance : Infinity);
+  if (who) { openWho(who); return; }
   if (hit) goTo({ x: hit.point.x, z: hit.point.z });
+}
+
+// 한마디: 내 머리 위에 띄우고, 가까이 계신 분 화면에도 잠깐 뜬다
+const TALK_HIDE_KEY = "amja-talk-hide";
+let lastTalkAt = 0, talkHidden = [];
+try { talkHidden = JSON.parse(localStorage.getItem(TALK_HIDE_KEY) || "[]").filter((u) => typeof u === "string"); } catch {}
+ui.setQuickTalk(QUICK);
+ui.onTalk((text) => {
+  const at = net.now(), err = talkProblem(text, lastTalkAt, at);
+  if (err) return err;
+  lastTalkAt = at;
+  const x = cleanTalk(text);
+  me.say(x, TALK_SEC);
+  net.talk(x, TALK_CLEAR);
+  return null;
+});
+// 누른 곳보다 앞에 서 계신 분 (땅보다 가까울 때만)
+function whoAt(groundDist) {
+  let best = null, bestD = groundDist;
+  for (const [uid, o] of others) {
+    if (o.gone) continue;
+    const h = ray.intersectObject(o.avatar.root, true)[0];
+    if (h && h.distance < bestD) { best = uid; bestD = h.distance; }
+  }
+  return best;
+}
+function openWho(uid) {
+  const peer = peers.find((p) => p.uid === uid);
+  if (!peer) return;
+  const hidden = talkHidden.includes(uid);
+  ui.openWho(nameTag(peer.n, peer.h) ? `${nameTag(peer.n, peer.h)}님` : "함께 계신 분", hidden, () => {
+    talkHidden = hidden ? removeHidden(talkHidden, uid) : addHidden(talkHidden, uid);
+    try { localStorage.setItem(TALK_HIDE_KEY, JSON.stringify(talkHidden)); } catch {}
+    if (!hidden) others.get(uid)?.avatar.say("", 0);
+    ui.showWhisper(hidden ? "이제 그분 말이 다시 보여요" : "이 폰에서 그분 말을 가렸어요");
+  });
 }
 
 function goTo(point, plain = false) {             // plain: 자리에 앉거나 기대지 않고 그 지점까지만 걷는다
@@ -696,6 +735,10 @@ function drawOthers(now, mePos, dt) {
     if (sip !== !!o.sip) { o.sip = sip; o.avatar.hold(sip ? (o.cup ??= makeTeaCup(THREE)) : o.b == null ? null : makeBundle(THREE, CLOTHS[o.b]), sip ? "hand" : "hang"); }
     o.avatar.setPose(care ? care.pose : sip ? "tea" : peer.p === "tea" ? "sit" : !pos.arrived ? "walk" : peer.p === "walk" ? "stand" : peer.p);
     o.avatar.setName(nameTag(peer.n, peer.h));
+    if (shouldShowTalk(peer.t, { shownAt: o.saidAt || 0, now, dist: Math.hypot(pos.x - mePos.x, pos.z - mePos.z), hidden: talkHidden.includes(peer.uid) })) {
+      o.saidAt = peer.t.at;
+      o.avatar.say(cleanTalk(peer.t.x), TALK_SEC);
+    }
     o.avatar.setReach(care ? pets[PET_IDS[care.i]].touch(care.a, o.reachAt ??= new THREE.Vector3()) : null);
     o.avatar.update(dt);
   }
@@ -764,6 +807,7 @@ function adopt(p) {
   const here = positionAt(state.move, Date.now());
   state.move = startMove(here, here, p.now());
   net = p;
+  ui.setTalk(true);
   net.sendMove(state.move);
   net.sendPose(state.base);
   if (myBundle != null) net.sendCarry(myBundle);

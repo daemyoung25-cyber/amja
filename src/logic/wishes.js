@@ -47,7 +47,7 @@ export function keepMine(mine, live, nowMs) {
 
 /* 함께 읽는 소원: 적은 사람이 "다른 분도 읽을 수 있게"를 고른 패만, 이름 없이 글(t)만 서버에 둔다.
    번호·링크·욕설은 막는다 (서버 규칙은 숫자와 링크를, 여기선 욕설까지). 그래도 남는 것은 '가리기'로. */
-const LINKISH = /[0-9０-９]|https?|www|\.(com|net|kr|org|io|me|ly)|@|t\.me|open\.kakao/i;
+export const LINKISH =/[0-9０-９]|https?|www|\.(com|net|kr|org|io|me|ly)|@|t\.me|open\.kakao/i;
 
 export function publicProblem(text) {
   if (LINKISH.test(text)) return "다른 분이 읽는 소원엔 숫자와 링크를 넣을 수 없어요";

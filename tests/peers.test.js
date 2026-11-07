@@ -24,6 +24,11 @@ test("with 40 people only the 30 nearest are kept", () => {
   assert.deepEqual(new Set(r.map((p) => p.uid)), new Set(Array.from({ length: 30 }, (_, i) => "u" + i)));
 });
 
+test("a spoken word is passed on only when well-formed", () => {
+  const r = peersFromSnapshot({ a: at(1, 0, { t: { x: "안녕", at: NOW } }), b: at(2, 0, { t: { x: 5, at: NOW } }), c: at(3, 0) }, "me", NOW, ME);
+  assert.deepEqual(r.map((p) => p.t), [{ x: "안녕", at: NOW }, null, null]);
+});
+
 test("an empty snapshot gives nobody", () => {
   assert.deepEqual(peersFromSnapshot(null, "me", NOW, ME), []);
 });

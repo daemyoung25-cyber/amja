@@ -69,6 +69,7 @@
     <button id="btn-wish" type="button" hidden>소원 걸기</button>
     <button id="btn-wish-read" type="button" hidden>소원 읽기</button>
     <button id="btn-giwa" type="button" hidden>기와 올리기</button>
+    <button id="btn-talk" type="button" hidden>말하기</button>
     <button id="btn-sound" type="button" aria-label="소리 설정">소리</button>
   </div>
   <button id="btn-credits" class="credits-btn" type="button" aria-label="출처 보기">출처</button>
@@ -88,6 +89,19 @@
 <section id="credits-sheet" class="sheet" hidden aria-labelledby="credits-title">
   <div class="sheet-head"><h2 id="credits-title">출처</h2><button id="credits-close" type="button" aria-label="닫기">닫기</button></div>
   <ul id="credits" class="credits"></ul>
+</section>
+<section id="talk-sheet" class="sheet" hidden aria-labelledby="talk-title">
+  <div class="sheet-head"><h2 id="talk-title">한마디</h2><button id="talk-close" type="button" aria-label="닫기">닫기</button></div>
+  <div id="talk-quick" class="talk-quick"></div>
+  <form id="talk-form" class="wish-form"><input id="talk-text" type="text" maxlength="30" placeholder="짧게 한마디 (30자까지)" autocomplete="off" lang="ko" enterkeyhint="send" aria-label="한마디"><button type="submit">말하기</button></form>
+  <p id="talk-error" class="enter-error" role="alert" hidden></p>
+  <p class="sheet-note">가까이(15m) 계신 분 머리 위에 잠깐 떴다가 사라져요. 어디에도 남지 않아요. 다른 분을 누르면 그분 말을 가릴 수 있어요</p>
+</section>
+<section id="who-sheet" class="sheet" hidden aria-labelledby="who-title">
+  <div class="sheet-head"><h2 id="who-title">함께 계신 분</h2><button id="who-close" type="button" aria-label="닫기">닫기</button></div>
+  <p id="who-name" class="read-text"></p>
+  <div class="read-actions"><button id="who-hide" type="button">말 가리기</button></div>
+  <p class="sheet-note">가리면 이 폰에서만 그분 말풍선이 안 떠요. 다시 누르면 풀려요</p>
 </section>
 <section id="giwa-sheet" class="sheet" hidden aria-labelledby="giwa-title">
   <div class="sheet-head"><h2 id="giwa-title">기와불사</h2><button id="giwa-close" type="button" aria-label="닫기">닫기</button></div>

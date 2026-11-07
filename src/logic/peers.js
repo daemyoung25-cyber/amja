@@ -16,7 +16,7 @@ export function peersFromSnapshot(val, myUid, nowMs, me) {
     const away = num(v.a) && nowMs - v.a <= AWAY_MS;          // 잠깐 다른 화면에 간 분: 하트비트가 멈춰도 남긴다
     if (!validMove(v.m) || !num(v.s) || (nowMs - v.s > STALE_MS && !away)) continue;
     const pos = positionAt(v.m, nowMs);
-    out.push({ uid, c: num(v.c) ? v.c : 0, m: v.m, p: typeof v.p === "string" ? v.p : "stand", pt: num(v.pt) ? v.pt : 0, g: v.g, away, b: Number.isInteger(v.b) && v.b >= 0 && v.b <= 5 ? v.b : null, n: cleanName(v.n) || "", h: cleanSex(v.h), d: Math.hypot(pos.x - me.x, pos.z - me.z) });
+    out.push({ uid, c: num(v.c) ? v.c : 0, m: v.m, p: typeof v.p === "string" ? v.p : "stand", pt: num(v.pt) ? v.pt : 0, g: v.g, away, b: Number.isInteger(v.b) && v.b >= 0 && v.b <= 5 ? v.b : null, t: v.t && typeof v.t.x === "string" && num(v.t.at) ? { x: v.t.x, at: v.t.at } : null, n: cleanName(v.n) || "", h: cleanSex(v.h), d: Math.hypot(pos.x - me.x, pos.z - me.z) });
   }
   out.sort((a, b) => a.d - b.d);
   return out.slice(0, MAX_PEERS).map(({ d, ...p }) => p);

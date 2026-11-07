@@ -52,6 +52,23 @@ test("a giwa tile is written once with its place and name, at most once a minute
   assert.notEqual(await put(`giwa/${id}-2`, { slot: 2, n: "연화", at: Date.now() }, me.token), 200, "too soon after the last tile");
 });
 
+test("a spoken word is short, has no numbers or links, and comes at most every three seconds", opts, async () => {
+  const me = await signIn(), say = (t) => fetch(`${DB}/presence/${me.uid}.json?${NS}&auth=${me.token}`, { method: "PATCH", body: JSON.stringify({ t }) }).then((r) => r.status);
+  assert.equal(await put(`presence/${me.uid}`, presence(), me.token), 200);
+  assert.notEqual(await say({ x: "", at: Date.now() }), 200);
+  assert.notEqual(await say({ x: "가".repeat(31), at: Date.now() }), 200);
+  assert.notEqual(await say({ x: "연락 010", at: Date.now() }), 200);
+  assert.notEqual(await say({ x: "naver.com 오세요", at: Date.now() }), 200);
+  assert.notEqual(await say({ x: "안녕", at: Date.now() - 120000 }), 200, "time must be now");
+  assert.notEqual(await say({ x: "안녕", at: Date.now(), y: 1 }), 200);
+  const first = Date.now();
+  assert.equal(await say({ x: "안녕하세요", at: first }), 200);
+  assert.notEqual(await say({ x: "또 안녕", at: first + 1000 }), 200, "too soon");
+  assert.equal(await say({ x: "또 안녕", at: first + 3000 }), 200);
+  assert.equal(await say(null), 200, "it can be cleared");
+  assert.equal(await say({ x: "다시", at: Date.now() }), 200, "after clearing a new word is fine");
+});
+
 test("greeting target must be a short string", opts, async () => {
   const me = await signIn();
   assert.notEqual(await put(`presence/${me.uid}`, presence({ g: { to: "x".repeat(200), at: now } }), me.token), 200);

@@ -29,6 +29,12 @@
           "at": { ".validate": "newData.isNumber()" },
           "$other": { ".validate": false }
         },
+        "t": {
+          ".validate": "newData.hasChildren(['x','at']) && (!data.exists() || newData.child('at').val() >= data.child('at').val() + 3000)",
+          "x": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30 && !newData.val().matches(/.*([0-9]|[０-９]|[Hh][Tt][Tt][Pp]|[Ww][Ww][Ww]|@|[.][A-Za-z]).*/)" },
+          "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000" },
+          "$other": { ".validate": false }
+        },
         "$other": { ".validate": false }
       }
     },
