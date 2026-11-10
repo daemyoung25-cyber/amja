@@ -11,6 +11,8 @@ import { createGiwa } from "./scene/giwa.js";
 import { liveGiwa, pickGiwaSlot, canPlaceGiwa, GIWA_KEEP_MINE } from "./logic/giwa.js";
 import { SHARE_PLACES, parseShare, shareUrl, shareMessage, cleanFor, inviteLine, stripShareParams } from "./logic/share.js";
 import { suneungActive, seasonLine, countLine, packSuneung } from "./logic/suneung.js";
+import { snowAmount, snowLine } from "./logic/snow.js";
+import { createSnow } from "./scene/snow.js";
 import { carePick, careSpot, careYaw, canCare, faceDog, CARE, PET_IDS } from "./logic/pets.js";
 import { liveWishes, pickWishSlot, canHang, cleanWish, keepMine, WISH_LIFE_MS, publicProblem, readableWishes, nextReadable } from "./logic/wishes.js";
 import { liveCandles, pickSlot, burnLeft, canLight } from "./logic/candles.js";
@@ -52,6 +54,8 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 3000);   // near를 너무 작게 두면 폰에서 깊이 정밀도가 모자라 면이 깜빡인다
 
 const world = createWorld(THREE, scene);
+const snow = createSnow(THREE, scene);   // 첫눈 (11일 오후 3시까지)
+let snowHush = -1;
 // 금빛 불상이 비춰 볼 주변: 방 안 조명을 흉내 낸 환경맵 (금속 재질에만 쓰인다)
 import("three/addons/environments/RoomEnvironment.js").then(({ RoomEnvironment }) => {
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
@@ -688,6 +692,10 @@ function frame(t) {
   const camGap = camera.position.distanceTo(headAt.set(p.x, fy + 1.1, p.z));
   me.setOpacity(Math.min(1, Math.max(0.15, (camGap - 0.7) / 0.8)));
   world.update(new Date(clockNow()), dt, camera.position);
+  const snowNow = snowAmount(sharedNow());
+  snow.update(new Date(clockNow()), dt, camera.position, snowNow, inside || inCave || inHerm || inTea);
+  const hush = Math.round(snowNow * 20) / 20;   // 눈 오는 동안 파도를 조금 낮춘다 (바뀔 때만)
+  if (hush !== snowHush) { snowHush = hush; audio.setHush(hush); }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -785,6 +793,7 @@ ui.onEnter(async (name, sex) => {
   const config = new URLSearchParams(location.search).has("emu")
     ? { apiKey: "demo-key", authDomain: "demo-amja.firebaseapp.com", databaseURL: "http://127.0.0.1:9000?ns=demo-amja-default-rtdb", projectId: "demo-amja", appId: "demo", emulator: true }
     : FIREBASE;
+  setTimeout(() => { const t = snowLine(sharedNow()); if (t) ui.notify(t, 6000); }, 12000);   // 보살님·동자승 인사가 끝난 뒤
   const p = await createPresence({ config, me: { c: colorIndex, m: state.move, p: state.base, n: myName, h: mySex }, onLate: adopt });
   if (p.mode === "shared") adopt(p);
 });

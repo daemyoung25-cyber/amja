@@ -10,6 +10,7 @@ export function createAudio({ urls }) {
   const layers = {}, volume = { waves: 1, chime: 1, chant: 1, evening: 1 };   // 사용자가 정한 크기 0..1
   let chantClock = null;                                   // 염불이 몇 초째인지 (법당 스님 목탁을 맞추려고)
   let listener = { x: 0, z: 0 }, chimeTimer = 0, ambient = 0;   // ambient: 불경 말고 나머지 층 (0 → 1)
+  let hush = 0;                                            // 눈 오는 동안 파도를 낮추는 정도 0..1
 
   async function load(url) {
     const res = await fetch(url);
@@ -74,7 +75,7 @@ export function createAudio({ urls }) {
     const on = Object.fromEntries(Object.keys(LEVEL).map((n) => [n, volume[n] > 0]));
     const g = layerGains(listener, on);
     for (const name of Object.keys(LEVEL)) {
-      const k = name === "chant" ? 1 : ambient;
+      const k = (name === "chant" ? 1 : ambient) * (name === "waves" ? 1 - 0.35 * hush : 1);
       layers[name].gain.setTargetAtTime(g[name] * LEVEL[name] * volume[name] * k, ctx.currentTime, ramp);
     }
   }
@@ -111,6 +112,7 @@ export function createAudio({ urls }) {
     apply();
   }
 
+  function setHush(h) { hush = Math.min(1, Math.max(0, h)); apply(1.5); }
   function setVolume(layer, v) { volume[layer] = Math.min(1, Math.max(0, v)); apply(); }
 
   async function resumeIfNeeded() {
@@ -136,5 +138,5 @@ export function createAudio({ urls }) {
     return t < 0 ? null : { t: (t + chantClock.offset) % chantClock.len, track: chantClock.track };
   }
 
-  return { start, setListener, setVolume, setMuted, resumeIfNeeded, suspend, chantNow, setChant, state: () => (ctx ? ctx.state : "suspended") };
+  return { start, setListener, setVolume, setHush, setMuted, resumeIfNeeded, suspend, chantNow, setChant, state: () => (ctx ? ctx.state : "suspended") };
 }
