@@ -166,16 +166,35 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
   });
   const mix = (x, y, k) => x + (y - x) * k;
   let walkK = 0;
+  // 한 발의 걸음 한 바퀴(phase 0~2π). 앞 절반은 땅을 딛고 몸 밑을 지나 뒤로 똑같은 빠르기로(미끄러지지 않게),
+  // 뒤 절반은 발을 들어 앞으로 내딛는다. 내딛을 땐 앞코가 들리고, 차고 나갈 땐 뒤꿈치가 든다. 앞이 -z
+  const footOut = { z: 0, y: 0, pitch: 0 };
+  function footAt(phase, L) {
+    const u = (((phase / (Math.PI * 2)) % 1) + 1) % 1;
+    if (u < 0.5) {
+      const heelUp = Math.max(0, (u - 0.36) / 0.14);                 // 뒤꿈치를 들며 차고 나간다
+      footOut.z = -L + 4 * L * u;
+      footOut.y = heelUp * 0.035;
+      footOut.pitch = 0.3 * Math.max(0, 1 - u / 0.1) - 0.55 * heelUp;
+    } else {
+      const s = (u - 0.5) * 2, e = 0.5 - 0.5 * Math.cos(Math.PI * s);
+      footOut.z = L - 2 * L * e;
+      footOut.y = Math.sin(Math.PI * Math.min(1, s * 1.1)) * 0.06 + (1 - s) * 0.035;
+      footOut.pitch = mix(-0.55, 0.3, Math.min(1, s * 1.3));
+    }
+    return footOut;
+  }
 
-  return function pose({ dt, t, walking, tilt, bodyY, kneelK, sitK, kick = 0 }) {
-    walkK = mix(walkK, walking ? 1 : 0, 1 - Math.exp(-dt * 10));
+  return function pose({ dt, tilt, bodyY, kneelK, sitK, kick = 0, gait }) {
+    walkK = gait.k;
     const c = Math.cos(tilt), s = Math.sin(tilt), crouch = kneelK * (1 - sitK);
     for (const l of legs) {
-      const sx = l.sx, phase = t * 8;
+      const sx = l.sx;
       // 엉덩이 자리: 몸이 숙으면(기대기) 같이 간다
       a.set(sx * HIP.x, HIP.y * c + bodyY, HIP.y * s);
       // 발목 자리: 서기·걷기 → 꿇기 → 책상다리
-      const stride = Math.sin(phase) * sx * 0.14 * walkK, lift = Math.max(0, Math.cos(phase) * sx) * 0.05 * walkK;
+      const f = footAt(gait.phase + (sx > 0 ? Math.PI : 0), gait.L);
+      const stride = f.z * walkK, lift = f.y * walkK;
       const fx = mix(mix(sx * 0.09, sx * 0.085, kneelK), -sx * 0.055, sitK);
       const fy = mix(mix(ANKLE + lift, 0.055, kneelK), 0.1, sitK);
       const fz = mix(mix(stride, 0.05, kneelK), -0.17, sitK);
@@ -188,7 +207,7 @@ function buildBody(THREE, { root, body, hip, upper, color, skinMat, handL, handR
       lay(l.thigh, a, j); lay(l.shin, j, b);
       l.shoe.position.copy(b);
       // 걸을 땐 발끝을 조금 들고 내리고, 꿇으면 발등을 바닥에 눕혀 앞코가 뒤로 가고, 책상다리면 발끝이 안쪽을 본다
-      l.shoe.rotation.set(crouch * 2.9 + Math.sin(phase) * sx * 0.25 * walkK, -sx * 0.9 * sitK, 0);
+      l.shoe.rotation.set(crouch * 2.9 + f.pitch * walkK, -sx * 0.9 * sitK, 0);
     }
     for (const arm of arms) {
       a.set(arm.sx * SHOULDER.x, SHOULDER.y, SHOULDER.z);
@@ -323,6 +342,8 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
 
   let pose = "stand", poseT = 0, poseAt = performance.now(), t = Math.random() * 10;
   let seated = false, sitK = 0, kneelK = 0;                // 방석에 앉으면 몸을 낮추고 다리를 넓게
+  const gait = { phase: 0, L: 0.14, k: 0 };
+  let lastX = 0, lastZ = 0, speedS = 0, baseL = null, baseR = null;
   const hands = {
     stand: [[-0.235, -0.205, -0.02], [0.235, -0.205, -0.02]],
     hapjang: [[-0.03, 0.22, -0.24], [0.03, 0.22, -0.24]],
@@ -405,8 +426,22 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
     t += dt;
     poseT = (performance.now() - poseAt) / 1000;   // 시계 기준: 화면이 느리거나 탭을 잠시 떠나도 108배 숫자와 몸짓이 어긋나지 않게
     const k = 1 - Math.exp(-dt * 6);
-    let tilt = 0, upperTilt = 0, hipTilt = 0, bob = 0, target = hands.stand, swing = 0;
-    if (pose === "walk") { bob = Math.abs(Math.sin(t * 8)) * 0.04; swing = Math.sin(t * 8) * 0.12; }
+    // 걸음은 실제로 움직인 거리로 돌린다: 땅을 딛은 발이 미끄러지지 않고, 빨리 걸으면 보폭과 발놀림이 같이 커진다
+    const dx = root.position.x - lastX, dz = root.position.z - lastZ;
+    lastX = root.position.x; lastZ = root.position.z;
+    let dist = Math.hypot(dx, dz) / (root.scale.x || 1);
+    if (dist > 1.5) dist = 0;                                    // 순간이동·첫 프레임
+    if (dt > 0) speedS = lerp(speedS, dist / dt, 1 - Math.exp(-dt * 8));
+    const walking = pose === "walk";
+    gait.k = lerp(gait.k, walking ? Math.min(1, speedS / 0.4) : 0, 1 - Math.exp(-dt * 10));
+    gait.L = lerp(gait.L, Math.min(0.18, 0.115 + 0.03 * speedS), 1 - Math.exp(-dt * 4));
+    if (walking) gait.phase = (gait.phase + dist * Math.PI / (2 * gait.L)) % (Math.PI * 4);
+    const gk = gait.k, gc = Math.cos(gait.phase);
+    let tilt = 0, upperTilt = 0, hipTilt = 0, bob = 0, target = hands.stand;
+    // 두 발을 벌린 때 가장 낮고, 한 발로 몸을 받칠 때 높다. 팔은 반대쪽 다리와 함께 흔들고 어깨가 따라 돈다
+    const swing = gk * 0.15 * (gait.L / 0.16) * gc;
+    hip.rotation.y = gk * 0.08 * gc;
+    if (walking) upperTilt = -0.05 * gk;
     else if (pose === "stand") { bob = Math.sin(t * 1.6) * 0.008; }
     else if (pose === "sit") { target = hands.sit; upperTilt = -0.06; bob = Math.sin(t * 1.1) * 0.006; }
     else if (pose === "jegi") { target = hands.jegi; bob = play * 0.02; upperTilt = 0.05; }
@@ -434,6 +469,7 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
       if (pose === "pet") reachLocal.x += Math.sin(t * 5) * 0.025;   // 쓰다듬는 손길
       target = [hands.knees[0], [reachLocal.x, reachLocal.y + (pose === "pat" ? 0.02 : 0.015), reachLocal.z]];
     }
+    bob += gk * (-0.028 - 0.014 * Math.cos(2 * gait.phase));     // 멈출 때도 부드럽게 사라진다
     let kneel = 0;
     if (pose === "pet" || pose === "feed" || pose === "pat") kneel = reach ? 0.85 - 0.8 * Math.min(1, Math.max(0, (reach.y - 0.33) / 0.33)) : 0.8;   // 키 큰 동물 앞에선 무릎을 덜 굽힌다
     if (pose === "bow" || pose === "bow108") {
@@ -456,11 +492,15 @@ export function createAvatar(THREE, { color, monk = false, bun = false, novice =
       if (now >= bubbleTo) dropBubble();
       else bubble.material.opacity = Math.min(1, (now - bubbleFrom) / 350, (bubbleTo - now) / 700);
     }
-    handL.position.set(lerp(handL.position.x, target[0][0], k), lerp(handL.position.y, target[0][1], k), lerp(handL.position.z, target[0][2] + swing, k));
-    handR.position.set(lerp(handR.position.x, target[1][0], k), lerp(handR.position.y, target[1][1], k), lerp(handR.position.z, target[1][2] - swing, k));
+    if (!baseL) { baseL = handL.position.clone(); baseR = handR.position.clone(); }
+    baseL.set(lerp(baseL.x, target[0][0], k), lerp(baseL.y, target[0][1], k), lerp(baseL.z, target[0][2], k));
+    baseR.set(lerp(baseR.x, target[1][0], k), lerp(baseR.y, target[1][1], k), lerp(baseR.z, target[1][2], k));
+    // 흔드는 팔은 따라가며 늦지 않게 바로 더한다. 앞으로 갈 때 손이 조금 올라오고 몸 쪽으로 모인다
+    handL.position.set(baseL.x + Math.abs(swing) * 0.15, baseL.y + Math.max(0, -swing) * 0.25, baseL.z + swing);
+    handR.position.set(baseR.x - Math.abs(swing) * 0.15, baseR.y + Math.max(0, swing) * 0.25, baseR.z - swing);
     if (pose === "pat") handR.position.y = target[1][1] + Math.abs(Math.sin(t * 8)) * 0.13;   // 팡팡
     if (pose === "moktak") handR.position.y = target[1][1] + 0.15 * strikeLift;   // 채질은 빠르니 따라가지 않고 바로
-    poseBody({ dt, t, walking: pose === "walk", tilt: body.rotation.x, bodyY: body.position.y, kneelK, sitK, kick: pose === "jegi" ? play : 0 });
+    poseBody({ dt, tilt: body.rotation.x, bodyY: body.position.y, kneelK, sitK, kick: pose === "jegi" ? play : 0, gait });
     if (held) {                                   // 든 것: 두 손 사이에 받쳐 들거나(both) 오른손에 늘어뜨린다(hang)
       if (heldMode === "both") held.position.set((handL.position.x + handR.position.x) / 2, (handL.position.y + handR.position.y) / 2 - 0.08, (handL.position.z + handR.position.z) / 2);
       else if (heldMode === "hand") held.position.set(handR.position.x, handR.position.y + 0.02, handR.position.z - 0.05);
